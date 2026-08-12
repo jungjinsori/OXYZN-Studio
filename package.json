@@ -1,0 +1,83 @@
+{
+  "name": "oxyzn-studio",
+  "productName": "OXYZN Studio",
+  "version": "1.0.0",
+  "description": "영상 제작 자동화 스튜디오 (개인용)",
+  "main": "electron/main.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "build:win": "node scripts/bump-version.cjs && vite build && electron-builder --win",
+    "build:mac": "node scripts/bump-version.cjs && vite build && electron-builder --mac",
+    "build:all": "node scripts/bump-version.cjs && vite build && electron-builder --win --mac",
+    "postinstall": "node scripts/copy-pdfjs-assets.cjs",
+    "prebuild": "node scripts/copy-pdfjs-assets.cjs"
+  },
+  "build": {
+    "appId": "com.oxyzn.studio",
+    "productName": "OXYZN Studio",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/main.js",
+      "electron/preload.js",
+      "!node_modules/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "electron/icon.ico"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "electron/icon.icns",
+      "category": "public.app-category.productivity"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "electron/icon.ico",
+      "installerHeaderIcon": "electron/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "OXYZN Studio"
+    },
+    "afterPack": "scripts/adhoc-sign-mac.cjs",
+    "afterAllArtifactBuild": "scripts/clean-unpacked.cjs"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1",
+    "lottie-web": "^5.13.0",
+    "lucide-react": "^0.383.0",
+    "mammoth": "^1.12.0",
+    "pdfjs-dist": "^3.11.174",
+    "qrcode": "^1.5.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^8.2.2",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1",
+    "vite": "^5.4.2",
+    "wait-on": "^7.2.0"
+  }
+}

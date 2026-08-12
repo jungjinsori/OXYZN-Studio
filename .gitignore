@@ -1,0 +1,12 @@
+node_modules/
+dist/
+dist-electron/
+.DS_Store
+*.local
+.mcp.json
+
+# Claude Code 에이전트 임시 워크트리 (커밋 대상 아님)
+.claude/worktrees/
+
+# pdf.js CMap·표준폰트 — node_modules에서 파생 (scripts/copy-pdfjs-assets.cjs)
+public/pdfjs/

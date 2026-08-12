@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>배우 자산 등록 — 인증 완료</title>
+<style>
+  /* 외부 리소스를 전혀 쓰지 않는다 — 배우 휴대폰에서 네트워크 상태와 무관하게 떠야 한다 */
+  :root {
+    --green: #009b43;
+    --ink: #0f1417;
+    --body: #3d454b;
+    --muted: #7c858c;
+    --hair: #e6eaed;
+    --bg: #ffffff;
+    --card: #ffffff;
+    --warn: #d97706;
+    --warnbg: #fffbeb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #f2f5f7; --body: #c4cbd1; --muted: #8b949b; --hair: #2a3137;
+      --bg: #0f1417; --card: #161c21; --warnbg: #241c0c;
+    }
+  }
+  * { box-sizing: border-box; -webkit-text-size-adjust: 100%; }
+  html, body { margin: 0; padding: 0; background: var(--bg); }
+  body {
+    font-family: "Apple SD Gothic Neo", "Malgun Gothic", "맑은 고딕", system-ui, -apple-system, sans-serif;
+    color: var(--body);
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
+    line-height: 1.7;
+  }
+  .wrap { width: 100%; max-width: 460px; }
+  .bar { height: 6px; border-radius: 3px; background: var(--green); margin-bottom: 34px; }
+  .brand {
+    font-size: 12px; font-weight: 800; letter-spacing: 0.2em;
+    color: var(--green); margin-bottom: 22px;
+  }
+  .mark { width: 68px; height: 68px; margin-bottom: 22px; display: block; }
+  h1 { font-size: 27px; font-weight: 800; color: var(--ink); margin: 0 0 12px; letter-spacing: -0.01em; }
+  .lead { font-size: 15.5px; margin: 0 0 30px; }
+  .rule { height: 1px; background: var(--hair); margin: 30px 0; }
+  .label {
+    font-size: 12px; font-weight: 800; letter-spacing: 0.14em;
+    color: var(--green); margin-bottom: 12px;
+  }
+  ul { margin: 0; padding-left: 19px; font-size: 14.5px; }
+  li { margin-bottom: 8px; }
+  li:last-child { margin-bottom: 0; }
+  .foot { font-size: 12.5px; color: var(--muted); margin-top: 34px; }
+  /* 실패 상태 — resultCode 가 성공값이 아닐 때만 노출 */
+  #fail { display: none; }
+  .warnbox {
+    background: var(--warnbg); border-left: 4px solid var(--warn);
+    border-radius: 0 8px 8px 0; padding: 15px 17px; font-size: 14.5px; color: var(--warn);
+  }
+  body.is-fail #ok { display: none; }
+  body.is-fail #fail { display: block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="bar"></div>
+  <div class="brand">FLIMFILM STUDIO</div>
+
+  <!-- 성공 -->
+  <div id="ok">
+    <svg class="mark" viewBox="0 0 68 68" aria-hidden="true">
+      <circle cx="34" cy="34" r="31" fill="none" stroke="#009b43" stroke-width="3"/>
+      <path d="M21 35.5 L30 44.5 L47.5 24.5" fill="none" stroke="#009b43"
+            stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <h1>인증이 완료되었습니다</h1>
+    <p class="lead">본인 확인 절차가 정상적으로 끝났습니다.<br>이 화면이 보이면 더 진행하실 것은 없습니다.</p>
+
+    <div class="rule"></div>
+
+    <div class="label">다음 단계</div>
+    <ul>
+      <li>안내받은 사진 2장(전신 · 얼굴 클로즈업)을 담당자에게 보내주세요.</li>
+      <li>등록은 담당자가 진행합니다. 따로 업로드하실 필요는 없습니다.</li>
+      <li>이 창은 그냥 닫으셔도 됩니다.</li>
+    </ul>
+  </div>
+
+  <!-- 실패 -->
+  <div id="fail">
+    <svg class="mark" viewBox="0 0 68 68" aria-hidden="true">
+      <circle cx="34" cy="34" r="31" fill="none" stroke="#d97706" stroke-width="3"/>
+      <path d="M34 19 L34 39" fill="none" stroke="#d97706" stroke-width="4.5" stroke-linecap="round"/>
+      <circle cx="34" cy="48" r="2.8" fill="#d97706"/>
+    </svg>
+    <h1>인증이 완료되지 않았습니다</h1>
+    <p class="lead">본인 확인이 끝나지 않았습니다.</p>
+    <div class="warnbox">
+      밝은 곳에서 정면을 보고 다시 시도해주세요.<br>
+      링크는 1회용이라 이미 사용했다면 담당자에게 <strong>재발급</strong>을 요청해주세요.
+    </div>
+    <div class="rule"></div>
+    <div class="foot" id="code"></div>
+  </div>
+
+  <div class="foot">배우 초상 자산 등록 · BytePlus ModelArk</div>
+</div>
+
+<script>
+  // BytePlus 는 인증을 마친 뒤 이 주소로 resultCode 를 붙여 이동시킨다.
+  //   resultCode 10000 = 성공.
+  // 파라미터가 아예 없는 경우(호스팅이 쿼리를 버리는 등)에는 성공 화면을 유지한다 —
+  // 이 페이지에 도달한 것 자체가 인증 절차를 지나왔다는 뜻이고,
+  // 멀쩡히 끝난 사람에게 실패라고 알리는 쪽이 더 나쁜 오류다.
+  (function () {
+    try {
+      var code = new URLSearchParams(location.search).get('resultCode');
+      if (code && code !== '10000') {
+        document.body.classList.add('is-fail');
+        var el = document.getElementById('code');
+        if (el) el.textContent = '오류 코드 ' + code;
+      }
+    } catch (e) { /* 구형 브라우저 — 성공 화면 유지 */ }
+  })();
+</script>
+</body>
+</html>
