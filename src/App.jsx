@@ -7897,11 +7897,12 @@ const arkAssetErrText = (code, msg) => ARK_ASSET_ERR_KO[code] || (msg ? `${msg} 
 //   404 페이지로 튕겼다. 실제로 배우 화면에 "페이지를 찾을 수 없습니다"가 떴다.
 //   리다이렉트가 쿼리스트링까지 버리므로 콜백은 데이터 통로로도 쓸 수 없다
 //   (원래도 GetVisualValidateResult 로 직접 조회하는 설계라 무해하다).
-//   루트는 200 으로 정상 응답한다. 안내 카드에도 '홈페이지로 넘어가면 완료'라고
-//   적어서, 배우가 낯선 화면을 보고 실패한 줄 알지 않게 했다.
+//   안내 카드에도 '소개 페이지로 넘어가면 완료'라고 적어서, 배우가 낯선 화면을 보고
+//   실패한 줄 알지 않게 했다.
 //   전용 완료 페이지를 만들면 이 한 줄만 그 주소로 바꾸면 된다.
-// 개인용 전환: 도메인을 oxyzn.co.kr 로 바꿨다. 루트가 200 으로 응답하는지 확인이 필요하다.
-const ARK_ACTOR_CALLBACK_URL = 'https://oxyzn.co.kr/';
+// 개인용 전환: oxyzn.co.kr 소개 페이지로 보낸다.
+//   2026-08-12 확인 — 200 OK, 리다이렉트 없음(주소가 그대로 유지된다).
+const ARK_ACTOR_CALLBACK_URL = 'https://www.oxyzn.co.kr/about';
 // BytedToken 유효시간 — 문서상 30분
 const ARK_TOKEN_TTL_MS = 30 * 60 * 1000;
 
@@ -12834,7 +12835,7 @@ const buildActorAuthCard = async ({ inviteUrl, actorName, projectName, validUnti
  const steps = [
  'QR을 스캔해 본인의 BytePlus 계정으로 로그인합니다.',
  '권한 내용을 확인하고 안면정보 처리에 동의한 뒤 얼굴 인증을 진행합니다.',
- '인증이 끝나면 OXYZN 홈페이지로 넘어갑니다. 그 화면이 보이면 완료된 것입니다.',
+ '인증이 끝나면 OXYZN 소개 페이지로 넘어갑니다. 그 화면이 보이면 완료된 것입니다.',
  ];
  const stepIndent = 52;
  steps.forEach((st, i) => {
