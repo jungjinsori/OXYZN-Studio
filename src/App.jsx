@@ -14155,13 +14155,10 @@ export default function DramaAutomation() {
  //   분리됐다. 그런데 오류 메시지 12곳이 옛 위치를 그대로 안내하고 있어서,
  //   사용자가 없는 탭을 찾아다니게 만들었다.
  //   권한도 갈린다 — 팀원은 키를 고칠 수 없으므로 입력을 안내하면 안 된다.
- const apiKeyHelp = (name) => isAdmin
- ? `${name} 키가 설정되지 않았습니다.\n\nSettings > API 관리 탭에서 입력해주세요. (키 확인은 관리자 대시보드에서도 가능합니다)`
- : `${name} 키가 설정되지 않았습니다.\n\n관리자 계정에서 등록해야 합니다. 관리자에게 문의해주세요.`;
+ // 개인용 전환: 관리자 대시보드가 없어졌으므로 안내는 설정 탭 한 곳만 가리킨다.
+ const apiKeyHelp = (name) => `${name} 키가 설정되지 않았습니다.\n\n설정 > API 관리 탭에서 입력해주세요.`;
  // 키는 있는데 거부된 경우 — '입력' 이 아니라 '확인/교체' 안내가 맞다
- const apiKeyCheckHelp = isAdmin
- ? '관리자 대시보드에서 키를 확인하고, Settings > API 관리 탭에서 교체해주세요.'
- : '관리자에게 키 확인을 요청해주세요.';
+ const apiKeyCheckHelp = '설정 > API 관리 탭에서 키를 확인하고 교체해주세요.';
  const [landingBoxTab, setLandingBoxTab] = useState('archive'); // 랜딩 하단 박스: 'archive' | 'library'
  const [archiveItems, setArchiveItems] = useState([]); // 아카이브 폴더 파일 목록
  const [archiveDims, setArchiveDims] = useState({}); // path → 'sq' | 'land' | 'port'
@@ -19569,7 +19566,8 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  try { return sanitizeApiKey(localStorage.getItem(lsKey) || ENV_KEYS[envKey] || ''); } catch { return sanitizeApiKey(ENV_KEYS[envKey] || ''); }
  };
  const [claudeApiKey, setClaudeApiKey] = useState(() => bakedKey('oxyzn_claude_api_key', 'VITE_CLAUDE_API_KEY'));
- // v746: fal.ai API 키 (영상 생성 — Seedance 2.0). Replicate와 별도로 발급받아 입력한다.
+ // fal.ai API 키 — 이미지(GPT Image 2) · BGM · TTS · 보이스 클로닝 · 영상 업스케일(Topaz)용.
+ //   v746 에는 영상 생성도 여기였지만 v763 에 ModelArk 직결로 옮겨갔다.
  const [falApiKey, setFalApiKey] = useState(() => {
  const v = bakedKey('oxyzn_fal_api_key', 'VITE_FAL_API_KEY');
  if (typeof window !== 'undefined' && v) window.__OXYZN_FAL_API_KEY__ = v;
@@ -19610,14 +19608,14 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  const [kakaoApiKey, setKakaoApiKey] = useState(() => bakedKey('oxyzn_kakao_api_key', 'VITE_KAKAO_API_KEY'));
 
  // API 키는 이 PC 의 localStorage 에만 있다. 서버 보관(app_settings)은 개인용 전환에서 제거했다.
- // v562: 모델 고정 — 영상 Seedance 2.0, 이미지 GPT Image 2 (저장값 무시하고 항상 고정 모델 사용)
- const [videoModel, setVideoModel] = useState('bytedance/seedance-2.0');
+ // v562: 모델 고정 — 이미지 GPT Image 2 (저장값 무시하고 항상 고정 모델 사용)
+ //   videoModel 상태는 제거했다. 영상은 ARK tier('video'/'video25')로 결정되므로
+ //   이 값은 고르든 말든 생성에 반영되지 않는 죽은 설정이었다.
  const [imageModel, setImageModel] = useState('openai/gpt-image-2');
  const [posterSystemPrompt, setPosterSystemPrompt] = useState(DEFAULT_POSTER_SYSTEM_PROMPT);
  const [posterModel, setPosterModel] = useState('claude-sonnet-4-5');
  const [settingsTab, setSettingsTab] = useState('common');
  const [creditPeriod, setCreditPeriod] = useState('day'); // 크레딧 소모량 기간 탭: day|week|month|total (기본 오늘)
- const [showVideoCostInfo, setShowVideoCostInfo] = useState(false);
  const [showImageCostInfo, setShowImageCostInfo] = useState(false);
  // 설정 탭의 시스템 프롬프트들 접기/펴기 — 기본 닫힘
  const [expandedPrompts, setExpandedPrompts] = useState({});
@@ -19694,9 +19692,6 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  else localStorage.removeItem('oxyzn_kakao_api_key');
  } catch {}
  }, [kakaoApiKey]);
- useEffect(() => {
- try { localStorage.setItem('oxyzn_video_model', videoModel); } catch {}
- }, [videoModel]);
  useEffect(() => {
  try { localStorage.setItem('oxyzn_image_model', imageModel); } catch {}
  }, [imageModel]);
@@ -22104,7 +22099,7 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  errMsg = '이 키로는 Gemini를 호출할 수 없습니다 (키에 Gemini 사용 권한이 없음).'
  + '\n\n· 다른 Google 키(예: Google Places 키)가 Gemini 칸에 들어갔을 가능성이 가장 큽니다.'
  + ' Google 키는 종류가 달라도 모두 AIza로 시작하고 39자라서 눈으로 구분되지 않습니다.'
- + '\n· 관리자 대시보드에서 Google Gemini 키와 Google Places 키가 서로 바뀌지 않았는지 확인해주세요.'
+ + '\n· 설정 > API 관리 탭에서 Google Gemini 키와 Google Places 키가 서로 바뀌지 않았는지 확인해주세요.'
  + '\n· 키에 API 제한(Cloud Console > 사용자 인증 정보 > API 제한)이 걸려 있어도 같은 오류가 납니다.'
  + keyInfo;
  } else if (reason === 'API_KEY_HTTP_REFERRER_BLOCKED' || reason === 'API_KEY_IP_ADDRESS_BLOCKED' || reason === 'API_KEY_ANDROID_APP_BLOCKED' || reason === 'API_KEY_IOS_APP_BLOCKED') {
@@ -38732,7 +38727,7 @@ AUDIO:
  🧬 {sc.files.length > 1 ? `${sc.files.length}개 보이스 복제 시작` : '보이스 복제 시작'}
  </button>
  {!falApiKey && (
- <div className="micro" style={{ textAlign: 'center', color: 'var(--state-warning, #d97706)', fontSize: 11 }}>{isAdmin ? '⚠ Settings → API 관리 탭에서 fal API 키를 먼저 입력해주세요.' : '⚠ fal API 키가 없습니다. 관리자에게 문의해주세요.'}</div>
+ <div className="micro" style={{ textAlign: 'center', color: 'var(--state-warning, #d97706)', fontSize: 11 }}>⚠ 설정 → API 관리 탭에서 fal API 키를 먼저 입력해주세요.</div>
  )}
  </div>
 
@@ -39946,15 +39941,16 @@ AUDIO:
  </div>
  </div>
 
- {/* v746: fal API 키 — 영상 생성(Seedance 2.0) 전용 */}
+ {/* fal API 키 — 이미지·사운드·업스케일용. 영상 생성은 v763 부터 ModelArk 직결이라 여기가 아니다. */}
  <div style={{ marginBottom: 24 }}>
  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
  <Film size={13} color="var(--green-500)" />
- <span className="micro" style={{ color: 'var(--green-700)' }}>FAL API KEY · 영상 생성 (Seedance 2.0)</span>
+ <span className="micro" style={{ color: 'var(--green-700)' }}>FAL API KEY · 이미지 · 사운드 · 업스케일</span>
  </div>
  <div style={{ padding: '16px 18px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)' }}>
  <div className="meta" style={{ marginBottom: 10, lineHeight: 1.6 }}>
- 영상 생성(커스텀 영상·내러티브 영상·AI VFX)은 fal.ai의 Seedance 2.0을 사용합니다.{' '}
+ 이미지 생성(GPT Image 2) · BGM(ElevenLabs Music) · TTS·보이스 클로닝(MiniMax) ·
+ 영상 업스케일(Topaz)에 사용합니다. <strong>영상 생성에는 쓰지 않습니다</strong> — 영상은 ModelArk 직결입니다.{' '}
  <a href="https://fal.ai/dashboard/keys" target="_blank" rel="noreferrer" style={{ color: 'var(--green-700)' }}>fal.ai</a>에서 발급할 수 있습니다.
  </div>
  <input type="password" className="feedback-input"
@@ -39968,7 +39964,7 @@ AUDIO:
  background: falApiKey ? 'var(--green-50)' : 'rgba(239,68,68,0.1)',
  color: falApiKey ? 'var(--green-700)' : 'var(--state-error)',
  }}>
- {falApiKey ? '입력됨' : '미입력 — 영상 생성 불가'}
+ {falApiKey ? '입력됨' : '미입력 — 이미지·사운드·업스케일 불가'}
  </span>
  {falApiKey && (
  <button className="btn btn-ghost btn-sm" onClick={() => setFalApiKey('')}>
@@ -39987,7 +39983,8 @@ AUDIO:
  </div>
  <div style={{ padding: '16px 18px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)' }}>
  <div className="meta" style={{ marginBottom: 10, lineHeight: 1.6 }}>
- ByteDance 공식 클라우드에서 <strong>Seedance 2.0</strong>(영상)과 <strong>Seedream 5.0</strong>(이미지)을 직접 호출합니다.{' '}
+ ByteDance 공식 클라우드에서 <strong>Seedance 2.0 · 2.5</strong>(영상)와 <strong>Seedream 5.0</strong>(이미지)을 직접 호출합니다.
+ 영상 생성은 전부 이 키를 씁니다.{' '}
  <a href="https://console.byteplus.com/ark/region:ark+ap-southeast-1/apikey" target="_blank" rel="noreferrer" style={{ color: 'var(--green-700)' }}>BytePlus 콘솔</a>에서 발급하세요.
  </div>
  <input type="password" className="feedback-input"
@@ -40025,111 +40022,12 @@ AUDIO:
  )}
  <div className="micro" style={{ color: 'var(--text-quaternary)', marginTop: 10, lineHeight: 1.6 }}>
  리전 <strong>ap-southeast</strong>(싱가포르) 기준입니다. 모델 사용 전에 콘솔에서 <strong>선불 리소스 팩</strong>을 구매해 해당 모델을 활성화해야 합니다.<br />
- 키만 등록해 두면 이후 영상 모델을 fal에서 ModelArk로 전환할 때 바로 연결됩니다.
+ 영상 생성은 전부 이 키로 나갑니다 — 이 키가 없으면 영상이 만들어지지 않습니다.
  </div>
  </div>
  </div>
  </>
 
- {/* 영상 생성 모델 — 관리자 전용 확인 (모델은 Seedance 2.0로 고정) */}
- {isAdmin && (
- <div style={{ marginBottom: 24 }}>
- <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
- <Film size={13} color="var(--green-500)" />
- <span className="micro" style={{ color: 'var(--green-700)' }}>VIDEO MODEL · 연결된 영상 모델 (고정)</span>
- </div>
- <div style={{ padding: '16px 18px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)' }}>
- <div className="meta" style={{ marginBottom: 12, lineHeight: 1.6 }}>영상화 작업에서 사용할 fal 영상 생성 모델을 선택합니다.</div>
- <div className="model-btn-group">
- {[
- { id: 'bytedance/seedance-2.0', label: 'Seedance 2.0', tag: 'ByteDance' },
- { id: 'kwaivgi/kling-v3-video', label: 'Kling 3.0', tag: 'Kuaishou' },
- ].map(m => (
- <button key={m.id} onClick={() => {
- setVideoModel(m.id);
- const auto = getVideoCostPerSec(m.id, videoResolution, true, videoSound);
- if (auto != null) setVideoCostPerSec(auto);
- }}
- className={`${videoModel === m.id ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'} model-btn`}>
- <span style={{ fontWeight: 600 }}>{m.label}</span>
- <span style={{ fontSize: 10, opacity: 0.75 }}>{m.tag}</span>
- </button>
- ))}
- </div>
- <input type="text" className="input model-input"
- value={videoModel} onChange={e => setVideoModel(e.target.value.trim())}
- placeholder="직접 입력 (예: bytedance/seedance-2.0)"
- style={{ marginTop: 10, fontFamily: 'SF Mono, monospace', fontSize: 11 }} />
-
- {/* 접이식 모델별 비용 안내 */}
- <div style={{ marginTop: 12 }}>
- <button
- onClick={() => setShowVideoCostInfo(s => !s)}
- style={{
- width: '100%',
- padding: '8px 12px',
- borderRadius: 'var(--radius-sm)',
- background: 'var(--bg-tertiary)',
- border: '1px solid var(--border)',
- cursor: 'pointer',
- display: 'flex', alignItems: 'center', justifyContent: 'space-between',
- fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)',
- }}
- >
- <span>모델별 예상 비용 안내</span>
- <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-tertiary)' }}>{showVideoCostInfo ? '−' : '+'}</span>
- </button>
- {showVideoCostInfo && (
- <div style={{ marginTop: 8, padding: '12px 14px', borderRadius: 'var(--radius-sm)', background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
- <div style={{ marginBottom: 12 }}>
- <div style={{ fontWeight: 700, color: 'var(--green-700)', fontSize: 11, marginBottom: 6 }}>Seedance 2.0 (ByteDance)</div>
- <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 6, lineHeight: 1.5 }}>
- 이미지 입력 여부에 따라 단가가 달라집니다 (첫 프레임/컷 연결 시 video_in).
- </div>
- <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 11, lineHeight: 1.65 }}>
- <div>
- <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>image 입력 (video_in)</div>
- <div style={{ color: 'var(--text-secondary)' }}>480p · <span style={{ fontFamily: 'SF Mono, monospace' }}>$0.10/초</span></div>
- <div style={{ color: 'var(--text-secondary)' }}>720p · <span style={{ fontFamily: 'SF Mono, monospace' }}>$0.22/초</span></div>
- <div style={{ color: 'var(--text-secondary)' }}>1080p · <span style={{ fontFamily: 'SF Mono, monospace' }}>$0.55/초</span></div>
- </div>
- <div>
- <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>텍스트만 (non_video_in)</div>
- <div style={{ color: 'var(--text-secondary)' }}>480p · <span style={{ fontFamily: 'SF Mono, monospace' }}>$0.08/초</span></div>
- <div style={{ color: 'var(--text-secondary)' }}>720p · <span style={{ fontFamily: 'SF Mono, monospace' }}>$0.18/초</span></div>
- <div style={{ color: 'var(--text-secondary)' }}>1080p · <span style={{ fontFamily: 'SF Mono, monospace' }}>$0.45/초</span></div>
- </div>
- </div>
- </div>
- <div style={{ paddingTop: 10, borderTop: '1px solid var(--border)' }}>
- <div style={{ fontWeight: 700, color: 'var(--green-700)', fontSize: 11, marginBottom: 6 }}>Kling 3.0 (Kuaishou)</div>
- <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 6, lineHeight: 1.5 }}>
- 오디오 사용 여부에 따라 단가가 달라집니다.
- </div>
- <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 11, lineHeight: 1.65 }}>
- <div>
- <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>오디오 없음</div>
- <div style={{ color: 'var(--text-secondary)' }}>standard (720p) · <span style={{ fontFamily: 'SF Mono, monospace' }}>$0.168/초</span></div>
- <div style={{ color: 'var(--text-secondary)' }}>pro (1080p) · <span style={{ fontFamily: 'SF Mono, monospace' }}>$0.224/초</span></div>
- <div style={{ color: 'var(--text-secondary)' }}>4k · <span style={{ fontFamily: 'SF Mono, monospace' }}>$0.42/초</span></div>
- </div>
- <div>
- <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>오디오 포함</div>
- <div style={{ color: 'var(--text-secondary)' }}>standard (720p) · <span style={{ fontFamily: 'SF Mono, monospace' }}>$0.252/초</span></div>
- <div style={{ color: 'var(--text-secondary)' }}>pro (1080p) · <span style={{ fontFamily: 'SF Mono, monospace' }}>$0.336/초</span></div>
- <div style={{ color: 'var(--text-secondary)' }}>4k · <span style={{ fontFamily: 'SF Mono, monospace' }}>$0.42/초</span></div>
- </div>
- </div>
- </div>
- <div className="micro" style={{ color: 'var(--text-quaternary)', marginTop: 10, textTransform: 'none', letterSpacing: 0, fontFamily: 'inherit', fontSize: 10 }}>
- ※ fal 기준 가격. 환율과 시점에 따라 변동될 수 있습니다.
- </div>
- </div>
- )}
- </div>
- </div>
- </div>
- )}
 
  {/* 이미지 생성 모델 — 관리자 전용 확인 (모델은 GPT Image 2로 고정) */}
  {isAdmin && (
