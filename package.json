@@ -3,6 +3,7 @@
   "productName": "OXYZN Studio",
   "version": "1.0.0",
   "description": "영상 제작 자동화 스튜디오 (개인용)",
+  "author": "OXYZN <jungjinsori@oxyzn.co.kr>",
   "main": "electron/main.js",
   "type": "commonjs",
   "scripts": {
