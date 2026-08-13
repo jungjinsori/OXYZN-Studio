@@ -1338,8 +1338,13 @@ const APP_CSS = `
  text-wrap: auto;
  }
 
- /* === Dark mode === */
- .app-root.is-dark {
+ /* === Dark mode ===
+    body.is-dark 를 함께 거는 이유: 드롭다운 메뉴(FFSelect fixedMenu)·이미지 확대
+    같은 것들이 createPortal 로 document.body 에 붙는다. 변수를 .app-root 에만
+    정의하면 그것들은 :root 의 라이트 값을 받아, 다크모드인데 흰 배경 메뉴가 뜬다.
+    (body 에 is-dark 클래스는 이미 붙고 있었다 — 정의만 빠져 있었다) */
+ .app-root.is-dark,
+ body.is-dark {
  /* 어두운 배경에서 묻히지 않게 한 단계 밝힌 청록 (라이트모드와 같은 명도 관계 유지) */
  --green-500: #2FBECC;
  --green-400: #5FD8E4;
@@ -1405,6 +1410,9 @@ const APP_CSS = `
  body {
  margin: 0; padding: 0;
  background: var(--bg-primary);
+ /* 글자색도 body 에 건다. 포털로 나간 메뉴가 색을 따로 지정하지 않으면
+    브라우저 기본 검정을 물려받아, 다크모드에서 검은 배경에 검은 글씨가 된다. */
+ color: var(--text-primary);
  min-height: 100vh;
  height: auto;
  /* 폰트를 body 에도 건다. .app-root 에만 걸려 있으면 createPortal 로
