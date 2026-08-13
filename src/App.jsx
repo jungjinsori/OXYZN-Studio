@@ -1866,8 +1866,12 @@ const APP_CSS = `
  font-size: 14px; line-height: 1.55;
  }
 
+ /* 고정폭 — 숫자·코드 정렬용. 스택 끝에 Pretendard 를 둔 건 오타가 아니다.
+    CSS 폰트 폴백은 글자 단위라, 앞의 mono 폰트에 없는 한글만 Pretendard 로 떨어진다.
+    ('씬 12개' 처럼 숫자와 한글이 섞인 라벨이 많은데, 이게 없으면 한글만
+     브라우저 기본 한글 폰트로 그려져 한 줄 안에서 서체가 갈린다) */
  .mono-font {
- font-family: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+ font-family: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', Consolas, 'Pretendard Variable', 'Pretendard', monospace;
  font-feature-settings: 'tnum' on, 'zero' on;
  }
 
@@ -2047,7 +2051,12 @@ const APP_CSS = `
  .body { font-size: 14px; color: var(--text-primary); line-height: 1.6; }
  .body-secondary { font-size: 14px; color: var(--text-secondary); line-height: 1.6; }
  .meta { font-size: 12px; color: var(--text-tertiary); }
- .micro { font-size: 11px; color: var(--text-tertiary); font-family: 'SF Mono', monospace; letter-spacing: 0.04em; text-transform: uppercase; }
+ /* .micro 는 작은 라벨용이다. 예전엔 여기서 'SF Mono' 를 강제했는데, Windows 에는
+    SF Mono 가 없어 generic monospace(대개 Courier New)로 가고 Courier New 에는
+    한글이 없어서 한글만 또 시스템 폰트로 재폴백했다. 그래서 '기획 / 이미지' 같은
+    한글 라벨만 본문과 다른 서체로 보였다. 폰트는 물려받게 두고, 진짜 고정폭이
+    필요한 곳은 이미 .mono-font 를 함께 붙이고 있다(className="micro mono-font"). */
+ .micro { font-size: 11px; color: var(--text-tertiary); letter-spacing: 0.04em; text-transform: uppercase; }
 
  .lead {
  font-size: 15px; color: var(--text-secondary);
@@ -35871,7 +35880,7 @@ ${sampleText}`;
  <div><div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>품질</div><div style={{ display: 'flex', gap: 6 }}>{vResOpts.map(rz => (<button key={rz} onClick={() => up({ resolution: rz })} disabled={busy} className={v.resolution === rz ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'} style={{ flex: 1, height: 32, padding: '0 8px', justifyContent: 'center' }}>{rz}</button>))}</div></div>
  {/* 길이 — 4초 ~ 티어 상한 */}
  <div>
- <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}><span className="meta" style={{ fontWeight: 600 }}>길이</span><span className="meta" style={{ fontWeight: 700, color: 'var(--green-700)', fontFamily: 'SF Mono, monospace' }}>{Math.min(v.duration, vMaxSec)}초</span></div>
+ <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}><span className="meta" style={{ fontWeight: 600 }}>길이</span><span className="meta" style={{ fontWeight: 700, color: 'var(--green-700)', fontVariantNumeric: 'tabular-nums' }}>{Math.min(v.duration, vMaxSec)}초</span></div>
  <input type="range" min={4} max={vMaxSec} step={1} value={Math.min(v.duration, vMaxSec)} disabled={busy} onChange={(e) => up({ duration: parseInt(e.target.value, 10) })} style={{ width: '100%', accentColor: 'var(--green-500)' }} />
  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-quaternary)', fontSize: 9, marginTop: 2 }}><span>4초</span><span>{vMaxSec}초</span></div>
  </div>
@@ -36395,7 +36404,7 @@ ${sampleText}`;
  <div><div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>품질</div><div style={{ display: 'flex', gap: 6 }}>{vResOpts.map(rz => (<button key={rz} onClick={() => up({ resolution: rz })} disabled={busy} className={v.resolution === rz ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'} style={{ flex: 1, height: 32, padding: '0 8px', justifyContent: 'center' }}>{rz}</button>))}</div></div>
  {/* 길이 — 프롬프트도 이 길이에 맞춰 샷이 짜인다 */}
  <div>
- <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}><span className="meta" style={{ fontWeight: 600 }}>길이</span><span className="meta" style={{ fontWeight: 700, color: 'var(--green-700)', fontFamily: 'SF Mono, monospace' }}>{vDur}초</span></div>
+ <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}><span className="meta" style={{ fontWeight: 600 }}>길이</span><span className="meta" style={{ fontWeight: 700, color: 'var(--green-700)', fontVariantNumeric: 'tabular-nums' }}>{vDur}초</span></div>
  <input type="range" min={4} max={vMaxSec} step={1} value={vDur} disabled={busy} onChange={(e) => up({ duration: parseInt(e.target.value, 10) })} style={{ width: '100%', accentColor: 'var(--green-500)' }} />
  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-quaternary)', fontSize: 9, marginTop: 2 }}><span>4초</span><span>{vMaxSec}초</span></div>
  </div>
@@ -39587,7 +39596,7 @@ AUDIO:
 
  <div style={{ color: 'var(--text-tertiary)' }}>버전</div>
  <div style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
- {APP_RELEASE} <span style={{ fontFamily: 'SF Mono, monospace', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: 11 }}>· 빌드 {APP_VERSION}</span>
+ {APP_RELEASE} <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: 11 }}>· 빌드 <span className="mono-font">{APP_VERSION}</span></span>
  </div>
 
  <div style={{ color: 'var(--text-tertiary)' }}>엔진</div>
