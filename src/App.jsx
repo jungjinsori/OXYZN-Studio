@@ -7,7 +7,7 @@ import QRCode from 'qrcode';
 // (펫 5종 JSON 은 v863 부터 동적 import — PET_LOTTIE_LOADERS 참고)
 // 로딩/생성 애니메이션
 import loadingFilesData from './assets/lottie/loading.json';
-import starMagicData from './assets/lottie/star-magic-green.json';
+import starMagicData from './assets/lottie/star-magic.json';
 import musicLoadingData from './assets/lottie/musicLoading.json';
 // v695: BGM 작곡 매트릭스 (작품 장르 × 씬 감정 → 악기·질감·폼·모션·키·bpm·충돌규칙)
 import bgmMatrix from './bgmMatrix.json';
@@ -863,16 +863,23 @@ async function imageUrlToRef(url, name = '레퍼런스') {
  return { name, base64: m[2], mimeType: m[1] };
 }
 // v633: Seedance 2.0 내러티브 룰북 (상황묘사 → 영상 프롬프트 변환 시스템 프롬프트)
-const SEEDANCE_NARRATIVE_RULEBOOK = `사용자가 준 시나리오/상황 묘사를 Seedance 2.0 영상 프롬프트로 변환한다. 사용자 의도는 유지하되 품질을 높인다.
+// v1049: 길이를 인자로 받는다. 전에는 "기본 15초"가 본문에 박혀 있어서,
+//   Seedance 2.5(최대 30초)를 골라도 Claude 가 15초짜리 샷 구성을 내놨다.
+//   샷 개수도 길이를 따라간다 — 컷당 약 2초 기준(15초 = 6~8샷, 30초 = 12~16샷).
+const seedanceNarrativeRulebook = (durationSec = 15) => {
+ const sec = Math.max(4, Math.round(Number(durationSec) || 15));
+ const shotMin = Math.max(2, Math.round(sec / 2.5));
+ const shotMax = Math.max(shotMin + 1, Math.round(sec / 1.9));
+ return `사용자가 준 시나리오/상황 묘사를 Seedance 영상 프롬프트로 변환한다. 사용자 의도는 유지하되 품질을 높인다.
 
 ## 절대 규칙
 - 출력은 영어. (대사만 한국어 원문 유지, 영어 번역 괄호 병기)
 - 3000자 이내. 넘으면 압축.
 - 상단 제목 줄 금지. [Reference]로 바로 시작.
 - Audio에 항상 no music, no BGM.
-- 기본 15초.
+- 길이 ${sec}초. 모든 Shot 시간 합 = ${sec}초.
 - 기본 톤: 실사 시네마틱 드라마.
-- 대사·상황이 15초에 넘치면 여러 15초로 분할하고 고지.
+- 대사·상황이 ${sec}초에 넘치면 여러 ${sec}초로 분할하고 고지.
 
 ## 출력 형식
 [Reference]
@@ -903,13 +910,14 @@ Audio: no music, no BGM. <현장음>
 - 대사·립싱크: "each line lip-synced. Non-speaking silent." 속마음/VO는 "lips do NOT move, NOT lip-synced."
 
 ## 샷 구성
-- 15초 = 6~8샷, 컷당 ~2초. 초 배분 표기. 원본 사건 순서 유지. 컷당 동작 하나.
+- ${sec}초 = ${shotMin}~${shotMax}샷, 컷당 ~2초. 초 배분 표기. 원본 사건 순서 유지. 컷당 동작 하나.
 
 ## 검열 회피
 - 조직명→중립어(guard/pursuer), 무기·폭력은 "dramatic prop, thriller tension, not graphic" + "no blood/gore." 미성년+실사는 성인/공간 위주로.
 
 ## 출력
 - 위 형식의 프롬프트만 출력. 설명·머리말·코드블록 금지.`;
+};
 
 // 툴에서 생성한 이미지 선택 그리드 — pool: [{url,label}], onPick(url)
 const ToolImageGrid = ({ pool, onPick, busy }) => {
@@ -1399,6 +1407,11 @@ const APP_CSS = `
  background: var(--bg-primary);
  min-height: 100vh;
  height: auto;
+ /* 폰트를 body 에도 건다. .app-root 에만 걸려 있으면 createPortal 로
+    document.body 에 붙는 것들(FFSelect 드롭다운·이미지 확대 등)이 브라우저
+    기본 한글 폰트로 떨어져 앱 안에서 서체가 두 종류로 보인다. */
+ font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+ -webkit-font-smoothing: antialiased;
  }
  #root {
  min-height: 100vh;
@@ -1424,7 +1437,7 @@ const APP_CSS = `
  @keyframes ffBorderSpin { to { transform: rotate(1turn); } }
 
  /* v627: 시나리오 번역본 서식 (화면 표시용 · 테마 대응 · 대사만 이탤릭) */
- .sp-doc { font-family: 'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif; font-size: 13px; line-height: 1.75; color: var(--text-primary); word-break: keep-all; }
+ .sp-doc { font-family: 'Pretendard Variable','Pretendard','Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif; font-size: 13px; line-height: 1.75; color: var(--text-primary); word-break: keep-all; }
  .sp-doc .sp-slug { font-size: 15px; font-weight: 800; color: var(--text-primary); margin: 18px 0 7px; }
  .sp-doc .sp-slug:first-child { margin-top: 2px; }
  .sp-doc .sp-stime { font-size: 12px; font-weight: 700; color: var(--text-tertiary); }
@@ -1847,7 +1860,7 @@ const APP_CSS = `
  .app-root {
  background: var(--bg-primary);
  color: var(--text-primary);
- font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+ font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
  font-feature-settings: 'tnum' on, 'lnum' on;
  -webkit-font-smoothing: antialiased;
  font-size: 14px; line-height: 1.55;
@@ -2458,7 +2471,7 @@ const APP_CSS = `
  /* ── OXYZN 워드마크 (이미지 로고 대신 텍스트) ── */
  /* 정식 로고 파일이 생기면 이 두 자리를 <img> 로 되돌리면 된다. */
  .ox-wordmark { display: inline-flex; align-items: baseline; gap: 0.34em; user-select: none;
- font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+ font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
  letter-spacing: -0.015em; white-space: nowrap; }
  .ox-wordmark .ox-name { font-weight: 800; color: var(--brand-600); }
  .ox-wordmark .ox-suffix { font-weight: 600; color: var(--text-tertiary); }
@@ -3578,7 +3591,7 @@ async function makeLogoTransparent(imageUrl) {
 //   라벨이 칼럼보다 좁으면 글자를 칼럼 폭에 균등 분산한다 (공백은 빼고 계산).
 //   칼럼보다 넓은 라벨('책임 프로듀서')은 그대로 왼쪽 정렬한다.
 // ─────────────────────────────────────────────────────────────
-const BOOKLET_FONT = "'Pretendard','Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif";
+const BOOKLET_FONT = "'Pretendard Variable','Pretendard','Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif";
 const BOOKLET_MARGIN = 85;          // 우측/좌측 기본 여백
 const BOOKLET_LABEL_COL = 103;      // 라벨 칼럼 폭 (시안 실측: 940→1043)
 const BOOKLET_LABEL_GAP = 20;       // 라벨 ↔ 이름 사이 (시안 실측)
@@ -7788,6 +7801,27 @@ const ARK_VIDEO_RATES = { // [영상입력 없음, 영상입력 있음] — USD 
 const ARK_VIDEO_MAX_RES = { video: '1080p', videoFast: '720p', videoMini: '720p', video25: '720p' };
 // v936: 1회 생성 상한(초). 2.0 계열은 15초, 2.5 는 30초.
 const ARK_VIDEO_MAX_SEC = { video: 15, videoFast: 15, videoMini: 15, video25: 30 };
+// v1049: 티어가 못 내는 해상도를 요청하면 400 이 난다. 상한으로 내려서 준다.
+//   (2.5 는 1080p·4K 가 없어 720p 가 천장이다)
+const ARK_RES_ORDER = ['480p', '720p', '1080p', '4k'];
+const arkClampRes = (tier, res) => {
+ const max = ARK_VIDEO_MAX_RES[tier] || '1080p';
+ const want = ARK_RES_ORDER.indexOf(res);
+ const cap = ARK_RES_ORDER.indexOf(max);
+ if (want < 0) return max;
+ return want > cap ? max : res;
+};
+// 그 티어에서 고를 수 있는 해상도 목록 (UI 버튼 생성용)
+const arkResOptions = (tier) => {
+ const cap = ARK_RES_ORDER.indexOf(ARK_VIDEO_MAX_RES[tier] || '1080p');
+ return ARK_RES_ORDER.slice(0, cap + 1).filter(r => r !== '4k');
+};
+// v1049: 사용자가 고르는 영상 모델. 커스텀·내러티브 워크스페이스의 모델 버튼이 쓴다.
+//   2.5 는 길이가 두 배지만 1080p 가 없고 토큰 단가가 약 53% 비싸다 — 둘 다 힌트에 적는다.
+const ARK_VIDEO_TIERS = [
+ { id: 'video', label: 'Seedance 2.0', hint: '최대 15초 · 1080p' },
+ { id: 'video25', label: 'Seedance 2.5', hint: '최대 30초 · 720p' },
+];
 // v939: 레퍼런스 개수 상한도 모델마다 다르다. 2.5 는 이미지 30 · 영상 10 · 오디오 10
 //   (합쳐 50)까지 받는다. 2.0 은 이미지 9 · 오디오 3 이다.
 //   ★ 2.5 의 30/10/10 은 BytePlus 문서에서 직접 확인한 값이 아니라 여러 2차 자료가
@@ -13687,7 +13721,7 @@ const SINGLE_TASK_CATALOG = [
  ]},
  { cat: '비디오', items: [
  { id: 'video-custom', label: '커스텀', desc: '프롬프트 · 화면비 · 품질 · 레퍼런스(이미지/비디오)', status: 'new' },
- { id: 'video-narrative', label: '내러티브 (15s)', desc: '상황묘사 → 룰북 자동 프롬프트 → 15초 영상', status: 'new' },
+ { id: 'video-narrative', label: '내러티브', desc: '상황묘사 → 룰북 자동 프롬프트 → 영상 (2.0 최대 15초 · 2.5 최대 30초)', status: 'new' },
  { id: 'video-vfx', label: 'AI VFX', desc: '배경교체 · 리터치(군중 추가·오브제 변경) · 특수효과 통합 · 프롬프트 추후', status: 'new' },
  { id: 'video-upscale', label: 'Upscale', desc: '영상 화질 향상 · Topaz (업스케일 · 노이즈 제거 · 프레임 보간)', status: 'new' },
  ]},
@@ -16385,7 +16419,8 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
  // v633: 비디오 커스텀 워크스페이스 (T2V — 프롬프트+비율+품질+레퍼런스)
  const [videoCustomData, setVideoCustomData] = useState({
  prompt: '',
- duration: 5, // 초 (4~15 · 1초 단위 슬라이더)
+ tier: 'video', // 'video' = Seedance 2.0(≤15초·1080p) | 'video25' = 2.5(≤30초·720p)
+ duration: 5, // 초 (4~티어 상한 · 1초 단위 슬라이더)
  aspect: '16:9', // 16:9 | 9:16 | 1:1
  resolution: '480p', // 480p | 720p | 1080p (480p 기본)
  refSource: 'upload', // 'tool' | 'upload'
@@ -16404,7 +16439,9 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
  // v633: 비디오 내러티브(15s) 워크스페이스 — 상황묘사 → 룰북 프롬프트 → Seedance
  const [videoNarrativeData, setVideoNarrativeData] = useState({
  situation: '', // 상황 묘사(시나리오 원문 등)
- aspect: '16:9', resolution: '480p', // 길이는 15초 고정, 480p 기본
+ tier: 'video', // 'video' = Seedance 2.0(≤15초·1080p) | 'video25' = 2.5(≤30초·720p)
+ duration: 15, // 2.0 은 15초까지, 2.5 를 고르면 30초까지
+ aspect: '16:9', resolution: '480p', // 480p 기본
  // 레퍼런스 4종: 상황(콘티뉴이티)/인물/공간/오브제 — 각 이미지 or 비디오
  refs: { situation: [], character: [], space: [], object: [] }, // 각 항목: { kind:'image'|'video', refName, name, base64?, mimeType?, dataUrl? }
  refSource: 'upload',
@@ -19286,14 +19323,14 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  break;
  case 'video-custom':
  setVideoCustomData({
- prompt: '', duration: 5, aspect: '16:9', resolution: '480p', refSource: 'upload',
+ prompt: '', tier: 'video', duration: 5, aspect: '16:9', resolution: '480p', refSource: 'upload',
  refs: [], jobs: [], selectedUrl: null, feedbackOpen: false, feedback: '', error: '',
  });
  setVideoRefSuggest(null);
  break;
  case 'video-narrative':
  setVideoNarrativeData({
- situation: '', aspect: '16:9', resolution: '480p',
+ situation: '', tier: 'video', duration: 15, aspect: '16:9', resolution: '480p',
  refs: { situation: [], character: [], space: [], object: [] }, refSource: 'upload',
  jobs: [], selectedUrl: null, feedbackOpen: false, feedback: '', error: '',
  });
@@ -35313,7 +35350,11 @@ ${sampleText}`;
  const jobs = v.jobs || [];
  const anyLoading = jobs.some(j => j.loading);
  const selectedJob = jobs.find(j => !j.loading && j.resultUrl && j.resultUrl === v.selectedUrl);
- const cf = formatCostDisplay(estimateVideoCost('bytedance/seedance-2.0', v.duration, false, v.resolution, v.aspect));
+ // v1049: 비용은 고른 모델(티어)을 따른다. 2.5 는 토큰 단가가 2.0 보다 약 53% 비싸다.
+ const vTier = v.tier === 'video25' ? 'video25' : 'video';
+ const vMaxSec = ARK_VIDEO_MAX_SEC[vTier];
+ const vResOpts = arkResOptions(vTier);
+ const cf = formatCostDisplay(estimateSeedance2Cost(Math.min(v.duration, vMaxSec), arkClampRes(vTier, v.resolution), v.aspect, { tier: vTier }));
  const imgCount = v.refs.filter(r => r.kind === 'image').length;
  const vidCount = v.refs.filter(r => r.kind === 'video').length;
  const toolImgPool = () => { const out = []; (customImageData.generations || []).forEach(g => { if (!g.loading && Array.isArray(g.urls)) g.urls.forEach(u => out.push({ url: u, label: '커스텀' })); }); (sheetWsData.history || []).forEach(g => { if (!g.loading && g.url) out.push({ url: g.url, label: '시트' }); }); (posterWsData.history || []).forEach(g => { if (!g.loading && g.url) out.push({ url: g.url, label: '포스터' }); }); return out; };
@@ -35414,7 +35455,13 @@ ${sampleText}`;
  const runGen = async (opts = {}) => {
  const basePrompt = String(opts.prompt != null ? opts.prompt : v.prompt).trim();
  if (!basePrompt) { up({ error: '프롬프트를 입력하세요.' }); return; }
- const dur = v.duration, res = v.resolution, asp = v.aspect;
+ // v1049: 티어(2.0/2.5)에 맞춰 길이·해상도를 한 번 더 조인다.
+ //   UI 가 이미 막지만, 티어를 바꾼 직후의 옛 값이 그대로 넘어가면
+ //   ModelArk 가 400 을 돌려준다(생성 비용은 안 들지만 사용자는 실패만 본다).
+ const tier = v.tier === 'video25' ? 'video25' : 'video';
+ const dur = Math.min(v.duration, ARK_VIDEO_MAX_SEC[tier]);
+ const res = arkClampRes(tier, v.resolution);
+ const asp = v.aspect;
  // 레퍼런스 스냅샷 (호출 시점 고정 — 이후 입력 변경 무관)
  const images = [], videos = [], tokenMap = {}, manifest = [];
  // v770: 캐릭터+의상 묶음 — 캐릭터 이미지 뒤에 의상 이미지를 넣고, 적용 지시를 자동 생성한다
@@ -35482,7 +35529,7 @@ ${sampleText}`;
  ? basePrompt
  : await polishGenPrompt(basePrompt, { model: adaptModel, workCat: 'video' });
  const prompt = assembleVidPrompt(polished);
- const url = await callSeedanceVideo({ prompt, duration: dur, resolution: res, aspectRatio: asp, generateAudio: true, images, videos: vidsForRun, audios });
+ const url = await callSeedanceVideo({ prompt, duration: dur, resolution: res, aspectRatio: asp, generateAudio: true, images, videos: vidsForRun, audios, tier });
  // v789: 영상 비용은 callSeedanceVideo가 실제 completion_tokens로 기록한다 — 여기서 또 적립하면 이중 계상.
  up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, resultUrl: url } : j), selectedUrl: p.selectedUrl || url }));
  // v741: 완료 알람은 중앙(progressItems 상태 전이)에서 발송 — 중복 제거
@@ -35802,13 +35849,31 @@ ${sampleText}`;
  </div>
  {/* 화면비 */}
  <div><div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>화면비</div><FFSelect value={v.aspect} onChange={(nv) => up({ aspect: nv })} options={VIDEO_ASPECTS} disabled={busy} height={32} fontSize={12} /></div>
- {/* 품질 */}
- <div><div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>품질</div><div style={{ display: 'flex', gap: 6 }}>{['480p', '720p', '1080p'].map(rz => (<button key={rz} onClick={() => up({ resolution: rz })} disabled={busy} className={v.resolution === rz ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'} style={{ flex: 1, height: 32, padding: '0 8px', justifyContent: 'center' }}>{rz}</button>))}</div></div>
- {/* 길이 — 4~15초 슬라이더 */}
+ {/* 모델 — 2.0 / 2.5. 고르면 길이·품질 상한이 함께 바뀐다 */}
  <div>
- <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}><span className="meta" style={{ fontWeight: 600 }}>길이</span><span className="meta" style={{ fontWeight: 700, color: 'var(--green-700)', fontFamily: 'SF Mono, monospace' }}>{v.duration}초</span></div>
- <input type="range" min={4} max={15} step={1} value={v.duration} disabled={busy} onChange={(e) => up({ duration: parseInt(e.target.value, 10) })} style={{ width: '100%', accentColor: 'var(--green-500)' }} />
- <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-quaternary)', fontSize: 9, marginTop: 2 }}><span>4초</span><span>15초</span></div>
+ <div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>모델</div>
+ <div style={{ display: 'flex', gap: 6 }}>
+ {ARK_VIDEO_TIERS.map(t => (
+ <button key={t.id} disabled={busy}
+ onClick={() => up(p => ({ ...p, tier: t.id,
+ // 상한을 넘는 값은 내려서 맞춘다 (2.5 는 30초·720p, 2.0 은 15초·1080p)
+ duration: Math.min(p.duration, ARK_VIDEO_MAX_SEC[t.id]),
+ resolution: arkClampRes(t.id, p.resolution) }))}
+ className={v.tier === t.id ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+ style={{ flex: 1, height: 40, padding: '0 8px', flexDirection: 'column', gap: 1, justifyContent: 'center' }}>
+ <span style={{ fontWeight: 700 }}>{t.label}</span>
+ <span style={{ fontSize: 9, opacity: 0.8 }}>{t.hint}</span>
+ </button>
+ ))}
+ </div>
+ </div>
+ {/* 품질 — 티어가 낼 수 있는 해상도만 */}
+ <div><div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>품질</div><div style={{ display: 'flex', gap: 6 }}>{vResOpts.map(rz => (<button key={rz} onClick={() => up({ resolution: rz })} disabled={busy} className={v.resolution === rz ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'} style={{ flex: 1, height: 32, padding: '0 8px', justifyContent: 'center' }}>{rz}</button>))}</div></div>
+ {/* 길이 — 4초 ~ 티어 상한 */}
+ <div>
+ <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}><span className="meta" style={{ fontWeight: 600 }}>길이</span><span className="meta" style={{ fontWeight: 700, color: 'var(--green-700)', fontFamily: 'SF Mono, monospace' }}>{Math.min(v.duration, vMaxSec)}초</span></div>
+ <input type="range" min={4} max={vMaxSec} step={1} value={Math.min(v.duration, vMaxSec)} disabled={busy} onChange={(e) => up({ duration: parseInt(e.target.value, 10) })} style={{ width: '100%', accentColor: 'var(--green-500)' }} />
+ <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-quaternary)', fontSize: 9, marginTop: 2 }}><span>4초</span><span>{vMaxSec}초</span></div>
  </div>
  <div className="meta" style={{ color: 'var(--text-tertiary)', textAlign: 'center' }}>예상 비용 <strong style={{ color: 'var(--green-700)' }}>{cf.usd}</strong> <span>({cf.krw})</span></div>
  <button className="btn btn-primary" onClick={() => runGen()} disabled={!v.prompt.trim()} style={{ fontSize: 14, padding: '11px 20px', justifyContent: 'center' }}><Film size={15} /> 영상 생성{anyLoading ? ` (진행 중 ${jobs.filter(j => j.loading).length})` : ''}</button>
@@ -35828,7 +35893,13 @@ ${sampleText}`;
  const jobs = v.jobs || [];
  const anyLoading = jobs.some(j => j.loading);
  const selectedJob = jobs.find(j => !j.loading && j.resultUrl && j.resultUrl === v.selectedUrl);
- const cf = formatCostDisplay(estimateVideoCost('bytedance/seedance-2.0', 15, false, v.resolution, v.aspect));
+ // v1049: 비용·상한이 고른 모델(티어)을 따른다.
+ const vTier = v.tier === 'video25' ? 'video25' : 'video';
+ const vMaxSec = ARK_VIDEO_MAX_SEC[vTier];
+ const vResOpts = arkResOptions(vTier);
+ const vDur = Math.min(Number(v.duration) || 15, vMaxSec);
+ const vRes = arkClampRes(vTier, v.resolution);
+ const cf = formatCostDisplay(estimateSeedance2Cost(vDur, vRes, v.aspect, { tier: vTier }));
  const GROUPS = [{ key: 'character', label: '인물' }, { key: 'object', label: '오브제' }, { key: 'space', label: '공간' }, { key: 'situation', label: '상황(콘티뉴이티)' }];
  const NAME_PREFIX = { character: '인물', object: '오브제', space: '공간', situation: '상황' };
  const groupPool = (key) => {
@@ -35937,7 +36008,10 @@ ${sampleText}`;
  const runGen = async (opts = {}) => {
  const situation = String(opts.situation != null ? opts.situation : v.situation).trim();
  if (!situation) { up({ error: '상황 묘사를 입력하세요.' }); return; }
- const asp = v.aspect, res = v.resolution;
+ // v1049: 티어(2.0/2.5)에 맞춰 길이·해상도를 조인다. 프롬프트도 이 길이로 만든다.
+ const tier = v.tier === 'video25' ? 'video25' : 'video';
+ const dur = Math.min(Number(v.duration) || 15, ARK_VIDEO_MAX_SEC[tier]);
+ const asp = v.aspect, res = arkClampRes(tier, v.resolution);
  // 레퍼런스 스냅샷
  const imgList = [], vidList = [], manifest = [], tokenMap = {};
  let imgN = 0, vidN = 0;
@@ -35968,15 +36042,15 @@ ${sampleText}`;
  Object.keys(tokenMap).sort((a, b) => b.length - a.length).forEach(nm => { situationText = situationText.split(`@${nm}`).join(tokenMap[nm]); });
  const jobId = `vn_${Date.now()}_${(narrJobSeq.current += 1)}`;
  // v643: 입력 스냅샷(상황묘사·설정·레퍼런스 4종) 저장 → 썸네일 클릭 시 복원
- const params = { situation, aspect: asp, resolution: res, refsSnapshot: JSON.parse(JSON.stringify(v.refs || {})), feedback: opts.feedbackNote || null };
- const estSec = estSecFor(durKeyVideo(res, 15, opts.baseVideoUrl ? true : false), estVideoGenSeconds(res, 15) + (opts.directPrompt ? 0 : 12));  // v791: 실측 학습값 우선, 표본 없으면 상수 추정
+ const params = { situation, aspect: asp, resolution: res, duration: dur, tier, refsSnapshot: JSON.parse(JSON.stringify(v.refs || {})), feedback: opts.feedbackNote || null };
+ const estSec = estSecFor(durKeyVideo(res, dur, opts.baseVideoUrl ? true : false), estVideoGenSeconds(res, dur) + (opts.directPrompt ? 0 : 12));  // v791: 실측 학습값 우선, 표본 없으면 상수 추정
  up(p => ({ ...p, error: '', feedback: '', feedbackOpen: false, jobs: [{ id: jobId, version: narrJobSeq.current, loading: true, phase: opts.directPrompt ? '영상 생성 중' : '프롬프트 생성 중', ts: Date.now(), estSec, params }, ...p.jobs] }));
  try {
  let genPrompt = opts.directPrompt || null;
  if (!genPrompt) {
  const manifestStr = manifest.length ? `\n\n[첨부 레퍼런스 — 이 토큰으로 [Shots]에서 지칭]\n${manifest.join('\n')}` : '\n\n(첨부 레퍼런스 없음)';
- const userMsg = `아래 상황을 15초 Seedance 2.0 영상 프롬프트로 변환하세요.${manifestStr}\n\n[상황 묘사]\n${situationText}`;
- genPrompt = String(await callClaude(SEEDANCE_NARRATIVE_RULEBOOK, userMsg, { model: adaptModel, maxTokens: 2000, workCat: 'video' }) || '').replace(/```/g, '').trim();
+ const userMsg = `아래 상황을 ${dur}초 Seedance 영상 프롬프트로 변환하세요.${manifestStr}\n\n[상황 묘사]\n${situationText}`;
+ genPrompt = String(await callClaude(seedanceNarrativeRulebook(dur), userMsg, { model: adaptModel, maxTokens: 2000, workCat: 'video' }) || '').replace(/```/g, '').trim();
  if (!genPrompt) throw new Error('프롬프트 생성 결과가 비었습니다.');
  up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, phase: '영상 생성 중', generatedPrompt: genPrompt } : j) }));
  } else {
@@ -35988,7 +36062,7 @@ ${sampleText}`;
  if (outfitDirectives.length) finalPrompt = `[Wardrobe — highest priority, overrides any clothing seen in references]\n${OUTFIT_RULE}\n${outfitDirectives.join('\n')}\n\n${finalPrompt}`;
  // v789: 피드백 재생성 시 이전 결과 영상을 레퍼런스로 동반 (상한 3개·15초 안에서)
  const vidsForRun = opts.baseVideoUrl ? [opts.baseVideoUrl, ...vidList].slice(0, 3) : vidList;
- const url = await callSeedanceVideo({ prompt: finalPrompt, duration: 15, resolution: res, aspectRatio: asp, generateAudio: true, images: imgList, videos: vidsForRun, audios: audioList });
+ const url = await callSeedanceVideo({ prompt: finalPrompt, duration: dur, resolution: res, aspectRatio: asp, generateAudio: true, images: imgList, videos: vidsForRun, audios: audioList, tier });
  // v789: 영상 비용은 callSeedanceVideo가 실제 토큰으로 기록한다. 여기서는 프롬프트 변환에 쓴 Claude 비용만 적립.
  try { if (!opts.directPrompt) recordCreditUsage(estimateClaudeCost(adaptModel, (situation.length + 2000), genPrompt.length), 'claude', { workCat: 'video' }); } catch {}
  up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, phase: '', resultUrl: url } : j), selectedUrl: p.selectedUrl || url }));
@@ -36002,8 +36076,12 @@ ${sampleText}`;
  if (!origPrompt) { runGen({ feedbackNote: fb, baseVideoUrl: selectedJob.resultUrl || null }); return; }
  up({ feedbackBusy: true, error: '' });
  try {
- const userMsg = `아래는 이미 완성된 15초 Seedance 2.0 영상 프롬프트다. 사용자의 간결한 수정 의도를 반영해 룰북 규칙을 지키며 프롬프트를 다시 다듬어라. 설명 없이 프롬프트 본문만 출력.\n\n[기존 프롬프트]\n${origPrompt}\n\n[수정 의도]\n${fb}`;
- const revised = String(await callClaude(SEEDANCE_NARRATIVE_RULEBOOK, userMsg, { model: adaptModel, maxTokens: 2000, workCat: 'video' }) || '').replace(/```/g, '').trim();
+ // 다듬을 때도 그 영상이 만들어진 길이를 그대로 쓴다.
+ //   현재 슬라이더 값을 쓰면, 15초로 뽑아둔 프롬프트를 30초 룰북으로 고쳐
+ //   샷 수가 어긋난다. 옛 기록에는 duration 이 없으므로 15초로 본다.
+ const fbDur = Number(selectedJob.params?.duration) || 15;
+ const userMsg = `아래는 이미 완성된 ${fbDur}초 Seedance 영상 프롬프트다. 사용자의 간결한 수정 의도를 반영해 룰북 규칙을 지키며 프롬프트를 다시 다듬어라. 설명 없이 프롬프트 본문만 출력.\n\n[기존 프롬프트]\n${origPrompt}\n\n[수정 의도]\n${fb}`;
+ const revised = String(await callClaude(seedanceNarrativeRulebook(fbDur), userMsg, { model: adaptModel, maxTokens: 2000, workCat: 'video' }) || '').replace(/```/g, '').trim();
  up({ feedbackBusy: false });
  const editLead = selectedJob.resultUrl
  ? `Edit the attached reference video [Video1]: keep its subjects, wardrobe, setting, lighting, camera language and overall look unchanged, and apply ONLY this change — ${fb}.\n\n`
@@ -36036,13 +36114,17 @@ ${sampleText}`;
  <div className="meta" style={{ color: 'var(--text-tertiary)', marginBottom: 10 }}>수정 방향을 적어주세요. <strong>선택한 영상을 레퍼런스로 넣어</strong> 그 영상을 수정합니다.</div>
  {/* v790: 피드백은 이전 영상을 입력으로 넣으므로 토큰이 늘어난다 */}
  {(() => {
- const base = estimateVideoCost('bytedance/seedance-2.0', 15, false, v.resolution, v.aspect);
- const fbCost = estimateVideoCost('bytedance/seedance-2.0', 15, false, v.resolution, v.aspect, { hasVideoInput: true, inputSec: 15 });
+ // 재생성은 그 영상이 만들어진 길이를 기준으로 잡는다(입력으로도 그 길이가 들어간다).
+ const fbSec = Number(selectedJob.params?.duration) || 15;
+ const fbTier = selectedJob.params?.tier === 'video25' ? 'video25' : 'video';
+ const fbRes = arkClampRes(fbTier, selectedJob.params?.resolution || v.resolution);
+ const base = estimateSeedance2Cost(fbSec, fbRes, v.aspect, { tier: fbTier });
+ const fbCost = estimateSeedance2Cost(fbSec, fbRes, v.aspect, { tier: fbTier, hasVideoInput: true, inputSec: fbSec });
  const b = formatCostDisplay(base), f = formatCostDisplay(fbCost);
  return (
  <div className="meta" style={{ marginBottom: 10, padding: '8px 11px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-tertiary)', lineHeight: 1.6 }}>
  피드백 재생성 비용 <strong style={{ color: 'var(--green-700)' }}>{f.usd}</strong> <span>({f.krw})</span>
- <span style={{ color: 'var(--text-quaternary)' }}> · 일반 생성 {b.usd} 대비 이전 영상 15초가 입력으로 더해집니다</span>
+ <span style={{ color: 'var(--text-quaternary)' }}> · 일반 생성 {b.usd} 대비 이전 영상 {fbSec}초가 입력으로 더해집니다</span>
  </div>
  );
  })()}
@@ -36293,9 +36375,32 @@ ${sampleText}`;
  {refNames.length > 0 && (<div className="meta" style={{ color: 'var(--text-tertiary)', marginTop: 8, fontSize: 11, lineHeight: 1.6 }}>상황 묘사에서 <strong style={{ color: 'var(--green-700)', fontFamily: 'SF Mono, monospace' }}>{'@이름'}</strong> 으로 레퍼런스를 지칭할 수 있습니다.</div>)}
  </div>
  <div><div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>화면비</div><FFSelect value={v.aspect} onChange={(nv) => up({ aspect: nv })} options={VIDEO_ASPECTS} disabled={busy} height={32} fontSize={12} /></div>
- <div><div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>품질 <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}>· 길이 15초 고정</span></div><div style={{ display: 'flex', gap: 6 }}>{['480p', '720p', '1080p'].map(rz => (<button key={rz} onClick={() => up({ resolution: rz })} disabled={busy} className={v.resolution === rz ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'} style={{ flex: 1, height: 32, padding: '0 8px', justifyContent: 'center' }}>{rz}</button>))}</div></div>
- <div className="meta" style={{ color: 'var(--text-tertiary)', textAlign: 'center' }}>예상 비용 <strong style={{ color: 'var(--green-700)' }}>{cf.usd}</strong> <span>({cf.krw})</span> <span style={{ marginLeft: 4 }}>· 프롬프트 생성 + 15초 영상</span></div>
- <button className="btn btn-primary" onClick={() => runGen()} disabled={!v.situation.trim()} style={{ fontSize: 14, padding: '11px 20px', justifyContent: 'center' }}><Film size={15} /> 15초 영상 생성{anyLoading ? ` (진행 중 ${jobs.filter(j => j.loading).length})` : ''}</button>
+ {/* 모델 — 2.0 / 2.5. 고르면 길이·품질 상한이 함께 바뀐다 */}
+ <div>
+ <div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>모델</div>
+ <div style={{ display: 'flex', gap: 6 }}>
+ {ARK_VIDEO_TIERS.map(t => (
+ <button key={t.id} disabled={busy}
+ onClick={() => up(p => ({ ...p, tier: t.id,
+ duration: Math.min(Number(p.duration) || 15, ARK_VIDEO_MAX_SEC[t.id]),
+ resolution: arkClampRes(t.id, p.resolution) }))}
+ className={v.tier === t.id ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+ style={{ flex: 1, height: 40, padding: '0 8px', flexDirection: 'column', gap: 1, justifyContent: 'center' }}>
+ <span style={{ fontWeight: 700 }}>{t.label}</span>
+ <span style={{ fontSize: 9, opacity: 0.8 }}>{t.hint}</span>
+ </button>
+ ))}
+ </div>
+ </div>
+ <div><div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>품질</div><div style={{ display: 'flex', gap: 6 }}>{vResOpts.map(rz => (<button key={rz} onClick={() => up({ resolution: rz })} disabled={busy} className={v.resolution === rz ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'} style={{ flex: 1, height: 32, padding: '0 8px', justifyContent: 'center' }}>{rz}</button>))}</div></div>
+ {/* 길이 — 프롬프트도 이 길이에 맞춰 샷이 짜인다 */}
+ <div>
+ <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}><span className="meta" style={{ fontWeight: 600 }}>길이</span><span className="meta" style={{ fontWeight: 700, color: 'var(--green-700)', fontFamily: 'SF Mono, monospace' }}>{vDur}초</span></div>
+ <input type="range" min={4} max={vMaxSec} step={1} value={vDur} disabled={busy} onChange={(e) => up({ duration: parseInt(e.target.value, 10) })} style={{ width: '100%', accentColor: 'var(--green-500)' }} />
+ <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-quaternary)', fontSize: 9, marginTop: 2 }}><span>4초</span><span>{vMaxSec}초</span></div>
+ </div>
+ <div className="meta" style={{ color: 'var(--text-tertiary)', textAlign: 'center' }}>예상 비용 <strong style={{ color: 'var(--green-700)' }}>{cf.usd}</strong> <span>({cf.krw})</span> <span style={{ marginLeft: 4 }}>· 프롬프트 생성 + {vDur}초 영상</span></div>
+ <button className="btn btn-primary" onClick={() => runGen()} disabled={!v.situation.trim()} style={{ fontSize: 14, padding: '11px 20px', justifyContent: 'center' }}><Film size={15} /> {vDur}초 영상 생성{anyLoading ? ` (진행 중 ${jobs.filter(j => j.loading).length})` : ''}</button>
  </div>
  </div>
  </div>
