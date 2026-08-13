@@ -4,7 +4,7 @@
 2026-08-04 작성 · 2026-08-12 개인용 전환 반영.
 
 드라마 제작 자동화 데스크톱 앱. Electron + Vite + React 18.
-외부 생성 AI(BytePlus ModelArk · fal.ai · Anthropic · Google)를 묶어 19개 작업을 제공한다.
+외부 생성 AI(BytePlus ModelArk · fal.ai · Anthropic · Google)를 묶어 18개 작업을 제공한다.
 **서버가 없다** — 로그인·계정·서버 집계를 걷어낸 1인용 앱이고, 상태는 전부 이 PC 안에 있다.
 
 ---
@@ -15,7 +15,7 @@
 
 ### 1-1. `src/App.jsx` 단일 파일 — 36,700줄 / 2.1MB
 
-**앱 전체가 한 파일의 한 컴포넌트다.** `DramaAutomation` 하나에 19개 작업의
+**앱 전체가 한 파일의 한 컴포넌트다.** `DramaAutomation` 하나에 18개 작업의
 상태·핸들러·JSX가 모두 들어 있다. 컴포넌트 분리가 되어 있지 않다.
 
 | 파일 | 줄 수 | 역할 |
@@ -77,13 +77,13 @@ print('고아 속성:', bad or '없음')
 ### 1-4. 라우팅이 두 갈래로 남아 있다
 
 `SINGLE_TASK_CATALOG`(카탈로그) → `singleTaskId`로 워크스페이스를 연다.
-카탈로그 19개 중 **16개는 `singleTaskId === '...'` 분기로 직접 렌더**되고,
-**3개는 구버전 view 상태로 우회**한다. 마이그레이션 잔재다.
+카탈로그 18개 중 **16개는 `singleTaskId === '...'` 분기로 직접 렌더**되고,
+**2개는 구버전 view 상태로 우회**한다. 마이그레이션 잔재다.
+(장소 탐색이 세 번째 우회였는데 개인용 전환에서 기능째 걷어냈다.)
 
 | 작업 | id | `currentView` |
 |---|---|---|
 | TTS | `sound-tts` | `tool-sound` (+ `soundMode='tts'`) |
-| 장소 탐색 | `etc-location` | `tool-location` |
 | SRT 번역 | `etc-srt` | `tool-translate` |
 
 우회는 **`openSingleTask` 안에 하드코딩**되어 있다. 별도 라우팅 테이블은 없다 —
@@ -94,7 +94,6 @@ print('고아 속성:', bad or '없음')
 const openSingleTask = (taskId) => {
   setAppScreen('single'); setSingleTaskId(taskId);
   if (taskId === 'sound-tts') { setCurrentViewRaw('tool-sound'); setSoundMode('tts'); }
-  else if (taskId === 'etc-location') { setCurrentViewRaw('tool-location'); }
   else if (taskId === 'etc-srt') { setCurrentViewRaw('tool-translate'); }
   else setCurrentViewRaw('single-blank');
   ...
@@ -107,8 +106,8 @@ const openSingleTask = (taskId) => {
 구조여서, 빠뜨리면 "왼쪽 목록에서 작업을 선택하세요" 화면이 새 워크스페이스 위에
 겹쳐 그려진다(v829에서 실제로 발생).
 
-우회 3종은 `currentView`가 `single-blank`이 아니게 되므로 목록에 없어도 무해하다
-(현재 `etc-location`·`etc-srt`는 들어 있고 `sound-tts`는 없다 — 둘 다 문제 없다).
+우회 2종은 `currentView`가 `single-blank`이 아니게 되므로 목록에 없어도 무해하다
+(현재 `etc-srt`는 들어 있고 `sound-tts`는 없다 — 둘 다 문제 없다).
 
 정합성은 이렇게 확인한다.
 
@@ -125,7 +124,7 @@ print('제외 목록에 빠진 직접 렌더:', sorted(direct - detour - exclude
 
 ---
 
-## 2. 작업 19종
+## 2. 작업 18종
 
 카탈로그는 `SINGLE_TASK_CATALOG`(App.jsx ~9820)에 정의된다.
 `status: 'wire'`는 구 하네스를 새 UI에 연결한 것, `'new'`는 새로 만든 것이다.
@@ -148,7 +147,6 @@ print('제외 목록에 빠진 직접 렌더:', sorted(direct - detour - exclude
 | 사운드 | `sound-music` | BGM | 직접 | fal ElevenLabs Music |
 | 사운드 | `sound-tts` | TTS | **view 우회** | fal MiniMax |
 | 사운드 | `sound-voice` | VOICE | 직접 | fal MiniMax voice-clone |
-| 기타 | `etc-location` | 장소 탐색 | **view 우회** | Google Places · Kakao |
 | 기타 | `etc-srt` | SRT 번역 | **view 우회** | Claude |
 | 기타 | `etc-actor-auth` | 배우 인증 | 직접 | BytePlus Assets API |
 
@@ -285,8 +283,6 @@ GenerateContentInputTokensPerModelPerMinute-FreeTier      = 250000
 
 ### 3-5. 기타
 
-- Google Places (`places.googleapis.com`) — 해외 장소 검색
-- Kakao Local (`dapi.kakao.com`) — 국내 장소 검색
 - `open.er-api.com` — 환율
 
 ---
@@ -642,13 +638,11 @@ VITE_ARK_ACCESS_KEY_ID      BytePlus Access Key ID  (배우 인증 · Assets API
 VITE_ARK_SECRET_KEY         BytePlus Secret Key     (배우 인증 · Assets API)
 VITE_CLAUDE_API_KEY         Anthropic
 VITE_GOOGLE_API_KEY         Gemini (영상 분석)
-VITE_GOOGLE_PLACES_API_KEY  Places (장소 탐색)
-VITE_KAKAO_API_KEY          Kakao Local
 ```
 
-`VITE_GOOGLE_API_KEY`와 `VITE_GOOGLE_PLACES_API_KEY`는 **둘 다 `AIza` + 39자**라
-눈으로 구분되지 않는다. 서로 바뀌면 Gemini 호출이
-`403 API_KEY_SERVICE_BLOCKED`로 실패한다.
+개인용 전환에서 **장소 탐색(Google Places · Kakao Local)을 걷어냈다.**
+`VITE_GOOGLE_PLACES_API_KEY` 와 `VITE_KAKAO_API_KEY` 는 더 이상 쓰지 않는다.
+남은 Google 키는 Gemini(영상·YouTube 분석) 전용이라 키가 섞일 일도 없어졌다.
 
 BytePlus 키는 **두 종류가 따로 필요하다.** `VITE_ARK_API_KEY`(Bearer)로는 Assets API를
 호출할 수 없고, AK/SK로는 영상·이미지 생성을 호출할 수 없다. 문서 명시:
