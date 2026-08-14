@@ -651,6 +651,13 @@ AK/SK 발급은 콘솔 → 계정명 → IAM → Key management → Create acces
 Secret은 발급 시 한 번만 표시된다. 해당 계정에 프로젝트의 `ArkFullAccess` 권한이
 있어야 하고, Advanced Creation Rights가 **Entry 이상**이어야 Assets API가 열린다.
 
+**여기에 더해 계정에 Advanced 또는 Premium 구독 플랜이 필요하다.** 플랜이 없으면
+키와 권한이 멀쩡해도 403 이 떨어진다 — 원문은 `This API requires an active
+subscription. Please subscribe to an Advanced or Premium plan.` 이다.
+**선불 리소스 팩을 사둔 것과는 별개다** (팩은 사용량, 이건 플랜 가입).
+403 을 IAM 문제로만 안내하다가 엉뚱한 곳을 뒤지게 만든 적이 있어,
+지금은 원문에 subscription/plan 이 있으면 요금제 안내로 갈라준다.
+
 키를 하나도 넣지 않아도 앱은 켜지고 화면은 다 돌아본다. 실제 생성 호출만 실패한다.
 
 ---

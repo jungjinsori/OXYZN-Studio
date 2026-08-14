@@ -21264,6 +21264,12 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  //   같은 404 라도 '토큰 없음'과 '자산 없음'은 사용자에게 전혀 다른 이야기다.
  const fail = (m) => { const e = new Error(m); e.status = r.status; e.code = code; e.raw = msg; return e; };
  if (r.status === 403 || /AccessDenied|NoPermission|Forbidden/i.test(code)) {
+ // v1051: 403 을 IAM 권한 문제로만 안내하다가 사람을 엉뚱한 곳으로 보냈다.
+ //   BytePlus 는 '구독 플랜이 없음' 도 403 으로 돌려준다. 그때 IAM 을 뒤지면
+ //   아무리 봐도 권한은 멀쩡해서 원인을 못 찾는다. 원문을 보고 갈라준다.
+ if (/subscription|subscribe|plan/i.test(msg)) {
+ throw fail(`BytePlus 구독 플랜이 없어 거부됐습니다 (403). 권한(IAM) 문제가 아니라 계정의 요금제 문제입니다.\n\n배우 인증(Assets API)은 Advanced 또는 Premium 플랜을 구독해야 열립니다. BytePlus 콘솔 → ModelArk → 구독(Subscription) 에서 플랜을 확인해주세요.\n선불 리소스 팩을 사둔 것과는 별개입니다 — 리소스 팩은 사용량이고, 이건 플랜 가입입니다.\n\n원본: ${msg}`);
+ }
  throw fail(`권한이 없습니다 (403). Access Key 계정에 해당 프로젝트(${ARK_ASSET_PROJECT})의 ArkFullAccess 권한이 있는지, 그리고 Advanced Creation Rights가 Entry 이상인지 확인해주세요.\n\n원본: ${msg}`);
  }
  if (r.status === 401 || /SignatureDoesNotMatch|InvalidAccessKey|InvalidCredential/i.test(code)) {
