@@ -15528,6 +15528,8 @@ export default function DramaAutomation() {
  highlightTime: 30, // 초 단위
  // 가사 유무
  forceInstrumental: true, // true면 보컬 없음 (BGM)
+ // v1050: 보컬 포함으로 뽑을 때 인스트루멘탈 버전도 같이 뽑는다 (호출 2회 · 비용 2배)
+ alsoInstrumental: false,
  // v346: 보컬 성별 선택 (forceInstrumental === false 일 때만 사용)
  vocalGender: 'female', // 'male' | 'female' | 'mixed' — 기본값 여성
  // v307: 가사 관련 (forceInstrumental === false 일 때만 사용)
@@ -19388,7 +19390,7 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  genre: '', moodGroup: '', mood: [], instruments: '', customPrompt: '',
  genreInputMode: 'manual', scenarioExcerpt: '', isExtractingGenre: false, extractGenreError: '',
  duration: initialDuration, useBpm: false, bpm: 90, useHighlight: false, highlightTime: 30,
- forceInstrumental: true, vocalGender: 'female', lyricsMode: 'auto', lyricsLanguage: 'ko',
+ forceInstrumental: true, alsoInstrumental: false, vocalGender: 'female', lyricsMode: 'auto', lyricsLanguage: 'ko',
  lyricsTopic: '', lyricsManual: '', lyricsPreview: '', isGeneratingLyrics: false,
  outputFormat: initialFormat, isGeneratingPrompt: false, isGeneratingMusic: false,
  promptResult: '', error: '', history: [], selectedVersion: null, version: 0,
@@ -20583,7 +20585,7 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  // 입력 초기화
  genre: '', mood: [], instruments: '', customPrompt: '',
  useHighlight: false, highlightTime: 30,
- forceInstrumental: true, vocalGender: 'female',
+ forceInstrumental: true, alsoInstrumental: false, vocalGender: 'female',
  lyricsMode: 'auto', lyricsLanguage: 'ko', lyricsTopic: '', lyricsManual: '', lyricsPreview: '',
  isGeneratingLyrics: false,
  // 결과 초기화
@@ -21771,11 +21773,13 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  // 음악 생성 비용 (길이 기반)
  const estimateMusicCost = (durationSec) => MUSIC_COST_PER_SEC * durationSec;
 
- // 전체 음악 생성 (프롬프트 + Replicate)
- const estimateTotalMusicCost = (model, durationSec, hasLyrics, hasPreview) => {
+ // 전체 음악 생성 (프롬프트 + 음악 API)
+ // v1050: takes = 음악 API 호출 횟수. 인스트루멘탈까지 함께 뽑으면 2다.
+ //   프롬프트는 한 번 만들어 두 호출이 나눠 쓰므로 promptCost 는 곱하지 않는다.
+ const estimateTotalMusicCost = (model, durationSec, hasLyrics, hasPreview, takes = 1) => {
  // hasPreview가 true면 자동 작사 미리보기로 이미 가사 생성됨 → 프롬프트 생성 시 가사 부담 없음
  const promptCost = estimatePromptGenCost(model, hasLyrics && !hasPreview);
- const musicCost = estimateMusicCost(durationSec);
+ const musicCost = estimateMusicCost(durationSec) * Math.max(1, takes);
  return { promptCost, musicCost, total: promptCost + musicCost };
  };
 
@@ -22328,7 +22332,7 @@ ${moodOptions}
  // v306: Music 툴 — 영문 프롬프트 생성 + Replicate 호출
  // ─────────────────────────────────────────────────────────────
  const handleGenerateMusic = async () => {
- const { genre, mood, instruments, customPrompt, duration, useHighlight, highlightTime, forceInstrumental, outputFormat, lyricsMode, lyricsLanguage, lyricsTopic, lyricsManual, lyricsPreview, vocalGender, useBpm, bpm } = musicToolData;
+ const { genre, mood, instruments, customPrompt, duration, useHighlight, highlightTime, forceInstrumental, alsoInstrumental, outputFormat, lyricsMode, lyricsLanguage, lyricsTopic, lyricsManual, lyricsPreview, vocalGender, useBpm, bpm } = musicToolData;
 
  // 입력 검증
  if (!genre && (!mood || mood.length === 0) && !customPrompt.trim()) {
@@ -22551,40 +22555,59 @@ ${forceInstrumental
  runs: (p.runs || []).map(r => r.id === musicRunId ? { ...r, phase: 'music' } : r),
  }));
 
- // ── 2단계: Replicate elevenlabs/music 호출 ──
- const musicResult = await callFalMusic({
- prompt: cleanedPrompt,
- musicLengthMs: safeDuration * 1000,
- forceInstrumental,
- outputFormat,
- });
+ // ── 2단계: 음악 호출 ──
+ // v1050: 보컬 포함 + '인스트루멘탈도 함께'면 같은 프롬프트로 두 번 부른다.
+ //   ★ 같은 곡의 보컬 제거본이 아니다. 이 API 는 호출마다 새로 작곡하므로
+ //     두 결과는 분위기만 같은 별개의 곡이다. (스템 분리·시드 고정을 지원하지 않음)
+ const wantBoth = !forceInstrumental && !!alsoInstrumental;
+ const baseArgs = { prompt: cleanedPrompt, musicLengthMs: safeDuration * 1000, outputFormat };
+ const musicResult = await callFalMusic({ ...baseArgs, forceInstrumental });
+
+ let instResult = null;
+ if (wantBoth) {
+ // 보컬본은 이미 나왔다. 여기서 실패해도 그건 살린다.
+ try {
+ setMusicToolData(p => ({ ...p, runs: (p.runs || []).map(r => r.id === musicRunId ? { ...r, phase: 'music-inst' } : r) }));
+ instResult = await callFalMusic({ ...baseArgs, forceInstrumental: true });
+ } catch (e) {
+ console.warn('[music] 인스트루멘탈 버전 실패 — 보컬 버전은 유지:', e?.message);
+ }
+ }
 
  // ── 3단계: 결과 저장 (히스토리에 추가) ──
  setMusicToolData(p => {
- const nextVersion = (p.version || 0) + 1;
- const newEntry = {
- version: nextVersion,
- url: musicResult.url,
- format: musicResult.format,
- durationMs: musicResult.durationMs,
+ const baseSettings = { genre, mood: [...(mood || [])], instruments, customPrompt, duration: safeDuration, useHighlight, highlightTime: safeHighlight, outputFormat, lyricsMode, lyricsLanguage, lyricsTopic, lyricsManual, lyricsPreview, vocalGender, useBpm, bpm: (useBpm ? bpm : (bgmEmotionByKo((mood || [])[0])?.bpm ?? null)) };
+ const mk = (res, ver, inst) => ({
+ version: ver,
+ url: res.url,
+ format: res.format,
+ durationMs: res.durationMs,
  promptResult: cleanedPrompt,
- settings: { genre, mood: [...(mood || [])], instruments, customPrompt, duration: safeDuration, useHighlight, highlightTime: safeHighlight, forceInstrumental, outputFormat, lyricsMode, lyricsLanguage, lyricsTopic, lyricsManual, lyricsPreview, vocalGender, useBpm, bpm: (useBpm ? bpm : (bgmEmotionByKo((mood || [])[0])?.bpm ?? null)) },
+ // 짝으로 뽑은 것끼리 묶어 카드에 표시한다
+ pairId: wantBoth ? musicRunId : null,
+ variant: wantBoth ? (inst ? 'inst' : 'vocal') : null,
+ settings: { ...baseSettings, forceInstrumental: inst },
  createdAt: Date.now(),
- };
+ });
+ let ver = (p.version || 0);
+ const added = [mk(musicResult, ++ver, forceInstrumental)];
+ if (instResult) added.push(mk(instResult, ++ver, true));
  const rest = (p.runs || []).filter(r => r.id !== musicRunId);
  return {
  ...p,
  runs: rest,
  isGeneratingMusic: rest.length > 0,   // v825: 남은 생성이 있으면 표시 유지
- version: nextVersion,
- history: [...(p.history || []), newEntry],
- selectedVersion: nextVersion,
+ version: ver,
+ history: [...(p.history || []), ...added],
+ selectedVersion: added[0].version, // 보컬본을 먼저 보여준다
  };
  });
  // v329: 음악 생성 완료 알람
  sendSystemNotification(
  '음악 생성 완료',
- `${Math.round((musicResult.durationMs || 0) / 1000)}초 길이의 음악이 생성되었습니다.`
+ instResult
+ ? `${Math.round((musicResult.durationMs || 0) / 1000)}초 · 보컬본과 인스트루멘탈본 2개가 생성되었습니다.`
+ : `${Math.round((musicResult.durationMs || 0) / 1000)}초 길이의 음악이 생성되었습니다.`
  );
  } catch (err) {
  console.error('Music generation error:', err);
@@ -37580,6 +37603,26 @@ AUDIO:
  {!md.forceInstrumental && (
  <div style={{ marginBottom: 24, padding: 16, background: 'rgba(168,85,247,0.05)', borderRadius: 8, border: '1px solid rgba(168,85,247,0.2)' }}>
  <div className="micro" style={{ fontWeight: 700, marginBottom: 12, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>가사 설정</div>
+ {/* v1050: 인스트루멘탈 버전 동시 생성 */}
+ <div style={{ marginBottom: 14 }}>
+ <button type="button" onClick={() => updateMd({ alsoInstrumental: !md.alsoInstrumental })} disabled={isBusy}
+ style={{ width: '100%', textAlign: 'left', padding: '10px 12px', borderRadius: 8, cursor: isBusy ? 'not-allowed' : 'pointer',
+ border: `1px solid ${md.alsoInstrumental ? 'var(--green-500)' : 'var(--border)'}`,
+ background: md.alsoInstrumental ? 'var(--green-50)' : 'var(--bg-secondary)',
+ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
+ <span style={{ flexShrink: 0, width: 15, height: 15, marginTop: 1, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center',
+ border: `1.5px solid ${md.alsoInstrumental ? 'var(--green-500)' : 'var(--border-strong)'}`,
+ background: md.alsoInstrumental ? 'var(--green-500)' : 'transparent', color: '#fff' }}>
+ {md.alsoInstrumental && <Check size={10} strokeWidth={3} />}
+ </span>
+ <span>
+ <span style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>인스트루멘탈 버전도 함께 생성</span>
+ <span style={{ display: 'block', fontSize: 10, lineHeight: 1.6, color: 'var(--text-tertiary)', marginTop: 3 }}>
+ 보컬본과 반주본을 각각 뽑습니다. <strong>같은 곡의 보컬만 뺀 것이 아니라</strong> 같은 프롬프트로 새로 작곡한 별개의 곡입니다 — 이 모델은 스템 분리를 지원하지 않습니다. 음악 생성 비용이 2배입니다.
+ </span>
+ </span>
+ </button>
+ </div>
  <div style={{ marginBottom: 14 }}>
  <label className="micro" style={{ display: 'block', fontWeight: 600, marginBottom: 8, color: 'var(--text-secondary)', fontSize: 11 }}>보컬</label>
  <div style={{ display: 'flex', gap: 6 }}>
@@ -37650,14 +37693,14 @@ AUDIO:
 
  {md.error && (<div style={{ padding: 14, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, marginBottom: 20, fontSize: 12, color: 'var(--state-error, #dc2626)', lineHeight: 1.6 }}>❌ {md.error}</div>)}
 
- {(() => { const hasLyrics = !md.forceInstrumental; const hasPreview = md.lyricsMode === 'auto' && md.lyricsPreview.trim().length > 0; const cost = estimateTotalMusicCost(musicPromptModel, md.duration, hasLyrics, hasPreview); return (
+ {(() => { const hasLyrics = !md.forceInstrumental; const hasPreview = md.lyricsMode === 'auto' && md.lyricsPreview.trim().length > 0; const takes = (hasLyrics && md.alsoInstrumental) ? 2 : 1; const cost = estimateTotalMusicCost(musicPromptModel, md.duration, hasLyrics, hasPreview, takes); return (
  <div style={{ padding: '12px 16px', marginBottom: 12, borderRadius: 10, background: 'var(--bg-secondary)', border: '1px solid var(--border)', fontSize: 11, lineHeight: 1.7 }}>
  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
- <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 12 }}>예상 비용 <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}>· 1회 생성</span></span>
+ <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 12 }}>예상 비용 <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}>· {takes === 2 ? '보컬 + 인스트루멘탈' : '1회 생성'}</span></span>
  <span style={{ fontFamily: 'SF Mono, monospace', fontWeight: 800, color: 'var(--green-700)', fontSize: 13, fontVariantNumeric: 'tabular-nums' }}>{fmtCost(cost.total)}</span>
  </div>
  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-tertiary)', fontSize: 10 }}><span>· 프롬프트 작성{hasLyrics && !hasPreview ? ' · 가사 포함' : ''}</span><span style={{ fontFamily: 'SF Mono, monospace', fontVariantNumeric: 'tabular-nums' }}>{fmtCost(cost.promptCost)}</span></div>
- <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-tertiary)', fontSize: 10 }}><span>· 음악 생성 ({md.duration}초)</span><span style={{ fontFamily: 'SF Mono, monospace', fontVariantNumeric: 'tabular-nums' }}>{fmtCost(cost.musicCost)}</span></div>
+ <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-tertiary)', fontSize: 10 }}><span>· 음악 생성 ({md.duration}초{takes === 2 ? ' × 2곡' : ''})</span><span style={{ fontFamily: 'SF Mono, monospace', fontVariantNumeric: 'tabular-nums' }}>{fmtCost(cost.musicCost)}</span></div>
  </div>
  ); })()}
 
@@ -37673,7 +37716,7 @@ AUDIO:
  <LottieFx data={musicLoadingData} width={120} height={120} />
  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>
  {musicRuns.length > 1 ? `${ri + 1}/${musicRuns.length} · ` : ''}
- {run.phase === 'prompt' ? '프롬프트 생성 중…' : '음악 생성 중… (30~90초)'}
+ {run.phase === 'prompt' ? '프롬프트 생성 중…' : run.phase === 'music-inst' ? '인스트루멘탈 버전 생성 중… (30~90초)' : '음악 생성 중… (30~90초)'}
  </div>
  </div>
  ))}
@@ -37702,6 +37745,16 @@ AUDIO:
  🎤 {s.vocalGender === 'male' ? '남성' : s.vocalGender === 'mixed' ? '혼성' : '여성'} 보컬
  </span>
  </>)}
+ {/* v1050: 보컬본+반주본을 함께 뽑은 짝 표시 */}
+ {selectedEntry.pairId && (() => {
+ const mate = (md.history || []).find(h => h.pairId === selectedEntry.pairId && h.version !== selectedEntry.version);
+ return (<>
+ <span style={{ color: 'var(--text-quaternary)' }}>·</span>
+ <span style={{ padding: '1px 7px', borderRadius: 999, background: 'var(--green-50)', color: 'var(--green-700)', fontWeight: 700, fontSize: 10 }}>
+ {selectedEntry.variant === 'inst' ? '🎼 반주본' : '🎤 보컬본'}{mate ? ` · 짝 v${mate.version}` : ''}
+ </span>
+ </>);
+ })()}
  </div>
  </div>
  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
