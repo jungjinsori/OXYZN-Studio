@@ -21886,26 +21886,27 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  return { url, format: outputFormat, durationMs: safeLength };
  };
 
- // v1050: 보컬 분리 — fal-ai/demucs 로 스템을 나눈 뒤, 보컬을 뺀 나머지를 합쳐 반주본을 만든다.
- //   htdemucs(4스템)를 쓴다. 어차피 합칠 것이라 6스템으로 더 잘게 쪼갤 이유가 없고 더 빠르다.
- //   합치기는 브라우저에서 한다 — fal 이 '반주 한 트랙' 을 따로 주지 않는다.
+ // v1050: Inst 만들기 — fal-ai/demucs 로 스템을 나눈 뒤 보컬을 뺀 나머지를 합친다.
+ //   htdemucs(4스템)를 쓴다. 어차피 합칠 것이라 6스템으로 잘게 쪼갤 이유가 없고 더 빠르다.
+ //   보컬 스템은 받지 않는다 — 쓸 데가 없다. 원곡이 이미 '보컬 포함' 버전이다.
+ //   (비용은 스템 수와 무관하다. 오디오 길이로만 매겨진다)
+ //   합치기는 브라우저에서 한다. fal 이 '반주 한 트랙' 을 따로 주지 않기 때문이다.
  const callStemSeparate = async ({ audioUrl, durationMs }) => {
  const out = await falRun(FAL_MODELS.stemSeparate, {
  audio_url: audioUrl,
  model: 'htdemucs',
- stems: ['vocals', 'drums', 'bass', 'other'],
+ stems: ['drums', 'bass', 'other'],
  output_format: 'mp3',
  }, { pollMs: 4000, maxPolls: 120, kind: 'music' });
 
  const pick = (k) => out?.[k]?.url || null;
- const vocals = pick('vocals');
  const rest = ['drums', 'bass', 'other'].map(pick).filter(Boolean);
- if (!vocals || !rest.length) {
+ if (!rest.length) {
  throw new Error(`스템 분리 결과가 비었습니다: ${JSON.stringify(out).slice(0, 200)}`);
  }
  const inst = await mixAudioUrlsToWavUrl(rest);
  try { recordCreditUsage(((durationMs || 0) / 1000) * DEMUCS_COST_PER_SEC, 'etc', { workCat: 'sound' }); } catch {}
- return { vocals, inst, stems: { vocals, drums: pick('drums'), bass: pick('bass'), other: pick('other') } };
+ return { inst };
  };
 
  // ─────────────────────────────────────────────────────────────
@@ -37496,13 +37497,13 @@ AUDIO:
  ...p,
  separatingVer: null,
  history: (p.history || []).map(h => h.version === entry.version
- ? { ...h, separated: { vocals: res.vocals, inst: res.inst, at: Date.now() } }
+ ? { ...h, separated: { inst: res.inst, at: Date.now() } }
  : h),
  }));
- try { showToast('보컬과 반주를 분리했습니다.', 'load'); } catch {}
+ try { showToast('Inst 버전을 만들었습니다.', 'load'); } catch {}
  } catch (err) {
  console.error('[music] 스템 분리 실패:', err);
- updateMd({ separatingVer: null, error: `보컬 분리 실패: ${err.message}` });
+ updateMd({ separatingVer: null, error: `Inst 생성 실패: ${err.message}` });
  }
  };
 
@@ -37836,12 +37837,12 @@ AUDIO:
  });
  }}
  style={{ padding: '7px 14px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)', background: 'var(--bg-secondary)', cursor: 'pointer', flexShrink: 0 }}>⬇ 다운로드</button>
- {/* v1050: 보컬 분리 — 이 곡 그대로에서 보컬/반주를 갈라낸다 */}
- {!selectedEntry.separated && (
+ {/* v1050: Inst 만들기 — 이 곡에서 보컬만 빼낸 버전 */}
+ {!s.forceInstrumental && !selectedEntry.separated && (
  <button onClick={() => runStemSeparate(selectedEntry)} disabled={!!md.separatingVer}
- title={`Demucs 스템 분리 · 약 ${fmtCost(((selectedEntry.durationMs || 0) / 1000) * DEMUCS_COST_PER_SEC)}`}
+ title={`이 곡에서 보컬을 빼낸 Inst 버전을 만듭니다 · 약 ${fmtCost(((selectedEntry.durationMs || 0) / 1000) * DEMUCS_COST_PER_SEC)}`}
  style={{ padding: '7px 14px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)', background: 'var(--bg-secondary)', cursor: md.separatingVer ? 'not-allowed' : 'pointer', opacity: md.separatingVer ? 0.6 : 1, flexShrink: 0 }}>
- {md.separatingVer === selectedEntry.version ? '분리 중…' : '🎚 보컬 분리'}
+ {md.separatingVer === selectedEntry.version ? 'Inst 만드는 중…' : '🎚 Inst 만들기'}
  </button>
  )}
  </div>
@@ -37872,13 +37873,14 @@ AUDIO:
  <CustomAudioPlayer key={`${selectedEntry.version}-${tag}`} src={url} />
  </div>
  );
+ const origExt = (selectedEntry.format || '').startsWith('wav') ? 'wav' : 'mp3';
  return (
  <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px dashed var(--border)' }}>
  <div className="micro" style={{ color: 'var(--text-tertiary)', marginBottom: 2 }}>
- 이 곡에서 분리한 트랙입니다. 반주본은 보컬을 뺀 나머지를 합친 wav 입니다.
+ 같은 곡의 두 버전입니다. Inst 는 보컬만 빼낸 것이라 연주가 원곡과 같습니다.
  </div>
- {row('🎤 보컬만', selectedEntry.separated.vocals, '보컬', 'mp3')}
- {row('🎼 반주 (보컬 제외)', selectedEntry.separated.inst, '반주', 'wav')}
+ {row('🎤 Vocal 포함 (원곡)', selectedEntry.url, 'Vocal', origExt)}
+ {row('🎼 Inst (보컬 제외)', selectedEntry.separated.inst, 'Inst', 'wav')}
  </div>
  );
  })()}
