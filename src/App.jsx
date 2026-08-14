@@ -8390,7 +8390,11 @@ const FAL_MODELS = {
  voiceClone: 'fal-ai/minimax/voice-clone',    // 기존 minimax/voice-cloning
  ttsMinimax: 'fal-ai/minimax/speech-2.8-turbo',
  upscaleVideo: 'fal-ai/topaz/upscale/video',
+ stemSeparate: 'fal-ai/demucs',               // v1050: 보컬/반주 스템 분리
 };
+// v1050: 스템 분리 단가 — 오디오 1초당 $0.0007 (fal 고지가).
+//   스템을 몇 개 고르든 값은 같다. 분리를 한 번 돌리고 그 결과에서 골라 받는 구조다.
+const DEMUCS_COST_PER_SEC = 0.0007;
 
 // v782: Topaz 영상 업스케일 세부모델 — fal 스키마의 model enum 을 계열별로 묶었다.
 // v1033: 순서를 바꿨다 — 닉스 계열이 실제 결과가 제일 좋았다(정진님). 닉스를 맨 위,
@@ -8448,6 +8452,68 @@ const FAL_MUSIC_FORMAT = {
  wav_22khz: 'mp3_44100_192',
  wav_24khz: 'mp3_44100_192',
  wav_cd_quality: 'mp3_44100_192',
+};
+
+// v1050: 스템 분리(Demucs) 결과를 한 트랙으로 합친다.
+//   Demucs 는 vocals/drums/bass/other 를 따로 준다. '반주본' 은 보컬을 뺀 나머지를
+//   더한 것이다. 같은 원본에서 갈라진 스템이라 그대로 더하면 원곡－보컬이 된다.
+const decodeAudioFromUrl = async (ctx, url) => {
+ const res = await fetch(url);
+ if (!res.ok) throw new Error(`스템 내려받기 실패 (${res.status})`);
+ return ctx.decodeAudioData(await res.arrayBuffer());
+};
+
+// AudioBuffer → WAV(16bit PCM) Blob. 브라우저에 mp3 인코더가 없어 wav 로 낸다.
+const audioBufferToWavBlob = (buf) => {
+ const ch = buf.numberOfChannels, len = buf.length, rate = buf.sampleRate;
+ const bytes = len * ch * 2;
+ const ab = new ArrayBuffer(44 + bytes);
+ const v = new DataView(ab);
+ const str = (off, s) => { for (let i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i)); };
+ str(0, 'RIFF'); v.setUint32(4, 36 + bytes, true); str(8, 'WAVE');
+ str(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true);
+ v.setUint16(22, ch, true); v.setUint32(24, rate, true);
+ v.setUint32(28, rate * ch * 2, true); v.setUint16(32, ch * 2, true); v.setUint16(34, 16, true);
+ str(36, 'data'); v.setUint32(40, bytes, true);
+ const chans = []; for (let c = 0; c < ch; c++) chans.push(buf.getChannelData(c));
+ let off = 44;
+ for (let i = 0; i < len; i++) {
+ for (let c = 0; c < ch; c++) {
+ const s = Math.max(-1, Math.min(1, chans[c][i]));
+ v.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+ off += 2;
+ }
+ }
+ return new Blob([ab], { type: 'audio/wav' });
+};
+
+// 여러 오디오 URL 을 더해 하나의 wav Blob URL 로 만든다.
+const mixAudioUrlsToWavUrl = async (urls) => {
+ const AC = window.AudioContext || window.webkitAudioContext;
+ if (!AC) throw new Error('이 환경에서는 오디오 합치기를 지원하지 않습니다.');
+ const ctx = new AC();
+ try {
+ const bufs = await Promise.all(urls.map((u) => decodeAudioFromUrl(ctx, u)));
+ if (!bufs.length) throw new Error('합칠 스템이 없습니다.');
+ const ch = Math.max(...bufs.map((b) => b.numberOfChannels));
+ const len = Math.max(...bufs.map((b) => b.length));
+ const rate = bufs[0].sampleRate;
+ const out = ctx.createBuffer(ch, len, rate);
+ for (let c = 0; c < ch; c++) {
+ const o = out.getChannelData(c);
+ for (const b of bufs) {
+ const src = b.getChannelData(Math.min(c, b.numberOfChannels - 1));
+ for (let i = 0; i < src.length; i++) o[i] += src[i];
+ }
+ }
+ // 더하다 1.0 을 넘으면 깨진다. 넘칠 때만 전체를 같은 비율로 낮춘다(음색 유지).
+ let peak = 0;
+ for (let c = 0; c < ch; c++) { const o = out.getChannelData(c); for (let i = 0; i < len; i++) { const a = Math.abs(o[i]); if (a > peak) peak = a; } }
+ if (peak > 1) for (let c = 0; c < ch; c++) { const o = out.getChannelData(c); for (let i = 0; i < len; i++) o[i] /= peak; }
+ return URL.createObjectURL(audioBufferToWavBlob(out));
+ } finally {
+ try { ctx.close(); } catch {}
+ }
 };
 
 // v749: 앱의 평면 TTS 입력을 fal 스키마로 변환.
@@ -15526,6 +15592,8 @@ export default function DramaAutomation() {
  // 하이라이트 시점 (선택)
  useHighlight: false, // 토글 — true면 highlightTime 사용
  highlightTime: 30, // 초 단위
+ // v1050: 스템 분리 진행 중인 버전 번호 (null이면 진행 중 아님)
+ separatingVer: null,
  // 가사 유무
  forceInstrumental: true, // true면 보컬 없음 (BGM)
  // v346: 보컬 성별 선택 (forceInstrumental === false 일 때만 사용)
@@ -21816,6 +21884,28 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  if (!url) throw new Error(`음악 결과 URL을 받지 못했습니다: ${JSON.stringify(out).slice(0, 200)}`);
  try { recordCreditUsage((safeLength / 1000) * 0.0025, 'music', { workCat: 'sound' }); } catch {}
  return { url, format: outputFormat, durationMs: safeLength };
+ };
+
+ // v1050: 보컬 분리 — fal-ai/demucs 로 스템을 나눈 뒤, 보컬을 뺀 나머지를 합쳐 반주본을 만든다.
+ //   htdemucs(4스템)를 쓴다. 어차피 합칠 것이라 6스템으로 더 잘게 쪼갤 이유가 없고 더 빠르다.
+ //   합치기는 브라우저에서 한다 — fal 이 '반주 한 트랙' 을 따로 주지 않는다.
+ const callStemSeparate = async ({ audioUrl, durationMs }) => {
+ const out = await falRun(FAL_MODELS.stemSeparate, {
+ audio_url: audioUrl,
+ model: 'htdemucs',
+ stems: ['vocals', 'drums', 'bass', 'other'],
+ output_format: 'mp3',
+ }, { pollMs: 4000, maxPolls: 120, kind: 'music' });
+
+ const pick = (k) => out?.[k]?.url || null;
+ const vocals = pick('vocals');
+ const rest = ['drums', 'bass', 'other'].map(pick).filter(Boolean);
+ if (!vocals || !rest.length) {
+ throw new Error(`스템 분리 결과가 비었습니다: ${JSON.stringify(out).slice(0, 200)}`);
+ }
+ const inst = await mixAudioUrlsToWavUrl(rest);
+ try { recordCreditUsage(((durationMs || 0) / 1000) * DEMUCS_COST_PER_SEC, 'etc', { workCat: 'sound' }); } catch {}
+ return { vocals, inst, stems: { vocals, drums: pick('drums'), bass: pick('bass'), other: pick('other') } };
  };
 
  // ─────────────────────────────────────────────────────────────
@@ -37396,6 +37486,26 @@ AUDIO:
  const musicRuns = md.runs || [];
  const isRunning = musicRuns.length > 0;
  // v702: 생성 기록 삭제 (목록에서 제거 — 선택 중이던 항목이면 최신 항목으로 대체)
+ // v1050: 선택한 곡을 보컬/반주로 분리한다. 결과는 그 버전 항목에 붙인다(새 버전 아님).
+ const runStemSeparate = async (entry) => {
+ if (!entry?.url || md.separatingVer) return;
+ updateMd({ separatingVer: entry.version, error: '' });
+ try {
+ const res = await callStemSeparate({ audioUrl: entry.url, durationMs: entry.durationMs });
+ setMusicToolData(p => ({
+ ...p,
+ separatingVer: null,
+ history: (p.history || []).map(h => h.version === entry.version
+ ? { ...h, separated: { vocals: res.vocals, inst: res.inst, at: Date.now() } }
+ : h),
+ }));
+ try { showToast('보컬과 반주를 분리했습니다.', 'load'); } catch {}
+ } catch (err) {
+ console.error('[music] 스템 분리 실패:', err);
+ updateMd({ separatingVer: null, error: `보컬 분리 실패: ${err.message}` });
+ }
+ };
+
  const deleteMusicEntry = (ver, e) => {
  if (e) { e.preventDefault(); e.stopPropagation(); }
  setConfirmDialog({
@@ -37726,10 +37836,52 @@ AUDIO:
  });
  }}
  style={{ padding: '7px 14px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)', background: 'var(--bg-secondary)', cursor: 'pointer', flexShrink: 0 }}>⬇ 다운로드</button>
+ {/* v1050: 보컬 분리 — 이 곡 그대로에서 보컬/반주를 갈라낸다 */}
+ {!selectedEntry.separated && (
+ <button onClick={() => runStemSeparate(selectedEntry)} disabled={!!md.separatingVer}
+ title={`Demucs 스템 분리 · 약 ${fmtCost(((selectedEntry.durationMs || 0) / 1000) * DEMUCS_COST_PER_SEC)}`}
+ style={{ padding: '7px 14px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)', background: 'var(--bg-secondary)', cursor: md.separatingVer ? 'not-allowed' : 'pointer', opacity: md.separatingVer ? 0.6 : 1, flexShrink: 0 }}>
+ {md.separatingVer === selectedEntry.version ? '분리 중…' : '🎚 보컬 분리'}
+ </button>
+ )}
  </div>
  </div>
  ); })()}
  <CustomAudioPlayer key={selectedEntry.version} src={selectedEntry.url} />
+ {/* v1050: 분리 결과 — 원곡에서 갈라낸 보컬본과 반주본 */}
+ {selectedEntry.separated && (() => {
+ const dl = async (url, tag, ext) => {
+ const s2 = selectedEntry.settings || {};
+ const fname = (await ffsBuildName({ type: s2.genre || '작곡', parts: [tag], version: selectedEntry.version })) + '.' + ext;
+ try {
+ const res = await fetch(url); const blob = await res.blob();
+ const o = URL.createObjectURL(blob); const a = document.createElement('a');
+ a.href = o; a.download = fname; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+ setTimeout(() => URL.revokeObjectURL(o), 2000);
+ try { showToast(`${tag}을 저장했습니다.`, 'load'); } catch {}
+ } catch { try { showToast('저장 실패', 'error'); } catch {} }
+ };
+ const row = (label, url, tag, ext) => (
+ <div style={{ marginTop: 10 }}>
+ <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+ <span className="micro" style={{ fontWeight: 700, color: 'var(--text-secondary)' }}>{label}</span>
+ <button onClick={() => dl(url, tag, ext)} className="btn btn-ghost btn-sm" style={{ padding: '3px 9px', fontSize: 11 }}>
+ <Download size={11} /> 저장
+ </button>
+ </div>
+ <CustomAudioPlayer key={`${selectedEntry.version}-${tag}`} src={url} />
+ </div>
+ );
+ return (
+ <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px dashed var(--border)' }}>
+ <div className="micro" style={{ color: 'var(--text-tertiary)', marginBottom: 2 }}>
+ 이 곡에서 분리한 트랙입니다. 반주본은 보컬을 뺀 나머지를 합친 wav 입니다.
+ </div>
+ {row('🎤 보컬만', selectedEntry.separated.vocals, '보컬', 'mp3')}
+ {row('🎼 반주 (보컬 제외)', selectedEntry.separated.inst, '반주', 'wav')}
+ </div>
+ );
+ })()}
  {/* v737: 가사 패널 — 가사 포함 생성물에서 '가사 보기' 시 표시 */}
  {musicLyricsOpenVer === selectedEntry.version && (() => {
  const lyrics = extractMusicLyrics(selectedEntry);
