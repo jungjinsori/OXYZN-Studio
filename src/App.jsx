@@ -21268,7 +21268,7 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  //   BytePlus 는 '구독 플랜이 없음' 도 403 으로 돌려준다. 그때 IAM 을 뒤지면
  //   아무리 봐도 권한은 멀쩡해서 원인을 못 찾는다. 원문을 보고 갈라준다.
  if (/subscription|subscribe|plan/i.test(msg)) {
- throw fail(`BytePlus 구독 플랜이 없어 거부됐습니다 (403). 권한(IAM) 문제가 아니라 계정의 요금제 문제입니다.\n\n배우 인증(Assets API)은 Advanced 또는 Premium 플랜을 구독해야 열립니다. BytePlus 콘솔 → ModelArk → 구독(Subscription) 에서 플랜을 확인해주세요.\n선불 리소스 팩을 사둔 것과는 별개입니다 — 리소스 팩은 사용량이고, 이건 플랜 가입입니다.\n\n원본: ${msg}`);
+ throw fail(`이 계정에는 배우 인증을 쓸 자격이 없습니다 (403). 키나 IAM 권한 문제가 아닙니다 — 계정에 붙은 등급 문제입니다.\n\n실인물 인증(Assets API)은 BytePlus 의 Advanced Creation Rights 가 있어야 열립니다. 기업용 유료 권한이라 법인 인증과 별도 계약이 필요하고, 선불 리소스 팩을 사둔 것과는 무관합니다(팩은 사용량, 이건 자격).\n\n같은 앱에서 되던 계정이 있다면 그쪽에 이 권한이 있는 것입니다. BytePlus 콘솔에서 두 계정의 Advanced Creation Rights 상태를 비교해보세요.\n\n원본: ${msg}`);
  }
  throw fail(`권한이 없습니다 (403). Access Key 계정에 해당 프로젝트(${ARK_ASSET_PROJECT})의 ArkFullAccess 권한이 있는지, 그리고 Advanced Creation Rights가 Entry 이상인지 확인해주세요.\n\n원본: ${msg}`);
  }
