@@ -8494,13 +8494,22 @@ const audioBufferToWavBlob = (buf) => {
 // 여러 오디오 URL 을 더해 하나의 wav Blob URL 로 만든다.
 // v1052: 스템을 한꺼번에 받아 전부 메모리에 올리던 것을 하나씩 처리하도록 바꿨다.
 //   전에는 3스템을 동시에 fetch·decode 해서 디코딩된 버퍼 3개(+누적본)가 같이 떠 있었다.
-//   실제로 분리 도중 앱이 죽은 흔적이 있었고(진행 플래그만 남고 결과·오류 둘 다 없음),
-//   가장 가능성이 큰 게 이 구간의 메모리였다. 지금은 한 번에 하나만 들고 있는다.
+//   지금은 한 번에 하나만 들고 있는다.
+//
+// v1053: 컨텍스트를 AudioContext → OfflineAudioContext 로 바꿨다. 이게 크래시 원인이었다.
+//   crash.log 에 render-process-gone reason=crashed exitCode=-1073741819 이 찍혔다.
+//   -1073741819 = 0xC0000005 = ACCESS_VIOLATION 이다. JS 예외도 메모리 부족(oom)도 아닌,
+//   네이티브가 터진 것이다. 이 함수에서 네이티브를 만지는 건 Web Audio 하나뿐이었다.
+//   여기서는 소리를 내지 않는데도 실시간 AudioContext 를 열고 있었다 —
+//   그건 오디오 장치와 드라이버를 붙잡는 API 다. 디코딩·가공만 할 때는
+//   장치를 건드리지 않는 OfflineAudioContext 가 맞다.
 const mixAudioUrlsToWavUrl = async (urls) => {
- const AC = window.AudioContext || window.webkitAudioContext;
- if (!AC) throw new Error('이 환경에서는 오디오 합치기를 지원하지 않습니다.');
+ const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+ if (!OAC) throw new Error('이 환경에서는 오디오 합치기를 지원하지 않습니다.');
  if (!urls || !urls.length) throw new Error('합칠 스템이 없습니다.');
- const ctx = new AC();
+ // 디코딩 전용이라 길이는 최소로 잡는다. decodeAudioData 는 이 컨텍스트의
+ //   샘플레이트로 리샘플링해 주므로 스템 간 레이트도 자동으로 맞는다.
+ const ctx = new OAC(2, 1, 48000);
  try {
  let acc = null;   // 누적본 (Float32Array 배열 — 채널별)
  let ch = 0, len = 0, rate = 0;
