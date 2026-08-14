@@ -8461,10 +8461,64 @@ const FAL_MUSIC_FORMAT = {
 // v1050: 스템 분리(Demucs) 결과를 한 트랙으로 합친다.
 //   Demucs 는 vocals/drums/bass/other 를 따로 준다. '반주본' 은 보컬을 뺀 나머지를
 //   더한 것이다. 같은 원본에서 갈라진 스템이라 그대로 더하면 원곡－보컬이 된다.
-const decodeAudioFromUrl = async (ctx, url) => {
+// v1054: Web Audio 를 완전히 걷어냈다.
+//   decodeAudioData 가 렌더러를 죽이고 있었다 — crash.log 에 0xC0000005(ACCESS_VIOLATION)
+//   가 두 번 찍혔고, 실시간 AudioContext 를 OfflineAudioContext 로 바꿔도 그대로였다.
+//   컨텍스트 종류가 아니라 네이티브 오디오 디코더 자체가 문제였던 것이다.
+//   그래서 스템을 mp3 대신 wav 로 받는다. wav 는 압축이 없는 raw PCM 이라
+//   디코더를 거칠 필요가 없고, 헤더만 읽으면 순수 계산으로 더할 수 있다.
+//   이제 이 경로에 네이티브 오디오 코드가 하나도 없다.
+
+// WAV 파서 — fmt/data 청크를 찾아 채널별 Float32 로 편다.
+//   16bit PCM(format 1)과 32bit float(format 3) 둘 다 받는다. demucs 는 보통 16bit 다.
+const parseWav = (arrayBuffer) => {
+ const v = new DataView(arrayBuffer);
+ const tag = (o) => String.fromCharCode(v.getUint8(o), v.getUint8(o + 1), v.getUint8(o + 2), v.getUint8(o + 3));
+ if (tag(0) !== 'RIFF' || tag(8) !== 'WAVE') throw new Error('WAV 형식이 아닙니다.');
+ let fmt = null, dataOff = -1, dataLen = 0;
+ // 청크를 순회한다. LIST 같은 게 끼어 있어도 건너뛴다.
+ let p = 12;
+ while (p + 8 <= v.byteLength) {
+ const id = tag(p);
+ const size = v.getUint32(p + 4, true);
+ const body = p + 8;
+ if (id === 'fmt ') {
+ fmt = { format: v.getUint16(body, true), channels: v.getUint16(body + 2, true),
+ sampleRate: v.getUint32(body + 4, true), bits: v.getUint16(body + 14, true) };
+ } else if (id === 'data') {
+ dataOff = body; dataLen = Math.min(size, v.byteLength - body);
+ }
+ p = body + size + (size % 2); // 청크는 짝수 경계로 정렬된다
+ if (fmt && dataOff >= 0) break;
+ }
+ if (!fmt || dataOff < 0) throw new Error('WAV 에서 fmt/data 를 찾지 못했습니다.');
+ const { channels: ch, sampleRate, bits, format } = fmt;
+ if (!(format === 1 && (bits === 16 || bits === 8 || bits === 24 || bits === 32)) && !(format === 3 && bits === 32)) {
+ throw new Error(`지원하지 않는 WAV 입니다 (format ${format} / ${bits}bit).`);
+ }
+ const bytesPer = bits / 8;
+ const frames = Math.floor(dataLen / (bytesPer * ch));
+ const out = [];
+ for (let c = 0; c < ch; c++) out.push(new Float32Array(frames));
+ for (let i = 0; i < frames; i++) {
+ for (let c = 0; c < ch; c++) {
+ const o = dataOff + (i * ch + c) * bytesPer;
+ let s;
+ if (format === 3) s = v.getFloat32(o, true);
+ else if (bits === 16) s = v.getInt16(o, true) / 32768;
+ else if (bits === 32) s = v.getInt32(o, true) / 2147483648;
+ else if (bits === 24) { const b0 = v.getUint8(o), b1 = v.getUint8(o + 1), b2 = v.getInt8(o + 2); s = ((b2 << 16) | (b1 << 8) | b0) / 8388608; }
+ else s = (v.getUint8(o) - 128) / 128;
+ out[c][i] = s;
+ }
+ }
+ return { channels: out, sampleRate, length: frames };
+};
+
+const fetchWavFromUrl = async (url) => {
  const res = await fetch(url);
  if (!res.ok) throw new Error(`스템 내려받기 실패 (${res.status})`);
- return ctx.decodeAudioData(await res.arrayBuffer());
+ return parseWav(await res.arrayBuffer());
 };
 
 // AudioBuffer → WAV(16bit PCM) Blob. 브라우저에 mp3 인코더가 없어 wav 로 낸다.
@@ -8491,47 +8545,33 @@ const audioBufferToWavBlob = (buf) => {
  return new Blob([ab], { type: 'audio/wav' });
 };
 
-// 여러 오디오 URL 을 더해 하나의 wav Blob URL 로 만든다.
-// v1052: 스템을 한꺼번에 받아 전부 메모리에 올리던 것을 하나씩 처리하도록 바꿨다.
-//   전에는 3스템을 동시에 fetch·decode 해서 디코딩된 버퍼 3개(+누적본)가 같이 떠 있었다.
-//   지금은 한 번에 하나만 들고 있는다.
-//
-// v1053: 컨텍스트를 AudioContext → OfflineAudioContext 로 바꿨다. 이게 크래시 원인이었다.
-//   crash.log 에 render-process-gone reason=crashed exitCode=-1073741819 이 찍혔다.
-//   -1073741819 = 0xC0000005 = ACCESS_VIOLATION 이다. JS 예외도 메모리 부족(oom)도 아닌,
-//   네이티브가 터진 것이다. 이 함수에서 네이티브를 만지는 건 Web Audio 하나뿐이었다.
-//   여기서는 소리를 내지 않는데도 실시간 AudioContext 를 열고 있었다 —
-//   그건 오디오 장치와 드라이버를 붙잡는 API 다. 디코딩·가공만 할 때는
-//   장치를 건드리지 않는 OfflineAudioContext 가 맞다.
-const mixAudioUrlsToWavUrl = async (urls) => {
- const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
- if (!OAC) throw new Error('이 환경에서는 오디오 합치기를 지원하지 않습니다.');
+// 여러 WAV 스템을 더해 하나의 wav Blob URL 로 만든다.
+//   스템을 하나씩 받아 누적한다 — 한 번에 하나만 메모리에 들고 있는다.
+//   Web Audio 를 쓰지 않는다. 이유는 위 parseWav 주석에 적어뒀다.
+const mixWavUrlsToWavUrl = async (urls) => {
  if (!urls || !urls.length) throw new Error('합칠 스템이 없습니다.');
- // 디코딩 전용이라 길이는 최소로 잡는다. decodeAudioData 는 이 컨텍스트의
- //   샘플레이트로 리샘플링해 주므로 스템 간 레이트도 자동으로 맞는다.
- const ctx = new OAC(2, 1, 48000);
- try {
  let acc = null;   // 누적본 (Float32Array 배열 — 채널별)
  let ch = 0, len = 0, rate = 0;
  for (const u of urls) {
- let b = await decodeAudioFromUrl(ctx, u);
+ let w = await fetchWavFromUrl(u);
  if (!acc) {
- ch = b.numberOfChannels; len = b.length; rate = b.sampleRate;
- acc = [];
- for (let c = 0; c < ch; c++) acc.push(Float32Array.from(b.getChannelData(c)));
+ ch = w.channels.length; len = w.length; rate = w.sampleRate;
+ acc = w.channels;          // 첫 스템은 그대로 누적본으로 쓴다 (복사 안 함)
  } else {
+ if (w.sampleRate !== rate) throw new Error(`스템 샘플레이트가 다릅니다 (${rate} vs ${w.sampleRate}).`);
  // 스템 길이가 조금 다를 수 있다. 누적본보다 길면 늘려서 받는다.
- if (b.length > len) {
- for (let c = 0; c < ch; c++) { const bigger = new Float32Array(b.length); bigger.set(acc[c]); acc[c] = bigger; }
- len = b.length;
+ if (w.length > len) {
+ for (let c = 0; c < ch; c++) { const bigger = new Float32Array(w.length); bigger.set(acc[c]); acc[c] = bigger; }
+ len = w.length;
  }
  for (let c = 0; c < ch; c++) {
- const src = b.getChannelData(Math.min(c, b.numberOfChannels - 1));
+ const src = w.channels[Math.min(c, w.channels.length - 1)];
  const dst = acc[c];
- for (let i = 0; i < src.length; i++) dst[i] += src[i];
+ const n = Math.min(src.length, dst.length);
+ for (let i = 0; i < n; i++) dst[i] += src[i];
  }
  }
- b = null; // 다음 스템을 받기 전에 놓아준다
+ w = null; // 다음 스템을 받기 전에 놓아준다
  }
  // 더하다 1.0 을 넘으면 깨진다. 넘칠 때만 전체를 같은 비율로 낮춘다(음색 유지).
  let peak = 0;
@@ -8540,9 +8580,6 @@ const mixAudioUrlsToWavUrl = async (urls) => {
  const blob = audioBufferToWavBlob({ numberOfChannels: ch, length: len, sampleRate: rate, getChannelData: (c) => acc[c] });
  acc = null;
  return URL.createObjectURL(blob);
- } finally {
- try { ctx.close(); } catch {}
- }
 };
 
 // v749: 앱의 평면 TTS 입력을 fal 스키마로 변환.
@@ -21931,7 +21968,10 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  audio_url: audioUrl,
  model: 'htdemucs',
  stems: ['drums', 'bass', 'other'],
- output_format: 'mp3',
+ // v1054: mp3 가 아니라 wav 로 받는다. wav 는 압축이 없어 오디오 디코더를
+ //   거치지 않고 헤더만 읽어 더할 수 있다. mp3 를 decodeAudioData 로 풀다가
+ //   렌더러가 네이티브 크래시(0xC0000005)로 죽었다.
+ output_format: 'wav',
  }, { pollMs: 4000, maxPolls: 120, kind: 'music' });
 
  const pick = (k) => out?.[k]?.url || null;
@@ -21939,7 +21979,7 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  if (!rest.length) {
  throw new Error(`스템 분리 결과가 비었습니다: ${JSON.stringify(out).slice(0, 200)}`);
  }
- const inst = await mixAudioUrlsToWavUrl(rest);
+ const inst = await mixWavUrlsToWavUrl(rest);
  try { recordCreditUsage(((durationMs || 0) / 1000) * DEMUCS_COST_PER_SEC, 'etc', { workCat: 'sound' }); } catch {}
  return { inst };
  };
@@ -37879,8 +37919,10 @@ AUDIO:
  {!s.forceInstrumental && !selectedEntry.separated && (
  <button onClick={() => runStemSeparate(selectedEntry)} disabled={!!md.separatingVer}
  title={`이 곡에서 보컬을 빼낸 Inst 버전을 만듭니다 · 약 ${fmtCost(((selectedEntry.durationMs || 0) / 1000) * DEMUCS_COST_PER_SEC)}`}
- style={{ padding: '7px 14px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)', background: 'var(--bg-secondary)', cursor: md.separatingVer ? 'not-allowed' : 'pointer', opacity: md.separatingVer ? 0.6 : 1, flexShrink: 0 }}>
- {md.separatingVer === selectedEntry.version ? 'Inst 만드는 중…' : '🎚 Inst 만들기'}
+ style={{ padding: '7px 14px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)', background: 'var(--bg-secondary)', cursor: md.separatingVer ? 'not-allowed' : 'pointer', opacity: md.separatingVer ? 0.6 : 1, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+ {md.separatingVer === selectedEntry.version
+ ? (<><RefreshCw size={12} className="spin" color="var(--green-500)" /> Inst 만드는 중…</>)
+ : '🎚 Inst 만들기'}
  </button>
  )}
  </div>
