@@ -42,6 +42,31 @@ function createWindow() {
     return { action: 'deny' }
   })
 
+  // v1052: 렌더러가 죽으면 지금까지는 아무 기록 없이 창만 하얘졌다.
+  //   패키징된 앱에는 개발자도구가 없어 사용자도 나도 원인을 알 방법이 없었다.
+  //   죽은 이유를 userData/crash.log 에 남기고, 창은 한 번 자동 복구한다.
+  let reloadedAfterCrash = false
+  win.webContents.on('render-process-gone', (_e, details) => {
+    const line = `[${new Date().toISOString()}] render-process-gone reason=${details && details.reason} exitCode=${details && details.exitCode}`
+    appendCrashLog(line)
+    console.error(line)
+    // 무한 재시작을 막기 위해 한 번만 되살린다
+    if (!reloadedAfterCrash) {
+      reloadedAfterCrash = true
+      setTimeout(() => { try { win.reload() } catch {} }, 300)
+    }
+  })
+  win.on('unresponsive', () => {
+    appendCrashLog(`[${new Date().toISOString()}] window unresponsive`)
+  })
+  // 렌더러의 error/warning 을 메인 로그와 파일로 넘긴다 (level: 0 log · 1 warn · 2 error)
+  win.webContents.on('console-message', (_e, level, message, line, sourceId) => {
+    if (level < 2) return
+    const t = `[${new Date().toISOString()}] renderer-error: ${message} (${sourceId}:${line})`
+    appendCrashLog(t)
+    console.error(t)
+  })
+
   if (isDev) {
     win.loadURL('http://localhost:5173')
     win.webContents.openDevTools()
@@ -52,6 +77,22 @@ function createWindow() {
   win.once('ready-to-show', () => {
     win.show()
   })
+}
+
+// 크래시·렌더러 오류 기록. 앱을 껐다 켜도 남아야 해서 userData 에 쌓는다.
+function appendCrashLog(text) {
+  try {
+    const p = path.join(app.getPath('userData'), 'crash.log')
+    fs.appendFileSync(p, text + '\n')
+    // 무한정 커지지 않게 상한을 둔다
+    try {
+      const st = fs.statSync(p)
+      if (st.size > 512 * 1024) {
+        const keep = fs.readFileSync(p, 'utf8').split('\n').slice(-500).join('\n')
+        fs.writeFileSync(p, keep)
+      }
+    } catch {}
+  } catch {}
 }
 
 // ─────────────────────────────────────────────────────────────

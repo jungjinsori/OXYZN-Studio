@@ -5870,6 +5870,10 @@ const GEN_KEEP_MAX = 60;   // 최근 것부터 이만큼만 (그 이상은 아�
 //   시트 종류 · 스타일 · 성별 · 체형은 남긴다 — 켤 때마다 다시 고르게 하면 번거롭다.
 const SESSION_FRESH_FIELDS = {
  sheetWsData: { description: '', sizeValue: '', refs: [], feedback: '', feedbackOpen: false, selectedUrl: null },
+ // v1052: '진행 중' 표시는 되살리면 안 된다. 분리 도중 앱이 죽으면 separatingVer 가
+ //   그대로 저장돼, 다시 켰을 때 버튼이 영원히 'Inst 만드는 중…' 으로 잠긴다.
+ //   실제로 그 상태의 session.json 을 확인했다. 진행 중 플래그는 켤 때 항상 비운다.
+ musicToolData: { separatingVer: null },
 };
 
 const GEN_FILE_BACKED = new Set([
@@ -8488,29 +8492,45 @@ const audioBufferToWavBlob = (buf) => {
 };
 
 // 여러 오디오 URL 을 더해 하나의 wav Blob URL 로 만든다.
+// v1052: 스템을 한꺼번에 받아 전부 메모리에 올리던 것을 하나씩 처리하도록 바꿨다.
+//   전에는 3스템을 동시에 fetch·decode 해서 디코딩된 버퍼 3개(+누적본)가 같이 떠 있었다.
+//   실제로 분리 도중 앱이 죽은 흔적이 있었고(진행 플래그만 남고 결과·오류 둘 다 없음),
+//   가장 가능성이 큰 게 이 구간의 메모리였다. 지금은 한 번에 하나만 들고 있는다.
 const mixAudioUrlsToWavUrl = async (urls) => {
  const AC = window.AudioContext || window.webkitAudioContext;
  if (!AC) throw new Error('이 환경에서는 오디오 합치기를 지원하지 않습니다.');
+ if (!urls || !urls.length) throw new Error('합칠 스템이 없습니다.');
  const ctx = new AC();
  try {
- const bufs = await Promise.all(urls.map((u) => decodeAudioFromUrl(ctx, u)));
- if (!bufs.length) throw new Error('합칠 스템이 없습니다.');
- const ch = Math.max(...bufs.map((b) => b.numberOfChannels));
- const len = Math.max(...bufs.map((b) => b.length));
- const rate = bufs[0].sampleRate;
- const out = ctx.createBuffer(ch, len, rate);
- for (let c = 0; c < ch; c++) {
- const o = out.getChannelData(c);
- for (const b of bufs) {
- const src = b.getChannelData(Math.min(c, b.numberOfChannels - 1));
- for (let i = 0; i < src.length; i++) o[i] += src[i];
+ let acc = null;   // 누적본 (Float32Array 배열 — 채널별)
+ let ch = 0, len = 0, rate = 0;
+ for (const u of urls) {
+ let b = await decodeAudioFromUrl(ctx, u);
+ if (!acc) {
+ ch = b.numberOfChannels; len = b.length; rate = b.sampleRate;
+ acc = [];
+ for (let c = 0; c < ch; c++) acc.push(Float32Array.from(b.getChannelData(c)));
+ } else {
+ // 스템 길이가 조금 다를 수 있다. 누적본보다 길면 늘려서 받는다.
+ if (b.length > len) {
+ for (let c = 0; c < ch; c++) { const bigger = new Float32Array(b.length); bigger.set(acc[c]); acc[c] = bigger; }
+ len = b.length;
  }
+ for (let c = 0; c < ch; c++) {
+ const src = b.getChannelData(Math.min(c, b.numberOfChannels - 1));
+ const dst = acc[c];
+ for (let i = 0; i < src.length; i++) dst[i] += src[i];
+ }
+ }
+ b = null; // 다음 스템을 받기 전에 놓아준다
  }
  // 더하다 1.0 을 넘으면 깨진다. 넘칠 때만 전체를 같은 비율로 낮춘다(음색 유지).
  let peak = 0;
- for (let c = 0; c < ch; c++) { const o = out.getChannelData(c); for (let i = 0; i < len; i++) { const a = Math.abs(o[i]); if (a > peak) peak = a; } }
- if (peak > 1) for (let c = 0; c < ch; c++) { const o = out.getChannelData(c); for (let i = 0; i < len; i++) o[i] /= peak; }
- return URL.createObjectURL(audioBufferToWavBlob(out));
+ for (let c = 0; c < ch; c++) { const o = acc[c]; for (let i = 0; i < len; i++) { const a = Math.abs(o[i]); if (a > peak) peak = a; } }
+ if (peak > 1) for (let c = 0; c < ch; c++) { const o = acc[c]; for (let i = 0; i < len; i++) o[i] /= peak; }
+ const blob = audioBufferToWavBlob({ numberOfChannels: ch, length: len, sampleRate: rate, getChannelData: (c) => acc[c] });
+ acc = null;
+ return URL.createObjectURL(blob);
  } finally {
  try { ctx.close(); } catch {}
  }
@@ -37508,8 +37528,11 @@ AUDIO:
  }));
  try { showToast('Inst 버전을 만들었습니다.', 'load'); } catch {}
  } catch (err) {
- console.error('[music] 스템 분리 실패:', err);
- updateMd({ separatingVer: null, error: `Inst 생성 실패: ${err.message}` });
+ // err 가 Error 가 아닐 수도 있다. 여기서 또 터지면 진행 플래그가 안 풀려
+ //   버튼이 잠긴 채로 남는다 — 실제로 그 상태의 세션을 확인했다.
+ const emsg = (err && (err.message || String(err))) || '알 수 없는 오류';
+ console.error('[music] Inst 생성 실패:', err);
+ updateMd({ separatingVer: null, error: `Inst 생성 실패: ${emsg}` });
  }
  };
 
