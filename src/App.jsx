@@ -37919,9 +37919,12 @@ AUDIO:
  {!s.forceInstrumental && !selectedEntry.separated && (
  <button onClick={() => runStemSeparate(selectedEntry)} disabled={!!md.separatingVer}
  title={`이 곡에서 보컬을 빼낸 Inst 버전을 만듭니다 · 약 ${fmtCost(((selectedEntry.durationMs || 0) / 1000) * DEMUCS_COST_PER_SEC)}`}
- style={{ padding: '7px 14px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)', background: 'var(--bg-secondary)', cursor: md.separatingVer ? 'not-allowed' : 'pointer', opacity: md.separatingVer ? 0.6 : 1, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+ // v1055: minWidth 로 폭을 묶어둔다. 진행 중 문구가 길어지면 버튼이 커지고,
+ //   그만큼 버튼 행이 넓어져 줄바꿈이 났다(대기 96px → 진행 126px, 행 272→302px).
+ //   두 상태 중 넓은 쪽에 맞춰 고정해두면 눌러도 자리가 흔들리지 않는다.
+ style={{ padding: '7px 14px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)', background: 'var(--bg-secondary)', cursor: md.separatingVer ? 'not-allowed' : 'pointer', opacity: md.separatingVer ? 0.6 : 1, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, minWidth: 104, whiteSpace: 'nowrap' }}>
  {md.separatingVer === selectedEntry.version
- ? (<><RefreshCw size={12} className="spin" color="var(--green-500)" /> Inst 만드는 중…</>)
+ ? (<><RefreshCw size={12} className="spin" color="var(--green-500)" /> 만드는 중…</>)
  : '🎚 Inst 만들기'}
  </button>
  )}
