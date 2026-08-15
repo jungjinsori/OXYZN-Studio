@@ -45,12 +45,11 @@ const loadMammoth = () => {
  return _mammothPromise;
 };
 
-// 앱 버전 — 커밋(릴리스)마다 갱신. 설정 > 기타 탭에 표시됨.
-const APP_VERSION = 'v1048';
-// v806: 배포 릴리스명. APP_VERSION(내부 빌드 번호)과 분리해 둔다 —
-//   빌드 번호는 커밋마다 올라가지만 릴리스명은 배포 단위로만 바뀐다.
-//   package.json 의 version(2.0.0)은 설치 파일명·자동 업데이트 비교에 쓰인다.
-const APP_RELEASE = '베타 3.0';
+// 앱 버전 — package.json 의 version 을 빌드 시점에 주입받는다(vite.config.js 의 define).
+//   손으로 적지 않는다. build:win 이 bump-version.cjs 로 package.json 을 올리고,
+//   그 값이 그대로 여기 들어오므로 설치 파일명과 앱 표시가 항상 일치한다.
+//   dev 로 띄웠을 때도 같은 값이 들어온다.
+const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0';
 
 // v695: 작곡 — 작품 장르·씬 감정 목록을 BGM 매트릭스에서 파생 (labelKo ↔ code 매핑 포함)
 const BGM_GENRES = [...bgmMatrix.workGenres].sort((a, b) => a.order - b.order);
@@ -39841,7 +39840,7 @@ AUDIO:
 
  <div style={{ color: 'var(--text-tertiary)' }}>버전</div>
  <div style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
- {APP_RELEASE} <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: 11 }}>· 빌드 <span className="mono-font">{APP_VERSION}</span></span>
+ <span className="mono-font" style={{ fontVariantNumeric: 'tabular-nums' }}>v{APP_VERSION}</span>
  </div>
 
  <div style={{ color: 'var(--text-tertiary)' }}>엔진</div>
