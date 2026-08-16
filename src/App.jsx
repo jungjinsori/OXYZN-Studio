@@ -5583,6 +5583,11 @@ const localFileUrl = (fp) => {
 };
 // v976: 앱 데이터 폴더의 파일 주소. file:// 은 fetch 가 막혀서 저장·다운로드
 //   코드(전부 fetch 를 쓴다)가 못 읽는다. ffs:// 는 img·video·fetch 모두 된다.
+// v1057: 이번 실행을 구분하는 값. blob: 주소는 만든 세션에서만 살아 있어서,
+//   기록에 남은 blob 이 지금도 쓸 수 있는 것인지 판별하는 데 쓴다.
+//   (앱을 껐다 켜면 이 값이 바뀌므로 옛 blob 은 자동으로 '못 씀' 이 된다)
+const SESSION_ID = `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+
 const ffsUrl = (fp) => {
  const raw = String(fp || '').replace(/\\/g, '/');
  if (!raw) return '';
@@ -37567,11 +37572,36 @@ AUDIO:
  updateMd({ separatingVer: entry.version, error: '' });
  try {
  const res = await callStemSeparate({ audioUrl: entry.url, durationMs: entry.durationMs });
+ // v1057: blob: 주소는 그 세션에서만 산다. 앱을 끄면 무효가 되어, 다시 켜면
+ //   기록은 남아 있는데 재생·다운로드가 안 됐다. 파일로 받아두고 그 경로를 쓴다.
+ //   assetSave 는 base64 를 받아 userData 안에 쓰고, ffs:// 로 다시 읽을 수 있다.
+ let instUrl = res.inst;
+ let instFile = null;
+ if (window.electronAPI?.assetSave) {
+ try {
+ const blob = await (await fetch(res.inst)).blob();
+ const base64 = await new Promise((rs, rj) => {
+ const rd = new FileReader();
+ rd.onload = () => rs(String(rd.result).split(',')[1] || '');
+ rd.onerror = rj;
+ rd.readAsDataURL(blob);
+ });
+ const saved = await window.electronAPI.assetSave({ kind: 'inst', id: `inst_${entry.version}_${Date.now()}`, base64, mime: 'audio/wav' });
+ if (saved?.success && saved.path) {
+ instFile = saved.path;
+ instUrl = ffsUrl(saved.path);
+ try { URL.revokeObjectURL(res.inst); } catch {}
+ }
+ } catch (e) {
+ // 파일로 못 남겨도 이번 세션에서는 blob 으로 쓸 수 있게 둔다
+ console.warn('[music] Inst 파일 저장 실패 — 이번 세션에서만 유효:', e?.message);
+ }
+ }
  setMusicToolData(p => ({
  ...p,
  separatingVer: null,
  history: (p.history || []).map(h => h.version === entry.version
- ? { ...h, separated: { inst: res.inst, at: Date.now() } }
+ ? { ...h, separated: { inst: instUrl, file: instFile, sid: SESSION_ID, at: Date.now() } }
  : h),
  }));
  try { showToast('Inst 버전을 만들었습니다.', 'load'); } catch {}
@@ -37609,6 +37639,11 @@ AUDIO:
  { value: 'wav_cd_quality', label: 'WAV 44.1kHz (CD 품질)' },
  ];
  const selectedEntry = md.selectedVersion && md.history.find(h => h.version === md.selectedVersion);
+ // v1057: 지금 쓸 수 있는 Inst 인지. 파일로 남겼으면 언제든 되고,
+ //   파일 없이 blob 만 있으면 그걸 만든 세션에서만 유효하다(앱을 끄면 죽는다).
+ //   못 쓰는 상태면 결과를 감추고 'Inst 만들기' 버튼을 다시 띄운다.
+ const instReady = !!(selectedEntry && selectedEntry.separated
+ && (selectedEntry.separated.file || selectedEntry.separated.sid === SESSION_ID));
  const fmtTime = (sec) => { const m = Math.floor(sec / 60); const s = sec % 60; return `${m}:${String(s).padStart(2, '0')}`; };
  return (
  <div className="fade-in" style={{ maxWidth: 1180, margin: '0 auto', padding: '0 8px' }}>
@@ -37915,7 +37950,7 @@ AUDIO:
  }}
  style={{ padding: '7px 14px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)', background: 'var(--bg-secondary)', cursor: 'pointer', flexShrink: 0 }}>⬇ 다운로드</button>
  {/* v1050: Inst 만들기 — 이 곡에서 보컬만 빼낸 버전 */}
- {!s.forceInstrumental && !selectedEntry.separated && (
+ {!s.forceInstrumental && !instReady && (
  <button onClick={() => runStemSeparate(selectedEntry)} disabled={!!md.separatingVer}
  title={`이 곡에서 보컬을 빼낸 Inst 버전을 만듭니다 · 약 ${fmtCost(((selectedEntry.durationMs || 0) / 1000) * DEMUCS_COST_PER_SEC)}`}
  // v1055: minWidth 로 폭을 묶어둔다. 진행 중 문구가 길어지면 버튼이 커지고,
@@ -37932,7 +37967,7 @@ AUDIO:
  ); })()}
  <CustomAudioPlayer key={selectedEntry.version} src={selectedEntry.url} />
  {/* v1050: 분리 결과 — 원곡에서 갈라낸 보컬본과 반주본 */}
- {selectedEntry.separated && (() => {
+ {instReady && (() => {
  const dl = async (url, tag, ext) => {
  const s2 = selectedEntry.settings || {};
  const fname = (await ffsBuildName({ type: s2.genre || '작곡', parts: [tag], version: selectedEntry.version })) + '.' + ext;
