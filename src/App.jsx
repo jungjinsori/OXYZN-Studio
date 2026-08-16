@@ -37968,26 +37968,32 @@ AUDIO:
  <CustomAudioPlayer key={selectedEntry.version} src={selectedEntry.url} />
  {/* v1050: 분리 결과 — 원곡에서 갈라낸 보컬본과 반주본 */}
  {instReady && (() => {
- const dl = async (url, tag, ext) => {
+ // v1058: 파일명을 원곡과 맞춘다. 같은 인자로 이름을 만들고 Inst 만 뒤에 _inst 를 붙인다.
+ //   전에는 장르+태그로 따로 지었더니(FFS_시네마틱_Inst_v001) 원곡과 짝인 게 안 보였다.
+ //   이제 FFS_시네마틱_긴장_v001.mp3 / FFS_시네마틱_긴장_v001_inst.wav 로 나란히 남는다.
+ const dl = async (url, suffix, ext) => {
  const s2 = selectedEntry.settings || {};
- const fname = (await ffsBuildName({ type: s2.genre || '작곡', parts: [tag], version: selectedEntry.version })) + '.' + ext;
+ const mood2 = Array.isArray(s2.mood) ? s2.mood[0] : s2.mood;
+ const base = await ffsBuildName({ type: s2.genre || '작곡', parts: mood2 ? [mood2] : [], version: selectedEntry.version });
+ const fname = base + (suffix || '') + '.' + ext;
  try {
  const res = await fetch(url); const blob = await res.blob();
  const o = URL.createObjectURL(blob); const a = document.createElement('a');
  a.href = o; a.download = fname; document.body.appendChild(a); a.click(); document.body.removeChild(a);
  setTimeout(() => URL.revokeObjectURL(o), 2000);
- try { showToast(`${tag}을 저장했습니다.`, 'load'); } catch {}
+ try { showToast('저장했습니다.', 'load'); } catch {}
  } catch { try { showToast('저장 실패', 'error'); } catch {} }
  };
- const row = (label, url, tag, ext) => (
+ // suffix: 원곡은 '' (원곡 이름 그대로), Inst 는 '_inst'
+ const row = (label, url, suffix, ext, key) => (
  <div style={{ marginTop: 10 }}>
  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
  <span className="micro" style={{ fontWeight: 700, color: 'var(--text-secondary)' }}>{label}</span>
- <button onClick={() => dl(url, tag, ext)} className="btn btn-ghost btn-sm" style={{ padding: '3px 9px', fontSize: 11 }}>
+ <button onClick={() => dl(url, suffix, ext)} className="btn btn-ghost btn-sm" style={{ padding: '3px 9px', fontSize: 11 }}>
  <Download size={11} /> 저장
  </button>
  </div>
- <CustomAudioPlayer key={`${selectedEntry.version}-${tag}`} src={url} />
+ <CustomAudioPlayer key={`${selectedEntry.version}-${key}`} src={url} />
  </div>
  );
  const origExt = (selectedEntry.format || '').startsWith('wav') ? 'wav' : 'mp3';
@@ -37996,8 +38002,8 @@ AUDIO:
  <div className="micro" style={{ color: 'var(--text-tertiary)', marginBottom: 2 }}>
  같은 곡의 두 버전입니다. Inst 는 보컬만 빼낸 것이라 연주가 원곡과 같습니다.
  </div>
- {row('🎤 Vocal 포함 (원곡)', selectedEntry.url, 'Vocal', origExt)}
- {row('🎼 Inst (보컬 제외)', selectedEntry.separated.inst, 'Inst', 'wav')}
+ {row('🎤 Vocal 포함 (원곡)', selectedEntry.url, '', origExt, 'vocal')}
+ {row('🎼 Inst (보컬 제외)', selectedEntry.separated.inst, '_inst', 'wav', 'inst')}
  </div>
  );
  })()}
