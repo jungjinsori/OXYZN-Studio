@@ -5550,7 +5550,7 @@ const projectGroupByScene = (segments) => {
 // 씬 종류가 곧 모델 선택이다 — 연결은 다음 작업이고, 지금은 어느 모델로 갈지만 보여준다.
 const PROJECT_MODEL_FOR = (kind) => (kind === 'action' ? 'Seedance 2.0' : 'Seedance 2.5');
 // v899: 비용은 종류별로 다른 모델·해상도를 따른다.
-//   2.5 는 1080p 가 없어서(480p·720p 만) 두 모델이 함께 낼 수 있는 720p 를 기준으로 잡는다.
+// v1059: 2.5 도 1080p 가 열려, 이제 두 모델이 480p·720p·1080p 를 모두 낸다.
 const PROJECT_TIER_FOR = (kind) => (kind === 'action' ? 'video' : 'video25');
 // v936: 2.5 API 가 열렸다. 씬 종류가 모델을 정하므로 1회 상한도 종류마다 다르다.
 //   일반씬 = 2.5 (30초까지) · 액션씬 = 2.0 (15초까지)
@@ -5558,13 +5558,16 @@ const PROJECT_TIER_FOR = (kind) => (kind === 'action' ? 'video' : 'video25');
 const PROJECT_GEN_MAX_SEC = 30;   // 가장 긴 상한 (안내 문구용)
 const PROJECT_GEN_MAX_FOR = (kind) => (kind === 'action' ? 15 : 30);
 const PROJECT_GEN_RES = '720p';   // 기본값
-// v927: 생성 해상도는 프로젝트마다 고른다. 1080p 는 2.0 이 지원하지만
-//   지금 파이프라인은 720p 를 기준으로 잡아 두었고, 2.5 가 열리면 함께 연다.
+// v927: 생성 해상도는 프로젝트마다 고른다.
+// v1059: 1080p 를 열었다. 2.5 가 1080p 를 받게 되면서 액션씬(2.0)·일반씬(2.5)이
+//   같은 해상도를 낼 수 있게 됐다 — 한 프로젝트 안에서 씬마다 화질이 갈리지 않는다.
+//   기본값은 720p 로 둔다. 1080p 는 토큰이 해상도 제곱으로 늘어 비용이 크게 뛴다.
 //   ★ FFSelect 는 옵션에서 id 를 읽는다. value 로 두면 선택이 먹지 않는다 —
 //     v927 에서 그렇게 만들어 해상도를 바꿔도 예상 비용이 그대로였다.
 const PROJECT_RES_OPTIONS = [
  { id: '480p', label: '480p' },
  { id: '720p', label: '720p' },
+ { id: '1080p', label: '1080p' },
 ];
 // v958: 화면비도 프로젝트마다 고른다. 2.0·2.5 가 받는 값 중 실제로 쓸 넷만 낸다.
 const PROJECT_RATIO_OPTIONS = [
@@ -7818,16 +7821,21 @@ const ARK_VIDEO_RATES = { // [영상입력 없음, 영상입력 있음] — USD 
  video: { '480p': [7.0, 4.3], '720p': [7.0, 4.3], '1080p': [7.7, 4.7], '4k': [4.0, 2.4] },
  videoFast: { '480p': [5.6, 3.3], '720p': [5.6, 3.3] },
  videoMini: { '480p': [3.5, 2.1], '720p': [3.5, 2.1] },
- // v899: Seedance 2.5 (dreamina-seedance-2-5-260628). BytePlus 과금 문서 확인.
- //   ★ 480p·720p 만 있다. 1080p·4K 는 아직 없다. 2.0 보다 토큰 단가가 53% 비싸다.
- video25: { '480p': [10.70, 6.40], '720p': [10.70, 6.40] },
+ // v899: Seedance 2.5 (dreamina-seedance-2-5-260628). 2.0 보다 토큰 단가가 53% 비싸다.
+ // v1059: 1080p 가 열렸다. API 에 직접 물어 확인했다(2026-08-15) —
+ //   480p·720p·1080p 는 통과, 4k·2160p 는 resolution 거부. 길이는 해상도와 무관하게 30초.
+ //   ★ 1080p 단가는 공식 표를 확인하지 못해 2.0 의 해상도 비율(1080p/720p = 7.7/7.0,
+ //     영상입력 시 4.7/4.3)을 그대로 적용한 추정치다. 예상 비용 표시에만 쓰이고,
+ //     실제 과금은 응답의 completion_tokens 로 기록하므로 크레딧 집계는 정확하다.
+ //     콘솔 청구서와 어긋나면 이 한 줄만 고치면 된다.
+ video25: { '480p': [10.70, 6.40], '720p': [10.70, 6.40], '1080p': [11.77, 6.99] },
 };
 // 그 모델이 실제로 낼 수 있는 최대 해상도
-const ARK_VIDEO_MAX_RES = { video: '1080p', videoFast: '720p', videoMini: '720p', video25: '720p' };
+const ARK_VIDEO_MAX_RES = { video: '1080p', videoFast: '720p', videoMini: '720p', video25: '1080p' };
 // v936: 1회 생성 상한(초). 2.0 계열은 15초, 2.5 는 30초.
 const ARK_VIDEO_MAX_SEC = { video: 15, videoFast: 15, videoMini: 15, video25: 30 };
 // v1049: 티어가 못 내는 해상도를 요청하면 400 이 난다. 상한으로 내려서 준다.
-//   (2.5 는 1080p·4K 가 없어 720p 가 천장이다)
+//   (2.5 는 4K 가 없어 1080p 가 천장이다)
 const ARK_RES_ORDER = ['480p', '720p', '1080p', '4k'];
 const arkClampRes = (tier, res) => {
  const max = ARK_VIDEO_MAX_RES[tier] || '1080p';
@@ -7842,10 +7850,11 @@ const arkResOptions = (tier) => {
  return ARK_RES_ORDER.slice(0, cap + 1).filter(r => r !== '4k');
 };
 // v1049: 사용자가 고르는 영상 모델. 커스텀·내러티브 워크스페이스의 모델 버튼이 쓴다.
-//   2.5 는 길이가 두 배지만 1080p 가 없고 토큰 단가가 약 53% 비싸다 — 둘 다 힌트에 적는다.
+// v1059: 2.5 도 1080p 가 열려 해상도 차이는 없어졌다. 남은 차이는 길이(2배)와
+//   토큰 단가(약 53% 비쌈)다. 힌트에는 고를 때 바로 보이는 길이·해상도를 적는다.
 const ARK_VIDEO_TIERS = [
  { id: 'video', label: 'Seedance 2.0', hint: '최대 15초 · 1080p' },
- { id: 'video25', label: 'Seedance 2.5', hint: '최대 30초 · 720p' },
+ { id: 'video25', label: 'Seedance 2.5', hint: '최대 30초 · 1080p' },
 ];
 // v939: 레퍼런스 개수 상한도 모델마다 다르다. 2.5 는 이미지 30 · 영상 10 · 오디오 10
 //   (합쳐 50)까지 받는다. 2.0 은 이미지 9 · 오디오 3 이다.
@@ -7969,7 +7978,7 @@ const ARK_MODELS = {
  video: 'dreamina-seedance-2-0-260128',
  videoFast: 'dreamina-seedance-2-0-fast-260128',
  videoMini: 'dreamina-seedance-2-0-mini-260615',
- // v936: Seedance 2.5 — API 가 열렸다. 1회 최대 30초 · 480p/720p (1080p·4K 없음).
+ // v936: Seedance 2.5 — 1회 최대 30초. v1059 에서 1080p 도 열렸다(4K 는 없음).
  video25: 'dreamina-seedance-2-5-260628',
  // v763: 캐릭터 디자인은 Seedream 5.0 Pro 사용 (실제 활성화·품질 우선).
  //   신뢰 출력 문서에는 Lite만 명시돼 있으나, 영상까지 ModelArk로 옮긴 뒤 실측해서
@@ -16574,7 +16583,7 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
  // v633: 비디오 커스텀 워크스페이스 (T2V — 프롬프트+비율+품질+레퍼런스)
  const [videoCustomData, setVideoCustomData] = useState({
  prompt: '',
- tier: 'video', // 'video' = Seedance 2.0(≤15초·1080p) | 'video25' = 2.5(≤30초·720p)
+ tier: 'video', // 'video' = Seedance 2.0(≤15초) | 'video25' = 2.5(≤30초) · 둘 다 1080p 까지
  duration: 5, // 초 (4~티어 상한 · 1초 단위 슬라이더)
  aspect: '16:9', // 16:9 | 9:16 | 1:1
  resolution: '480p', // 480p | 720p | 1080p (480p 기본)
@@ -16594,7 +16603,7 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
  // v633: 비디오 내러티브(15s) 워크스페이스 — 상황묘사 → 룰북 프롬프트 → Seedance
  const [videoNarrativeData, setVideoNarrativeData] = useState({
  situation: '', // 상황 묘사(시나리오 원문 등)
- tier: 'video', // 'video' = Seedance 2.0(≤15초·1080p) | 'video25' = 2.5(≤30초·720p)
+ tier: 'video', // 'video' = Seedance 2.0(≤15초) | 'video25' = 2.5(≤30초) · 둘 다 1080p 까지
  duration: 15, // 2.0 은 15초까지, 2.5 를 고르면 30초까지
  aspect: '16:9', resolution: '480p', // 480p 기본
  // 레퍼런스 4종: 상황(콘티뉴이티)/인물/공간/오브제 — 각 이미지 or 비디오
@@ -30849,7 +30858,7 @@ ${sampleText}`;
  return (
  <span className="micro mono-font" style={{ color: 'var(--text-tertiary)' }}
  title={`일반씬 ${PROJECT_MODEL_FOR('normal')} · 액션씬 ${PROJECT_MODEL_FOR('action')} 기준. `
- + `${PROJECT_COST_RES} 는 두 모델이 함께 내는 가장 높은 해상도입니다 — 2.5 에는 1080p 가 없습니다.`}>
+ + `표시는 ${PROJECT_COST_RES} 기준입니다. 해상도를 올리면 토큰이 픽셀 수만큼 늘어 실제 비용은 더 듭니다.`}>
  {d.segments.length}구간을 {d.segments.length}클립 · 예상비용 {c.usd}({c.krw}) {PROJECT_COST_RES}, 1회 생성 기준
  </span>
  );
@@ -36043,7 +36052,7 @@ ${sampleText}`;
  {ARK_VIDEO_TIERS.map(t => (
  <button key={t.id} disabled={busy}
  onClick={() => up(p => ({ ...p, tier: t.id,
- // 상한을 넘는 값은 내려서 맞춘다 (2.5 는 30초·720p, 2.0 은 15초·1080p)
+ // 상한을 넘는 값은 내려서 맞춘다 (2.5 는 30초, 2.0 은 15초 · 해상도는 둘 다 1080p)
  duration: Math.min(p.duration, ARK_VIDEO_MAX_SEC[t.id]),
  resolution: arkClampRes(t.id, p.resolution) }))}
  className={v.tier === t.id ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
