@@ -4491,7 +4491,7 @@ action 은 화면에서 물리적인 사건이 실제로 벌어지는 구간만�
 헷갈리면 normal 로 두십시오.
 
 [분량 상한]
-- normal 구간은 최대 30초, action 구간은 최대 15초.
+- normal · action 모두 구간은 최대 30초.
 - 상한일 뿐이라 짧아도 됩니다. 억지로 채우지 마십시오.
 - 상한을 넘겨야 할 것 같으면 그 씬을 여러 구간으로 나누십시오.
 
@@ -13895,7 +13895,7 @@ const SINGLE_TASK_CATALOG = [
  ]},
  { cat: '비디오', items: [
  { id: 'video-custom', label: '커스텀', desc: '프롬프트 · 화면비 · 품질 · 레퍼런스(이미지/비디오)', status: 'new' },
- { id: 'video-narrative', label: '내러티브', desc: '상황묘사 → 룰북 자동 프롬프트 → 영상 (2.0 최대 15초 · 2.5 최대 30초)', status: 'new' },
+ { id: 'video-narrative', label: '내러티브', desc: '상황묘사 → 룰북 자동 프롬프트 → 영상 (최대 30초)', status: 'new' },
  { id: 'video-vfx', label: 'AI VFX', desc: '배경교체 · 리터치(군중 추가·오브제 변경) · 특수효과 통합 · 프롬프트 추후', status: 'new' },
  { id: 'video-upscale', label: 'Upscale', desc: '영상 화질 향상 · Topaz (업스케일 · 노이즈 제거 · 프레임 보간)', status: 'new' },
  ]},
@@ -35558,7 +35558,7 @@ ${sampleText}`;
  const anyLoading = jobs.some(j => j.loading);
  const selectedJob = jobs.find(j => !j.loading && j.resultUrl && j.resultUrl === v.selectedUrl);
  // v1049: 비용은 고른 모델(티어)을 따른다. 2.5 는 토큰 단가가 2.0 보다 약 53% 비싸다.
- const vTier = v.tier === 'video25' ? 'video25' : 'video';
+ const vTier = 'video25';   // v1061: 영상은 2.5 하나뿐이다
  const vMaxSec = ARK_VIDEO_MAX_SEC[vTier];
  const vResOpts = arkResOptions(vTier);
  const cf = formatCostDisplay(estimateSeedance2Cost(Math.min(v.duration, vMaxSec), arkClampRes(vTier, v.resolution), v.aspect, { tier: vTier }));
@@ -35665,7 +35665,8 @@ ${sampleText}`;
  // v1049: 티어(2.0/2.5)에 맞춰 길이·해상도를 한 번 더 조인다.
  //   UI 가 이미 막지만, 티어를 바꾼 직후의 옛 값이 그대로 넘어가면
  //   ModelArk 가 400 을 돌려준다(생성 비용은 안 들지만 사용자는 실패만 본다).
- const tier = v.tier === 'video25' ? 'video25' : 'video';
+ // v1061: 2.0 을 걷어냈다. 옛 세션에 tier:'video' 가 저장돼 있어도 2.5 로 읽는다.
+    const tier = 'video25';
  const dur = Math.min(v.duration, ARK_VIDEO_MAX_SEC[tier]);
  const res = arkClampRes(tier, v.resolution);
  const asp = v.aspect;
@@ -35693,7 +35694,7 @@ ${sampleText}`;
  }
  // v773: 캐릭터에 저장된 보이스 → reference_audio (최대 3개). 공식 음색 지시 문구를 자동 부착.
  const vsrc = voiceRefSrc(r.voice);
- if (vsrc && audios.length < ARK_AUDIO_MAX_COUNT) {
+ if (vsrc && audios.length < arkRefMax(tier, 'audios')) {
  audios.push(vsrc);
  const atok = `[Audio${audios.length}]`;
  manifest.push(`${atok} = "${r.refName}의 목소리"`);
@@ -35788,9 +35789,9 @@ ${sampleText}`;
  <div className="meta" style={{ color: 'var(--text-tertiary)', marginBottom: 10 }}>수정 방향을 적어주세요. <strong>선택한 영상을 레퍼런스로 넣어</strong> 그 영상을 수정합니다.</div>
  {/* v790: 피드백은 이전 영상을 입력으로 넣으므로 토큰이 늘어난다 — 늘어난 비용을 미리 보여준다 */}
  {(() => {
- const inSec = Math.min(15, Math.max(0, Number(selectedJob.params?.duration) || 0));
- const base = estimateVideoCost('bytedance/seedance-2.0', v.duration, false, v.resolution, v.aspect);
- const fbCost = estimateVideoCost('bytedance/seedance-2.0', v.duration, false, v.resolution, v.aspect, { hasVideoInput: true, inputSec: inSec });
+ const inSec = Math.min(ARK_VIDEO_MAX_SEC.video25, Math.max(0, Number(selectedJob.params?.duration) || 0));
+ const base = estimateSeedance2Cost(v.duration, v.resolution, v.aspect, { tier: 'video25' });
+ const fbCost = estimateSeedance2Cost(v.duration, v.resolution, v.aspect, { tier: 'video25', hasVideoInput: true, inputSec: inSec });
  const b = formatCostDisplay(base), f = formatCostDisplay(fbCost);
  return (
  <div className="meta" style={{ marginBottom: 10, padding: '8px 11px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-tertiary)', lineHeight: 1.6 }}>
@@ -36083,7 +36084,7 @@ ${sampleText}`;
  const anyLoading = jobs.some(j => j.loading);
  const selectedJob = jobs.find(j => !j.loading && j.resultUrl && j.resultUrl === v.selectedUrl);
  // v1049: 비용·상한이 고른 모델(티어)을 따른다.
- const vTier = v.tier === 'video25' ? 'video25' : 'video';
+ const vTier = 'video25';   // v1061: 영상은 2.5 하나뿐이다
  const vMaxSec = ARK_VIDEO_MAX_SEC[vTier];
  const vResOpts = arkResOptions(vTier);
  const vDur = Math.min(Number(v.duration) || 15, vMaxSec);
@@ -36198,7 +36199,8 @@ ${sampleText}`;
  const situation = String(opts.situation != null ? opts.situation : v.situation).trim();
  if (!situation) { up({ error: '상황 묘사를 입력하세요.' }); return; }
  // v1049: 티어(2.0/2.5)에 맞춰 길이·해상도를 조인다. 프롬프트도 이 길이로 만든다.
- const tier = v.tier === 'video25' ? 'video25' : 'video';
+ // v1061: 2.0 을 걷어냈다. 옛 세션에 tier:'video' 가 저장돼 있어도 2.5 로 읽는다.
+    const tier = 'video25';
  const dur = Math.min(Number(v.duration) || 15, ARK_VIDEO_MAX_SEC[tier]);
  const asp = v.aspect, res = arkClampRes(tier, v.resolution);
  // 레퍼런스 스냅샷
@@ -36219,7 +36221,7 @@ ${sampleText}`;
  outfitDirectives.push(`${r.refName || tok} — identity ${tok}, wardrobe ${ctok}${cLabel ? ` (${cLabel})` : ''}.`); }
  // v773: 캐릭터 보이스 → reference_audio (최대 3개)
  const vsrc = voiceRefSrc(r.voice);
- if (vsrc && audioList.length < ARK_AUDIO_MAX_COUNT) {
+ if (vsrc && audioList.length < arkRefMax(tier, 'audios')) {
  audioList.push(vsrc);
  const atok = `[Audio${audioList.length}]`;
  manifest.push(`${atok} = "${r.refName}의 목소리" (음색 · 자동 적용, [Shots]에서 따로 지칭하지 말 것)`);
@@ -36305,7 +36307,7 @@ ${sampleText}`;
  {(() => {
  // 재생성은 그 영상이 만들어진 길이를 기준으로 잡는다(입력으로도 그 길이가 들어간다).
  const fbSec = Number(selectedJob.params?.duration) || 15;
- const fbTier = selectedJob.params?.tier === 'video25' ? 'video25' : 'video';
+ const fbTier = 'video25';   // v1061: 영상은 2.5 하나뿐이다
  const fbRes = arkClampRes(fbTier, selectedJob.params?.resolution || v.resolution);
  const base = estimateSeedance2Cost(fbSec, fbRes, v.aspect, { tier: fbTier });
  const fbCost = estimateSeedance2Cost(fbSec, fbRes, v.aspect, { tier: fbTier, hasVideoInput: true, inputSec: fbSec });
@@ -36761,7 +36763,7 @@ ${sampleText}`;
  // 배경 교체 예상 비용
  const bgCost = v.bgMode === 'image'
  ? formatCostDisplay(estimateImageCost(imageModel, 'high', 1))
- : formatCostDisplay(estimateVideoCost('bytedance/seedance-2.0', Math.min(15, Math.max(4, v.bgSourceDur || 5)), false, v.bgResolution, v.bgSourceAspect || '16:9', { hasVideoInput: true, inputSec: v.bgSourceDur || 0 }));
+ : formatCostDisplay(estimateVideoCost('bytedance/seedance-2.5', Math.min(ARK_VIDEO_MAX_SEC.video25, Math.max(4, v.bgSourceDur || 5)), false, v.bgResolution, v.bgSourceAspect || '16:9', { tier: 'video25', hasVideoInput: true, inputSec: v.bgSourceDur || 0 }));
  const runBgReplace = async () => {
  if (v.bgMode === 'image') {
  if (!v.bgSubject || !v.bgBackground) { up({ error: '원본 이미지와 교체 배경 이미지를 모두 첨부하세요.' }); return; }
@@ -36809,7 +36811,7 @@ illustrated look. Keep the same aspect ratio and the same subject placement as
  } catch (e) { up(p => ({ ...p, error: `배경 교체 실패: ${e.message}`, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, error: e.message } : j) })); }
  } else {
  if (!v.bgStartFrame || !v.bgSourceVideo) { up({ error: '교체 배경 이미지와 원본 영상을 모두 첨부하세요.' }); return; }
- const dur = Math.min(15, Math.max(4, v.bgSourceDur || 5));
+ const dur = Math.min(ARK_VIDEO_MAX_SEC.video25, Math.max(4, v.bgSourceDur || 5));
  const res = v.bgResolution;
  const jobId = `vfx_${Date.now()}_${(vfxJobSeq.current += 1)}`;
  const estSec = estSecFor(durKeyVideo(res, dur, true), estVideoGenSeconds(res, dur));  // v791: 실측 학습값 우선, 표본 없으면 상수 추정
@@ -36876,7 +36878,7 @@ Style: photorealistic, cinematic, seamless integration.${v.bgPrompt.trim() ? `\n
  ];
  const runCrowd = async () => {
  if (!v.crowdVideo) { up({ error: '원본 영상을 첨부하세요.' }); return; }
- const dur = Math.min(15, Math.max(4, v.crowdDur || 5));
+ const dur = Math.min(ARK_VIDEO_MAX_SEC.video25, Math.max(4, v.crowdDur || 5));
  const res = v.crowdResolution, asp = v.crowdAspect || '16:9';
  const scene = CROWD_SCENES.find(s => s.key === v.crowdScene) || CROWD_SCENES[0];
  const den = CROWD_DENSITY.find(d => d.key === v.crowdDensity) || CROWD_DENSITY[2];
@@ -36904,7 +36906,7 @@ Style: photorealistic, cinematic, seamless integration.${v.bgPrompt.trim() ? `\n
  if (!v.elVideo) { up({ error: '원본 영상을 첨부하세요.' }); return; }
  if (!v.elTarget.trim() && !v.elTargetRef) { up({ error: '교체 대상을 텍스트나 레퍼런스 이미지 중 하나로 지정하세요.' }); return; }
  if (!v.elReplacement.trim() && !v.elReplacementRef) { up({ error: '교체 결과물을 텍스트나 레퍼런스 이미지 중 하나로 지정하세요.' }); return; }
- const dur = Math.min(15, Math.max(4, v.elDur || 5));
+ const dur = Math.min(ARK_VIDEO_MAX_SEC.video25, Math.max(4, v.elDur || 5));
  const res = v.elResolution, asp = v.elAspect || '16:9';
  // v845: 인덱스를 하드코딩하지 않고 담은 순서에서 계산한다.
  //   배우 레퍼런스가 붙으면 [ImageN] 번호가 밀리는데, 예전처럼 2/1 을 박아두면
@@ -36954,7 +36956,7 @@ AUDIO:
  if (!v.sfxVideo) { up({ error: '원본 영상을 첨부하세요.' }); return; }
  if (!v.sfxSubject.trim() && !v.sfxSubjectRef) { up({ error: '효과 적용 대상을 텍스트나 캡쳐 중 하나로 지정하세요.' }); return; }
  if (!v.sfxEffect.trim() && !v.sfxEffectRef) { up({ error: '특수효과를 텍스트나 레퍼런스 이미지 중 하나로 지정하세요.' }); return; }
- const dur = Math.min(15, Math.max(4, v.sfxDur || 5));
+ const dur = Math.min(ARK_VIDEO_MAX_SEC.video25, Math.max(4, v.sfxDur || 5));
  const res = v.sfxResolution, asp = v.sfxAspect || '16:9';
  // v845: 요소 변경과 같은 이유로 인덱스를 계산해서 쓴다 (배우 레퍼런스가 번호를 밀어낸다)
  const images = [];
@@ -37078,8 +37080,8 @@ AUDIO:
  ) : (
  <>
  {imgBox('교체 배경 이미지', v.bgStartFrame, (val) => up({ bgStartFrame: val }), () => up({ bgStartFrame: null }), 'vfx-bg-startframe')}
- {vidBox('원본 영상', v.bgSourceVideo, (val, dur, asp) => up({ bgSourceVideo: val, bgSourceDur: Math.min(15, Math.max(4, dur || 5)), bgSourceAspect: asp || '16:9' }), () => up({ bgSourceVideo: null }), 'vfx-bg-video')}
- <div><div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>품질 <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}>· 길이 원본 기준 {Math.min(15, Math.max(4, v.bgSourceDur || 5))}초</span></div><div style={{ display: 'flex', gap: 6 }}>{['480p', '720p', '1080p'].map(rz => (<button key={rz} onClick={() => up({ bgResolution: rz })} className={v.bgResolution === rz ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'} style={{ flex: 1, justifyContent: 'center' }}>{rz}</button>))}</div></div>
+ {vidBox('원본 영상', v.bgSourceVideo, (val, dur, asp) => up({ bgSourceVideo: val, bgSourceDur: Math.min(ARK_VIDEO_MAX_SEC.video25, Math.max(4, dur || 5)), bgSourceAspect: asp || '16:9' }), () => up({ bgSourceVideo: null }), 'vfx-bg-video')}
+ <div><div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>품질 <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}>· 길이 원본 기준 {Math.min(ARK_VIDEO_MAX_SEC.video25, Math.max(4, v.bgSourceDur || 5))}초</span></div><div style={{ display: 'flex', gap: 6 }}>{['480p', '720p', '1080p'].map(rz => (<button key={rz} onClick={() => up({ bgResolution: rz })} className={v.bgResolution === rz ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'} style={{ flex: 1, justifyContent: 'center' }}>{rz}</button>))}</div></div>
  </>
  )}
  {/* 추가 지시(선택) */}
@@ -37090,7 +37092,7 @@ AUDIO:
  )}
  {v.subTask === 'crowd' && (
  <div className="card" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
- {vidBox('원본 영상', v.crowdVideo, (val, dur, asp) => up({ crowdVideo: val, crowdDur: Math.min(15, Math.max(4, dur || 5)), crowdAspect: asp || '16:9' }), () => up({ crowdVideo: null }), 'vfx-crowd-video')}
+ {vidBox('원본 영상', v.crowdVideo, (val, dur, asp) => up({ crowdVideo: val, crowdDur: Math.min(ARK_VIDEO_MAX_SEC.video25, Math.max(4, dur || 5)), crowdAspect: asp || '16:9' }), () => up({ crowdVideo: null }), 'vfx-crowd-video')}
  <div><div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>장면 유형</div><div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{CROWD_SCENES.map(s => (<button key={s.key} onClick={() => up({ crowdScene: s.key })} className={v.crowdScene === s.key ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'} style={{ fontSize: 12.5, padding: '6px 11px' }}>{s.label}</button>))}</div></div>
  <div><div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>밀도</div><div style={{ display: 'flex', gap: 4 }}>{CROWD_DENSITY.map(d => (<button key={d.key} onClick={() => up({ crowdDensity: d.key })} className={v.crowdDensity === d.key ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'} style={{ flex: 1, justifyContent: 'center', fontSize: 11, padding: '4px 4px' }}>{d.label}</button>))}</div><div className="micro" style={{ color: 'var(--text-quaternary)', fontSize: 9, marginTop: 4, textAlign: 'center' }}>{CROWD_DENSITY.find(d => d.key === v.crowdDensity)?.count} 명 수준</div></div>
  {(() => { const sc = CROWD_SCENES.find(s => s.key === v.crowdScene) || CROWD_SCENES[0]; return (
@@ -37099,8 +37101,8 @@ AUDIO:
  {sc.refImg && (<div style={{ marginTop: 8 }}>{imgBox(`${sc.concept} 레퍼런스 이미지 (선택)`, v.crowdConceptRef, (val) => up({ crowdConceptRef: val }), () => up({ crowdConceptRef: null }), 'vfx-crowd-conceptref')}</div>)}
  </div>
  ); })()}
- <div><div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>품질 <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}>· 길이 원본 기준 {Math.min(15, Math.max(4, v.crowdDur || 5))}초</span></div><div style={{ display: 'flex', gap: 6 }}>{['480p', '720p', '1080p'].map(rz => (<button key={rz} onClick={() => up({ crowdResolution: rz })} className={v.crowdResolution === rz ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'} style={{ flex: 1, justifyContent: 'center' }}>{rz}</button>))}</div></div>
- {(() => { const c = formatCostDisplay(estimateVideoCost('bytedance/seedance-2.0', Math.min(15, Math.max(4, v.crowdDur || 5)), false, v.crowdResolution, v.crowdAspect || '16:9', { hasVideoInput: true, inputSec: v.crowdDur || 0 })); return (<div className="meta" style={{ color: 'var(--text-tertiary)', textAlign: 'center' }}>예상 비용 <strong style={{ color: 'var(--green-700)' }}>{c.usd}</strong> <span>({c.krw})</span></div>); })()}
+ <div><div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>품질 <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}>· 길이 원본 기준 {Math.min(ARK_VIDEO_MAX_SEC.video25, Math.max(4, v.crowdDur || 5))}초</span></div><div style={{ display: 'flex', gap: 6 }}>{['480p', '720p', '1080p'].map(rz => (<button key={rz} onClick={() => up({ crowdResolution: rz })} className={v.crowdResolution === rz ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'} style={{ flex: 1, justifyContent: 'center' }}>{rz}</button>))}</div></div>
+ {(() => { const c = formatCostDisplay(estimateVideoCost('bytedance/seedance-2.5', Math.min(ARK_VIDEO_MAX_SEC.video25, Math.max(4, v.crowdDur || 5)), false, v.crowdResolution, v.crowdAspect || '16:9', { tier: 'video25', hasVideoInput: true, inputSec: v.crowdDur || 0 })); return (<div className="meta" style={{ color: 'var(--text-tertiary)', textAlign: 'center' }}>예상 비용 <strong style={{ color: 'var(--green-700)' }}>{c.usd}</strong> <span>({c.krw})</span></div>); })()}
  <button className="btn btn-primary" onClick={runCrowd} disabled={!v.crowdVideo} style={{ fontSize: 14, padding: '11px 20px', justifyContent: 'center' }}><Users size={15} /> 요소 추가{anyLoading ? ` (진행 중 ${subJobs.filter(j => j.loading).length})` : ''}</button>
  </div>
  )}
@@ -37108,7 +37110,7 @@ AUDIO:
  <div className="card" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
  {/* v848: 라벨·소스전환·선택결과를 한 블록으로 — 배우 자산 모드에선 업로드가 없다 */}
  {sourceVideoBlock('el', v.elVideo,
- (val, dur, asp) => up({ elVideo: val, elDur: Math.min(15, Math.max(4, dur || 5)), elAspect: asp || '16:9' }),
+ (val, dur, asp) => up({ elVideo: val, elDur: Math.min(ARK_VIDEO_MAX_SEC.video25, Math.max(4, dur || 5)), elAspect: asp || '16:9' }),
  () => up({ elVideo: null, elTargetRef: null }), 'vfx-el-video')}
  {/* 교체 대상 */}
  <div>
@@ -37133,8 +37135,8 @@ AUDIO:
  {/* 결과물 레퍼런스(선택) */}
  {imgBox('결과물 레퍼런스 이미지 (선택 · 배경 깔끔한 이미지 권장)', v.elReplacementRef, (val) => up({ elReplacementRef: val }), () => up({ elReplacementRef: null }), 'vfx-el-repref')}
  {/* 품질 */}
- <div><div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>품질 <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}>· 길이 원본 기준 {Math.min(15, Math.max(4, v.elDur || 5))}초</span></div><div style={{ display: 'flex', gap: 6 }}>{['480p', '720p', '1080p'].map(rz => (<button key={rz} onClick={() => up({ elResolution: rz })} className={v.elResolution === rz ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'} style={{ flex: 1, justifyContent: 'center' }}>{rz}</button>))}</div></div>
- {(() => { const c = formatCostDisplay(estimateVideoCost('bytedance/seedance-2.0', Math.min(15, Math.max(4, v.elDur || 5)), false, v.elResolution, v.elAspect || '16:9', { hasVideoInput: true, inputSec: v.elDur || 0 })); return (<div className="meta" style={{ color: 'var(--text-tertiary)', textAlign: 'center' }}>예상 비용 <strong style={{ color: 'var(--green-700)' }}>{c.usd}</strong> <span>({c.krw})</span></div>); })()}
+ <div><div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>품질 <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}>· 길이 원본 기준 {Math.min(ARK_VIDEO_MAX_SEC.video25, Math.max(4, v.elDur || 5))}초</span></div><div style={{ display: 'flex', gap: 6 }}>{['480p', '720p', '1080p'].map(rz => (<button key={rz} onClick={() => up({ elResolution: rz })} className={v.elResolution === rz ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'} style={{ flex: 1, justifyContent: 'center' }}>{rz}</button>))}</div></div>
+ {(() => { const c = formatCostDisplay(estimateVideoCost('bytedance/seedance-2.5', Math.min(ARK_VIDEO_MAX_SEC.video25, Math.max(4, v.elDur || 5)), false, v.elResolution, v.elAspect || '16:9', { tier: 'video25', hasVideoInput: true, inputSec: v.elDur || 0 })); return (<div className="meta" style={{ color: 'var(--text-tertiary)', textAlign: 'center' }}>예상 비용 <strong style={{ color: 'var(--green-700)' }}>{c.usd}</strong> <span>({c.krw})</span></div>); })()}
  <button className="btn btn-primary" onClick={runElement} disabled={!v.elVideo || !(v.elTarget.trim() || v.elTargetRef) || !(v.elReplacement.trim() || v.elReplacementRef)} style={{ fontSize: 14, padding: '11px 20px', justifyContent: 'center' }}><Wand2 size={15} /> 요소 변경{anyLoading ? ` (진행 중 ${subJobs.filter(j => j.loading).length})` : ''}</button>
  </div>
  )}
@@ -37142,7 +37144,7 @@ AUDIO:
  <div className="card" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
  {/* v848: 라벨·소스전환·선택결과를 한 블록으로 — 배우 자산 모드에선 업로드가 없다 */}
  {sourceVideoBlock('sfx', v.sfxVideo,
- (val, dur, asp) => up({ sfxVideo: val, sfxDur: Math.min(15, Math.max(4, dur || 5)), sfxAspect: asp || '16:9' }),
+ (val, dur, asp) => up({ sfxVideo: val, sfxDur: Math.min(ARK_VIDEO_MAX_SEC.video25, Math.max(4, dur || 5)), sfxAspect: asp || '16:9' }),
  () => up({ sfxVideo: null, sfxSubjectRef: null }), 'vfx-sfx-video')}
  {/* 효과 적용 대상 (SUBJECT) */}
  <div>
@@ -37167,8 +37169,8 @@ AUDIO:
  {/* 효과 레퍼런스(선택) */}
  {imgBox('효과 레퍼런스 이미지 (선택)', v.sfxEffectRef, (val) => up({ sfxEffectRef: val }), () => up({ sfxEffectRef: null }), 'vfx-sfx-effectref')}
  {/* 품질 */}
- <div><div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>품질 <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}>· 길이 원본 기준 {Math.min(15, Math.max(4, v.sfxDur || 5))}초</span></div><div style={{ display: 'flex', gap: 6 }}>{['480p', '720p', '1080p'].map(rz => (<button key={rz} onClick={() => up({ sfxResolution: rz })} className={v.sfxResolution === rz ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'} style={{ flex: 1, justifyContent: 'center' }}>{rz}</button>))}</div></div>
- {(() => { const c = formatCostDisplay(estimateVideoCost('bytedance/seedance-2.0', Math.min(15, Math.max(4, v.sfxDur || 5)), false, v.sfxResolution, v.sfxAspect || '16:9', { hasVideoInput: true, inputSec: v.sfxDur || 0 })); return (<div className="meta" style={{ color: 'var(--text-tertiary)', textAlign: 'center' }}>예상 비용 <strong style={{ color: 'var(--green-700)' }}>{c.usd}</strong> <span>({c.krw})</span></div>); })()}
+ <div><div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>품질 <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}>· 길이 원본 기준 {Math.min(ARK_VIDEO_MAX_SEC.video25, Math.max(4, v.sfxDur || 5))}초</span></div><div style={{ display: 'flex', gap: 6 }}>{['480p', '720p', '1080p'].map(rz => (<button key={rz} onClick={() => up({ sfxResolution: rz })} className={v.sfxResolution === rz ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'} style={{ flex: 1, justifyContent: 'center' }}>{rz}</button>))}</div></div>
+ {(() => { const c = formatCostDisplay(estimateVideoCost('bytedance/seedance-2.5', Math.min(ARK_VIDEO_MAX_SEC.video25, Math.max(4, v.sfxDur || 5)), false, v.sfxResolution, v.sfxAspect || '16:9', { tier: 'video25', hasVideoInput: true, inputSec: v.sfxDur || 0 })); return (<div className="meta" style={{ color: 'var(--text-tertiary)', textAlign: 'center' }}>예상 비용 <strong style={{ color: 'var(--green-700)' }}>{c.usd}</strong> <span>({c.krw})</span></div>); })()}
  <button className="btn btn-primary" onClick={runSfx} disabled={!v.sfxVideo || !(v.sfxSubject.trim() || v.sfxSubjectRef) || !(v.sfxEffect.trim() || v.sfxEffectRef)} style={{ fontSize: 14, padding: '11px 20px', justifyContent: 'center' }}><Sparkles size={15} /> 특수효과{anyLoading ? ` (진행 중 ${subJobs.filter(j => j.loading).length})` : ''}</button>
  </div>
  )}
