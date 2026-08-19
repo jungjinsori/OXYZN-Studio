@@ -861,7 +861,7 @@ async function imageUrlToRef(url, name = '레퍼런스') {
  if (!m) throw new Error('이미지를 불러오지 못했습니다.');
  return { name, base64: m[2], mimeType: m[1] };
 }
-// v633: Seedance 2.0 내러티브 룰북 (상황묘사 → 영상 프롬프트 변환 시스템 프롬프트)
+// v633: 내러티브 룰북 (상황묘사 → 영상 프롬프트 변환 시스템 프롬프트). v1061: 모델은 Seedance 2.5.
 // v1049: 길이를 인자로 받는다. 전에는 "기본 15초"가 본문에 박혀 있어서,
 //   Seedance 2.5(최대 30초)를 골라도 Claude 가 15초짜리 샷 구성을 내놨다.
 //   샷 개수도 길이를 따라간다 — 컷당 약 2초 기준(15초 = 6~8샷, 30초 = 12~16샷).
@@ -896,7 +896,7 @@ S1 — <size> / <beat> (0:00–0:0X) [in frame: ...]: <action + camera + dialogu
 Audio: no music, no BGM. <현장음>
 
 - 헤더는 [Reference] / [Notes] / [Shots] / Audio 만.
-- ★ Seedance 2.0 멀티모달: 첨부 레퍼런스는 [Shots]에서 이미지=[Image1],[Image2]..., 비디오=[Video1]... 로 순서대로 지칭. [Reference] 슬롯 라벨 옆에 (=[Image1]) 처럼 대응 표기.
+- ★ Seedance 2.5 멀티모달: 첨부 레퍼런스는 [Shots]에서 이미지=[Image1],[Image2]..., 비디오=[Video1]... 로 순서대로 지칭. [Reference] 슬롯 라벨 옆에 (=[Image1]) 처럼 대응 표기.
 - 인물마다·반복 오브젝트마다 슬롯. 장소는 Situation 슬롯으로 배경 위임. 집단은 "동일 유닛" 하나로.
 
 ## [Notes] 필수 (씬에 맞게)
@@ -3939,7 +3939,7 @@ const fmtProjectTime = (ts) => {
 };
 
 // v881: 분량은 '상한선' 이다. 고정값이 아니다.
-//   일반씬은 최대 30초, 액션씬은 최대 15초이고 그 이하는 자유다.
+//   v1061: 두 종류 모두 최대 30초다(2.5 로 통일). 그 이하는 자유다.
 //   고정으로 두면 시나리오를 15초 격자에 억지로 맞춰야 하고, 격자에 안 떨어지는
 //   자투리를 어떻게 할지 규칙이 따로 필요해진다. 상한선으로 두면 구간을
 //   시나리오의 호흡대로 자를 수 있어 그 문제가 사라진다.
@@ -3953,8 +3953,10 @@ const PROJECT_EPISODE_MAX_SEC = 300;
 //   생성물을 '컷' 이라 부르지 않는다 — 컷은 편집에서 끊기지 않은 화면 한 토막을
 //   뜻하는데, 생성된 영상 안에는 컷이 여러 개 들어 있다(멀티컷 생성).
 //   타임라인에 놓는 영상 한 조각을 뜻하는 '클립' 을 쓴다. 구간 1개 = 클립 1개.
+// v1061: 액션씬 상한이 15초였던 건 2.0 이 15초까지만 뽑아서다. 2.5 로 통일하면서
+//   그 제약이 사라져 30초로 맞췄다. 종류에 따른 길이 차이는 이제 없다.
 const PROJECT_SEC_MAX_NORMAL = 30;   // 일반씬 구간 상한
-const PROJECT_SEC_MAX_ACTION = 15;   // 액션씬 구간 상한
+const PROJECT_SEC_MAX_ACTION = 30;   // 액션씬 구간 상한
 const PROJECT_SEC_MAX_FOR = (kind) => (kind === 'action' ? PROJECT_SEC_MAX_ACTION : PROJECT_SEC_MAX_NORMAL);
 
 const PROJECT_STEPS = [
@@ -4045,6 +4047,14 @@ const PROJECT_LANGS = [
  + ' 구간 길이는 한국어 대본으로 정해져 있으므로, 늘어난 만큼 대사가 클립을 넘칩니다.'
  + ' 뜻을 지키면서 문장을 짧게 잡으십시오 — 없어도 통하는 조사 · 수식어 · 군더더기'
  + ' 어미를 덜어내고, 긴 문장은 끊으십시오. 원문보다 길어지면 안 됩니다.' },
+{ id: 'de', label: '독일어', en: 'German', note: 'standard High German (Hochdeutsch)',
+ pace: '★ 독일어는 같은 뜻을 담는 데 한국어보다 음절이 늘어나기 쉽습니다(합성어 · 긴 어미).'
+ + ' 구간 길이는 한국어 대본으로 정해져 있으므로 늘어난 만큼 대사가 클립을 넘칩니다.'
+ + ' 뜻을 지키면서 짧게 잡고, 긴 문장은 끊으십시오. 원문보다 길어지면 안 됩니다.' },
+{ id: 'fr', label: '프랑스어', en: 'French', note: 'standard Parisian French',
+ pace: '★ 프랑스어는 같은 뜻을 담는 데 한국어보다 음절이 늘어나기 쉽습니다(관사 · 전치사 · 우언법).'
+ + ' 구간 길이는 한국어 대본으로 정해져 있으므로 늘어난 만큼 대사가 클립을 넘칩니다.'
+ + ' 뜻을 지키면서 짧게 잡고, 긴 문장은 끊으십시오. 원문보다 길어지면 안 됩니다.' },
 ];
 const PROJECT_LANG_OPTIONS = PROJECT_LANGS.map(x => ({ id: x.id, label: x.label }));
 const projectLangInfo = (id) => PROJECT_LANGS.find(x => x.id === id) || PROJECT_LANGS[0];
@@ -5547,16 +5557,14 @@ const projectGroupByScene = (segments) => {
  return groups;
 };
 
-// 씬 종류가 곧 모델 선택이다 — 연결은 다음 작업이고, 지금은 어느 모델로 갈지만 보여준다.
-const PROJECT_MODEL_FOR = (kind) => (kind === 'action' ? 'Seedance 2.0' : 'Seedance 2.5');
-// v899: 비용은 종류별로 다른 모델·해상도를 따른다.
-// v1059: 2.5 도 1080p 가 열려, 이제 두 모델이 480p·720p·1080p 를 모두 낸다.
-const PROJECT_TIER_FOR = (kind) => (kind === 'action' ? 'video' : 'video25');
-// v936: 2.5 API 가 열렸다. 씬 종류가 모델을 정하므로 1회 상한도 종류마다 다르다.
-//   일반씬 = 2.5 (30초까지) · 액션씬 = 2.0 (15초까지)
-//   구간 상한(PROJECT_SEC_MAX_FOR)과 값이 같아져서, 이제 모든 구간이 한 번에 뽑힌다.
-const PROJECT_GEN_MAX_SEC = 30;   // 가장 긴 상한 (안내 문구용)
-const PROJECT_GEN_MAX_FOR = (kind) => (kind === 'action' ? 15 : 30);
+// v1061: 2.0 을 걷어냈다. 액션씬도 2.5 로 간다 — 씬 종류는 이제 모델을 가르지 않는다.
+//   (종류는 프롬프트 규칙에서 계속 쓴다 — 컷 호흡·카메라가 액션씬만 따로 붙는다)
+const PROJECT_MODEL_FOR = () => 'Seedance 2.5';
+const PROJECT_TIER_FOR = () => 'video25';
+// v1061: 두 종류 모두 2.5 라 1회 상한이 같아졌다(30초).
+//   구간 상한(PROJECT_SEC_MAX_FOR)과도 값이 같아 모든 구간이 한 번에 뽑힌다.
+const PROJECT_GEN_MAX_SEC = 30;
+const PROJECT_GEN_MAX_FOR = () => 30;
 const PROJECT_GEN_RES = '720p';   // 기본값
 // v927: 생성 해상도는 프로젝트마다 고른다.
 // v1059: 1080p 를 열었다. 2.5 가 1080p 를 받게 되면서 액션씬(2.0)·일반씬(2.5)이
@@ -7855,8 +7863,9 @@ const arkResOptions = (tier) => {
 // v1049: 사용자가 고르는 영상 모델. 커스텀·내러티브 워크스페이스의 모델 버튼이 쓴다.
 // v1059: 2.5 도 1080p 가 열려 해상도 차이는 없어졌다. 남은 차이는 길이(2배)와
 //   토큰 단가(약 53% 비쌈)다. 힌트에는 고를 때 바로 보이는 길이·해상도를 적는다.
+// v1061: 2.0 을 걷어냈다. 고를 것이 하나뿐이라 모델 선택 UI 도 없앴다.
+//   되살릴 일이 생기면 여기에 { id: 'video', ... } 를 다시 넣고 선택기를 붙이면 된다.
 const ARK_VIDEO_TIERS = [
- { id: 'video', label: 'Seedance 2.0', hint: '최대 15초 · 1080p' },
  { id: 'video25', label: 'Seedance 2.5', hint: '최대 30초 · 1080p' },
 ];
 // v939: 레퍼런스 개수 상한도 모델마다 다르다. 2.5 는 이미지 30 · 영상 10 · 오디오 10
@@ -7874,7 +7883,7 @@ const arkRefMax = (tier, kind) => (ARK_REF_MAX[tier] || ARK_REF_MAX.video)[kind]
 // 해상도+화면비 → 출력 픽셀. 짧은 변이 해상도 값이고 긴 변은 비율로 늘어난다.
 //   (16:9 기준 854x480 / 1280x720 / 1920x1080 / 3840x2160 — 문서 예시와 일치)
 // 실제 토큰 과금용 단가 조회 (USD / M tokens)
-const arkVideoRate = (resolution = '1080p', hasVideoInput = false, tierKey = 'video') => {
+const arkVideoRate = (resolution = '1080p', hasVideoInput = false, tierKey = 'video25') => {
  const tier = ARK_VIDEO_RATES[tierKey] || ARK_VIDEO_RATES.video;
  const row = tier[resolution] || ARK_VIDEO_RATES.video[resolution] || ARK_VIDEO_RATES.video['1080p'];
  return row[hasVideoInput ? 1 : 0];
@@ -7891,7 +7900,7 @@ const seedanceDims = (resolution = '1080p', aspect = '16:9') => {
  return ar >= 1 ? [long, short] : [short, long];
 };
 const estimateSeedance2Cost = (durationSec, resolution = '1080p', aspect = '16:9', opts = {}) => {
- const tier = ARK_VIDEO_RATES[opts.tier || 'video'] || ARK_VIDEO_RATES.video;
+ const tier = ARK_VIDEO_RATES[opts.tier || 'video25'] || ARK_VIDEO_RATES.video25;
  const res = tier[resolution] ? resolution : (tier['720p'] ? '720p' : '1080p');
  const hasVideoIn = !!opts.hasVideoInput;
  const rate = (tier[res] || ARK_VIDEO_RATES.video['1080p'])[hasVideoIn ? 1 : 0];
@@ -8367,7 +8376,7 @@ const falErrorMessage = (status, bodyText, kind = 'api') => {
  if (e.isPolicy) {
  if (kind === 'video' || kind === 'image') {
  return `fal 콘텐츠 정책으로 거부되었습니다${e.label ? ` (${e.label})` : ''}.\n`
- + `Seedance 2.0은 실제 인물의 얼굴·초상이 담긴 사진을 레퍼런스로 받지 않습니다(딥페이크 방지).\n`
+ + `Seedance 는 실제 인물의 얼굴·초상이 담긴 사진을 레퍼런스로 받지 않습니다(딥페이크 방지).\n`
  + `· AI로 생성한 인물 이미지나 일러스트·3D 렌더를 레퍼런스로 쓰거나\n`
  + `· 레퍼런스를 비우고 프롬프트만으로 생성해보세요.\n`
  + `실제 배우 사진을 써야 한다면 fal/ByteDance의 초상권 사용 승인 절차가 필요합니다.`;
@@ -16586,7 +16595,7 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
  // v633: 비디오 커스텀 워크스페이스 (T2V — 프롬프트+비율+품질+레퍼런스)
  const [videoCustomData, setVideoCustomData] = useState({
  prompt: '',
- tier: 'video', // 'video' = Seedance 2.0(≤15초) | 'video25' = 2.5(≤30초) · 둘 다 1080p 까지
+ tier: 'video25', // v1061: 2.0 을 걷어냈다 — 영상은 Seedance 2.5 하나로 간다
  duration: 5, // 초 (4~티어 상한 · 1초 단위 슬라이더)
  aspect: '16:9', // 16:9 | 9:16 | 1:1
  resolution: '480p', // 480p | 720p | 1080p (480p 기본)
@@ -16606,7 +16615,7 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
  // v633: 비디오 내러티브(15s) 워크스페이스 — 상황묘사 → 룰북 프롬프트 → Seedance
  const [videoNarrativeData, setVideoNarrativeData] = useState({
  situation: '', // 상황 묘사(시나리오 원문 등)
- tier: 'video', // 'video' = Seedance 2.0(≤15초) | 'video25' = 2.5(≤30초) · 둘 다 1080p 까지
+ tier: 'video25', // v1061: 2.0 을 걷어냈다 — 영상은 Seedance 2.5 하나로 간다
  duration: 15, // 2.0 은 15초까지, 2.5 를 고르면 30초까지
  aspect: '16:9', resolution: '480p', // 480p 기본
  // 레퍼런스 4종: 상황(콘티뉴이티)/인물/공간/오브제 — 각 이미지 or 비디오
@@ -18340,7 +18349,7 @@ const projectRefLiveSrc = (item) => {
  prompt: finalPrompt,
  duration: dur,
  resolution: genRes,
- // v936: 일반씬 = Seedance 2.5 · 액션씬 = Seedance 2.0
+ // v1061: 씬 종류와 무관하게 Seedance 2.5
  tier: PROJECT_TIER_FOR(seg.kind),
  aspectRatio: genRatio,
  // v904: 소리를 켠다. 배경음악 금지는 프롬프트의 고정 조항이 막는다 —
@@ -18776,7 +18785,6 @@ const projectRefLiveSrc = (item) => {
  const hint = `[다시 나눌 범위]\n위 대본은 지금 ${target.length}개 구간으로 나뉘어 있습니다.\n`
  + `그중 ${forceIndex - from + 1}번째 덩어리는 ${forceKind === 'action' ? '액션' : '일반'}씬입니다 — `
  + `사용자가 그렇게 판단했으니 그대로 따르십시오.\n`
- + `${forceKind === 'action' ? '액션 구간은 15초를 넘길 수 없으므로, 넘치는 분량은 앞뒤 구간으로 옮기거나 구간을 더 늘리십시오.' : ''}\n`
  + '이 범위 안에서만 다시 나누십시오. 범위 밖 내용을 만들어내지 마십시오.';
  const out = await callClaude(PROJECT_SEGMENT_SYS, `[대본]\n${body}\n\n${hint}`, {
  model: 'claude-sonnet-4-5', maxTokens: Math.min(16000, Math.max(3000, body.length * 2)), workCat: 'plan',
@@ -19490,14 +19498,14 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  break;
  case 'video-custom':
  setVideoCustomData({
- prompt: '', tier: 'video', duration: 5, aspect: '16:9', resolution: '480p', refSource: 'upload',
+ prompt: '', tier: 'video25', duration: 5, aspect: '16:9', resolution: '480p', refSource: 'upload',
  refs: [], jobs: [], selectedUrl: null, feedbackOpen: false, feedback: '', error: '',
  });
  setVideoRefSuggest(null);
  break;
  case 'video-narrative':
  setVideoNarrativeData({
- situation: '', tier: 'video', duration: 15, aspect: '16:9', resolution: '480p',
+ situation: '', tier: 'video25', duration: 15, aspect: '16:9', resolution: '480p',
  refs: { situation: [], character: [], space: [], object: [] }, refSource: 'upload',
  jobs: [], selectedUrl: null, feedbackOpen: false, feedback: '', error: '',
  });
@@ -21729,14 +21737,14 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  // v997: onStatus 가 파라미터 목록에 없었다. 폴링 루프가 try/catch 안에서 부르고 있어서
  //   ReferenceError 가 삼켜지고, '대기열에서 기다리는 중 / 영상 만드는 중' 표시가
  //   한 번도 갱신되지 않았다. 호출부는 v916 부터 넘기고 있었다.
- const callSeedanceVideo = async ({ prompt, duration = 15, resolution = '1080p', aspectRatio = '16:9', generateAudio = false, images = [], videos = [], audios = [], firstFrame = null, endFrame = null, tier = 'video', onStatus }) => {
+ const callSeedanceVideo = async ({ prompt, duration = 15, resolution = '1080p', aspectRatio = '16:9', generateAudio = false, images = [], videos = [], audios = [], firstFrame = null, endFrame = null, tier = 'video25', onStatus }) => {
  const apiKey = arkKey();
  const _t0 = Date.now(); // v791: 실제 소요시간 측정 (진행도 추정 학습용)
 
  // ── 입력 정리 ──
  // v944: tierKey 는 입력 정리(개수 상한)에서부터 쓰인다. 출력 스펙에 두면
  //   audioUrls 가 선언 전에 읽어 호출마다 TDZ 가 났다 — v939 에서 그랬다.
- const tierKey = ARK_MODELS[tier] ? tier : 'video';
+ const tierKey = ARK_MODELS[tier] ? tier : 'video25';
  const model = ARK_MODELS[tierKey];
  const asImageEntry = (src, role) => ({ type: 'image_url', image_url: { url: src }, role });
  const content = [];
@@ -30860,7 +30868,7 @@ ${sampleText}`;
  const c = formatCostDisplay(projectTotalCost(d.segments));
  return (
  <span className="micro mono-font" style={{ color: 'var(--text-tertiary)' }}
- title={`일반씬 ${PROJECT_MODEL_FOR('normal')} · 액션씬 ${PROJECT_MODEL_FOR('action')} 기준. `
+ title={`${PROJECT_MODEL_FOR()} 기준. `
  + `표시는 ${PROJECT_COST_RES} 기준입니다. 해상도를 올리면 토큰이 픽셀 수만큼 늘어 실제 비용은 더 듭니다.`}>
  {d.segments.length}구간을 {d.segments.length}클립 · 예상비용 {c.usd}({c.krw}) {PROJECT_COST_RES}, 1회 생성 기준
  </span>
@@ -35720,8 +35728,8 @@ ${sampleText}`;
  up(p => ({ ...p, error: '', feedback: '', feedbackOpen: false, jobs: [{ id: jobId, version: videoJobSeq.current, loading: true, ts: Date.now(), estSec, params }, ...p.jobs] }));
  try {
  // v789: 피드백 재생성은 '이전 결과 영상'을 레퍼런스로 넣어 수정으로 동작하게 한다.
- //   Seedance 2.0 영상 레퍼런스는 최대 3개·합계 15초 → 이전 결과를 맨 앞에 두고 상한에서 자른다.
- const vidsForRun = opts.baseVideoUrl ? [opts.baseVideoUrl, ...videos].slice(0, 3) : videos;
+ //   영상 레퍼런스 상한은 모델마다 다르다(2.5 는 10개) → 이전 결과를 맨 앞에 두고 상한에서 자른다.
+ const vidsForRun = opts.baseVideoUrl ? [opts.baseVideoUrl, ...videos].slice(0, arkRefMax(tier, 'videos')) : videos;
  // v838: 사용자 프롬프트를 모델이 알아듣기 쉽게만 다듬는다(의도 불변, 결과는 비노출).
  //   opts.prompt 가 있으면 피드백 경로가 Claude 로 이미 다시 쓴 문장이라 건드리지 않는다.
  const polished = opts.prompt != null
@@ -35760,7 +35768,7 @@ ${sampleText}`;
  <div className="fade-in" style={{ maxWidth: 1240, margin: '0 auto', padding: '0 8px' }}>
  <div style={{ marginBottom: 22, textAlign: 'center' }}>
  <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>커스텀 영상</h2>
- <p className="meta" style={{ color: 'var(--text-tertiary)', marginTop: 5 }}>프롬프트로 영상을 생성합니다. 이미지·비디오 레퍼런스 첨부 가능 (Seedance 2.0)</p>
+ <p className="meta" style={{ color: 'var(--text-tertiary)', marginTop: 5 }}>프롬프트로 영상을 생성합니다. 이미지·비디오 레퍼런스 첨부 가능 (Seedance 2.5)</p>
  <div style={{ height: 3, marginTop: 16, borderRadius: 3, background: 'linear-gradient(to right, transparent, var(--green-500), transparent)' }} />
  </div>
  <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start' }}>
@@ -36048,24 +36056,6 @@ ${sampleText}`;
  </div>
  {/* 화면비 */}
  <div><div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>화면비</div><FFSelect value={v.aspect} onChange={(nv) => up({ aspect: nv })} options={VIDEO_ASPECTS} disabled={busy} height={32} fontSize={12} /></div>
- {/* 모델 — 2.0 / 2.5. 고르면 길이·품질 상한이 함께 바뀐다 */}
- <div>
- <div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>모델</div>
- <div style={{ display: 'flex', gap: 6 }}>
- {ARK_VIDEO_TIERS.map(t => (
- <button key={t.id} disabled={busy}
- onClick={() => up(p => ({ ...p, tier: t.id,
- // 상한을 넘는 값은 내려서 맞춘다 (2.5 는 30초, 2.0 은 15초 · 해상도는 둘 다 1080p)
- duration: Math.min(p.duration, ARK_VIDEO_MAX_SEC[t.id]),
- resolution: arkClampRes(t.id, p.resolution) }))}
- className={v.tier === t.id ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
- style={{ flex: 1, height: 40, padding: '0 8px', flexDirection: 'column', gap: 1, justifyContent: 'center' }}>
- <span style={{ fontWeight: 700 }}>{t.label}</span>
- <span style={{ fontSize: 9, opacity: 0.8 }}>{t.hint}</span>
- </button>
- ))}
- </div>
- </div>
  {/* 품질 — 티어가 낼 수 있는 해상도만 */}
  <div><div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>품질</div><div style={{ display: 'flex', gap: 6 }}>{vResOpts.map(rz => (<button key={rz} onClick={() => up({ resolution: rz })} disabled={busy} className={v.resolution === rz ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'} style={{ flex: 1, height: 32, padding: '0 8px', justifyContent: 'center' }}>{rz}</button>))}</div></div>
  {/* 길이 — 4초 ~ 티어 상한 */}
@@ -36235,7 +36225,7 @@ ${sampleText}`;
  manifest.push(`${atok} = "${r.refName}의 목소리" (음색 · 자동 적용, [Shots]에서 따로 지칭하지 말 것)`);
  voiceDirectives.push(`When ${tok} speaks, the voice timbre references ${atok}. Keep that timbre consistent for ${tok} throughout.`);
  } }
- else if (r.kind === 'video' && vidN < 3) { vidN++; vidList.push(r.dataUrl); const tok = `[Video${vidN}]`; if (r.refName) tokenMap[r.refName] = tok; manifest.push(`${tok} = "${r.refName}" (${g.label})`); }
+ else if (r.kind === 'video' && vidN < arkRefMax(tier, 'videos')) { vidN++; vidList.push(r.dataUrl); const tok = `[Video${vidN}]`; if (r.refName) tokenMap[r.refName] = tok; manifest.push(`${tok} = "${r.refName}" (${g.label})`); }
  }));
  let situationText = situation;
  Object.keys(tokenMap).sort((a, b) => b.length - a.length).forEach(nm => { situationText = situationText.split(`@${nm}`).join(tokenMap[nm]); });
@@ -36260,7 +36250,7 @@ ${sampleText}`;
  // v783: 의상 지시는 선두 배치 (Claude가 쓴 본문보다 앞)
  if (outfitDirectives.length) finalPrompt = `[Wardrobe — highest priority, overrides any clothing seen in references]\n${OUTFIT_RULE}\n${outfitDirectives.join('\n')}\n\n${finalPrompt}`;
  // v789: 피드백 재생성 시 이전 결과 영상을 레퍼런스로 동반 (상한 3개·15초 안에서)
- const vidsForRun = opts.baseVideoUrl ? [opts.baseVideoUrl, ...vidList].slice(0, 3) : vidList;
+ const vidsForRun = opts.baseVideoUrl ? [opts.baseVideoUrl, ...vidList].slice(0, arkRefMax(tier, 'videos')) : vidList;
  const url = await callSeedanceVideo({ prompt: finalPrompt, duration: dur, resolution: res, aspectRatio: asp, generateAudio: true, images: imgList, videos: vidsForRun, audios: audioList, tier });
  // v789: 영상 비용은 callSeedanceVideo가 실제 토큰으로 기록한다. 여기서는 프롬프트 변환에 쓴 Claude 비용만 적립.
  try { if (!opts.directPrompt) recordCreditUsage(estimateClaudeCost(adaptModel, (situation.length + 2000), genPrompt.length), 'claude', { workCat: 'video' }); } catch {}
@@ -36574,23 +36564,6 @@ ${sampleText}`;
  {refNames.length > 0 && (<div className="meta" style={{ color: 'var(--text-tertiary)', marginTop: 8, fontSize: 11, lineHeight: 1.6 }}>상황 묘사에서 <strong style={{ color: 'var(--green-700)', fontFamily: 'SF Mono, monospace' }}>{'@이름'}</strong> 으로 레퍼런스를 지칭할 수 있습니다.</div>)}
  </div>
  <div><div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>화면비</div><FFSelect value={v.aspect} onChange={(nv) => up({ aspect: nv })} options={VIDEO_ASPECTS} disabled={busy} height={32} fontSize={12} /></div>
- {/* 모델 — 2.0 / 2.5. 고르면 길이·품질 상한이 함께 바뀐다 */}
- <div>
- <div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>모델</div>
- <div style={{ display: 'flex', gap: 6 }}>
- {ARK_VIDEO_TIERS.map(t => (
- <button key={t.id} disabled={busy}
- onClick={() => up(p => ({ ...p, tier: t.id,
- duration: Math.min(Number(p.duration) || 15, ARK_VIDEO_MAX_SEC[t.id]),
- resolution: arkClampRes(t.id, p.resolution) }))}
- className={v.tier === t.id ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
- style={{ flex: 1, height: 40, padding: '0 8px', flexDirection: 'column', gap: 1, justifyContent: 'center' }}>
- <span style={{ fontWeight: 700 }}>{t.label}</span>
- <span style={{ fontSize: 9, opacity: 0.8 }}>{t.hint}</span>
- </button>
- ))}
- </div>
- </div>
  <div><div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>품질</div><div style={{ display: 'flex', gap: 6 }}>{vResOpts.map(rz => (<button key={rz} onClick={() => up({ resolution: rz })} disabled={busy} className={v.resolution === rz ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'} style={{ flex: 1, height: 32, padding: '0 8px', justifyContent: 'center' }}>{rz}</button>))}</div></div>
  {/* 길이 — 프롬프트도 이 길이에 맞춰 샷이 짜인다 */}
  <div>
@@ -39562,7 +39535,7 @@ AUDIO:
  </div>
  <div style={{ padding: '16px 18px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)' }}>
  <div className="meta" style={{ marginBottom: 10, lineHeight: 1.6 }}>
- ByteDance 공식 클라우드에서 <strong>Seedance 2.0 · 2.5</strong>(영상)와 <strong>Seedream 5.0</strong>(이미지)을 직접 호출합니다.
+ ByteDance 공식 클라우드에서 <strong>Seedance 2.5</strong>(영상)와 <strong>Seedream 5.0</strong>(이미지)을 직접 호출합니다.
  영상 생성은 전부 이 키를 씁니다.{' '}
  <a href="https://console.byteplus.com/ark/region:ark+ap-southeast-1/apikey" target="_blank" rel="noreferrer" style={{ color: 'var(--green-700)' }}>BytePlus 콘솔</a>에서 발급하세요.
  </div>
