@@ -1136,9 +1136,36 @@ const VideoFrameCapture = ({ src, onCapture, onClose }) => {
 
 // v678: 요소 추가(crowd) 룰북 — 원본 피사체/액팅/카메라 완전 잠금 + 장면별 배경 요소 추가.
 // 공통 잠금 블록(CROWD_LOCK) + 장면별 본문 + 장면별 밀도 스케일. [DENSITY]는 런타임에 치환.
-const CROWD_LOCK = `Keep the entire input video exactly as it is: preserve the original camera movement, framing, lens, and composition, the main subjects and their actions, the lighting setup, color grading, and overall mood. Do not alter, reposition, or restyle any existing element.
+// v1063: VFX 원본 유지 실패의 원인 — 배경교체만 [Video] 토큰과 프레임 고정 문구를
+//   쓰고 있었고, 요소추가 · 요소변경 · 특수효과 셋은 "the source video" 라는 산문만
+//   있었다. ModelArk 는 레퍼런스를 토큰으로 묶는다([Video] → 'Video 1'). 토큰이
+//   없으면 붙인 영상과 지시문이 연결되지 않고, r2v(참조 생성) 특성상 모델이
+//   원본을 고치는 대신 새로 만들어 버린다. 길이 · 프레임 수 고정도 셋 다 없었다.
+//   배경교체에서 실제로 통하는 문구를 그대로 뽑아 공용으로 쓴다.
+const VFX_SOURCE_LOCK = `This is an EDIT of [Video], not a new video. [Video] is the definitive source —
+everything not explicitly changed below must stay exactly as it is in [Video].
 
-CRITICAL — the original people in the video are LOCKED and must appear exactly as filmed. Reproduce every existing subject one-to-one: identical face, identity, expression, hairstyle, wardrobe, position, and scale, and preserve their exact acting, timing, facial expressions, lip movement, gestures, and body motion FRAME BY FRAME. Do NOT regenerate, restyle, re-time, duplicate, or invent any new movement or action for them — the original performance must stay one-to-one with the source. This lock applies to EVERY original person across the ENTIRE clip, not just those visible in the first frame. Any original subject who is off-screen at the start and later enters the frame (frame-in) must appear as the exact same real person from the source video — identical face, identity, hair, and wardrobe — at the moment they enter. NEVER treat a frame-in subject as a new character and NEVER generate a different-looking person in their place; carry their true source appearance through the whole clip regardless of when they first become visible. Anything you add is STRICTLY PASSIVE BACKGROUND: it must never touch, interact with, obstruct, cue, or in any way influence the original subjects' performance, motion, position, or timing. The additions exist only as background ambience behind the untouched original performance.`;
+Follow [Video] FRAME BY FRAME: replicate every subject's exact acting, timing,
+expressions, lip movement, gestures, and motion precisely as in [Video]. Do NOT
+invent, add, or alter any movement. The camera movement must also stay locked
+identically to [Video].
+
+Maintain strict frame-accurate temporal sync with [Video]: identical duration,
+frame count, and frame rate. Every action must occur on the exact same frame as
+in [Video]. Do NOT time-shift, retime, interpolate, add, drop, or reorder frames,
+and do not drift out of sync over the clip. Frame 1 aligns to frame 1, and the
+last frame aligns to the last frame.
+
+CRITICAL — keep the exact same shot size and framing as [Video]: identical
+composition, subject scale and position, focal length and field of view. Do NOT
+zoom in, zoom out, reframe, recompose, crop, or add empty space.
+
+Keep every subject's appearance, identity, face, hair, and wardrobe exactly as in
+[Video] — do not regenerate or restyle them.`;
+
+const CROWD_LOCK = `Keep [Video] exactly as it is: preserve the original camera movement, framing, lens, and composition, the main subjects and their actions, the lighting setup, color grading, and overall mood. Do not alter, reposition, or restyle any existing element.
+
+CRITICAL — the original people in the video are LOCKED and must appear exactly as filmed. Reproduce every existing subject one-to-one: identical face, identity, expression, hairstyle, wardrobe, position, and scale, and preserve their exact acting, timing, facial expressions, lip movement, gestures, and body motion FRAME BY FRAME. Do NOT regenerate, restyle, re-time, duplicate, or invent any new movement or action for them — the original performance must stay one-to-one with [Video]. This lock applies to EVERY original person across the ENTIRE clip, not just those visible in the first frame. Any original subject who is off-screen at the start and later enters the frame (frame-in) must appear as the exact same real person from the source video — identical face, identity, hair, and wardrobe — at the moment they enter. NEVER treat a frame-in subject as a new character and NEVER generate a different-looking person in their place; carry their true source appearance through the whole clip regardless of when they first become visible. Anything you add is STRICTLY PASSIVE BACKGROUND: it must never touch, interact with, obstruct, cue, or in any way influence the original subjects' performance, motion, position, or timing. The additions exist only as background ambience behind the untouched original performance.`;
 
 const CROWD_PROMPTS = {
  general: { density: ['Sparse', 'Light', 'Moderate', 'Dense', 'Packed'], body: `Add a crowd of background people to populate the location at the amount set in [DENSITY] above, transforming the sparse, quiet space into a more lively venue. Interpret the density scale as: Sparse = a few scattered individuals; Light = thinly populated; Moderate = comfortably busy; Dense = bustling and crowded; Packed = shoulder-to-shoulder, filling the frame. If [DENSITY] gives a number, match that approximate head count within the frame. The added crowd should be naturally integrated into the scene — matching the original video's lighting direction, color temperature, depth of field, grain, and motion blur so the new people look like they were filmed at the same time with the same camera. Place them realistically within the existing space: filling open floor areas, mid-ground and background, respecting the venue's perspective and depth, partially occluding and being occluded by existing elements where appropriate.
@@ -4664,25 +4691,62 @@ const PROJECT_VIDEO_CONT_TEXT_RULE_FOR = (twoPlus) => [
  'or a single, not a wide two-shot.',
 ].join('\n');
 
-// v989: 컷 호흡과 카메라를 씬 종류로 가른다. 모델도 다르다(일반=2.5 · 액션=2.0).
+// v989: 컷 호흡과 카메라를 씬 종류로 가른다.
+//   (v1062 이후 두 종류 모두 Seedance 2.5 다. 2.0 은 앱에서 뺐다.)
 //   기존 지시문은 종류 구분 없이 '일상·대화는 한 컷 3~5초 · 30초면 6~8컷 ·
 //   대사 한 마디에 컷 하나를 넘게 쓰지 말 것' 이라고 느리게 못 박고 있었다.
 //   저장본 11개를 재보니 컷당 평균 3.8초였고, 그중 셋은 컷이 아예 없는
 //   단일 테이크(10~15초)였다 — 지시문 그대로 나온 결과다.
 //   클립 길이에 맞춘 컷 수를 코드가 계산해 넘긴다. 범위를 숫자로 주지 않으면
 //   '빠르게' 라는 말만으로는 안 움직인다.
+//   ★ v1062: 이 계산은 이제 일반씬에만 쓴다. 액션씬은 컷 수를 넘기지 않는다.
 const PROJECT_CUT_TEMPO_FOR = (kind, sec) => {
  const d = Math.max(1, Math.round(Number(sec) || 0));
  if (kind === 'action') {
- const lo = Math.max(3, Math.round(d / 1.5));
- const hi = Math.max(lo + 1, d);
  return [
- `[컷 호흡 — 액션씬 · 이 클립 ${d}초]`,
- `컷당 1~1.5초. 이 클립은 ${lo}~${hi}컷으로 짜십시오. 일반씬보다 훨씬 빠릅니다.`,
- '한 컷이 3초를 넘지 마십시오. 컷 없이 흘러가는 클립은 액션이 아닙니다.',
- '동작의 정점에서 끊습니다 — 주먹이 닿는 순간, 발이 땅을 차는 순간, 몸이 벽에',
- '부딪히는 순간에 다음 컷으로 넘어갑니다.',
- '부딪힌 직후에만 한 박자 멈추고(짧은 정적), 곧바로 다시 빠르게 갑니다.',
+ `[액션씬 — 이 클립 ${d}초]`,
+ // v1062: Seedance 2.5 로 넘어오면서 컷 수 지정을 걷어낸다. 2.0 은 '빠르게' 만으로는
+ //   안 움직여서 "N~M컷" 을 세어 줬는데, 그 탓에 프롬프트가 컷 목록으로 길어지고
+ //   동작이 컷 단위로 토막났다. 2.5 는 흐름을 주면 알아서 나눈다.
+ //   여기서 정할 것은 컷의 개수가 아니라 방향 — 인과 · 접촉 · 연결이다.
+ '컷을 몇 개로 나눌지 세지 마십시오. 컷 길이도 적지 마십시오. 그건 영상 모델이 합니다.',
+ '여기서 정하는 것은 두 가지입니다 — 무엇이 무엇에 닿아서 몸이 어떻게 되는가,',
+ '그리고 그것이 얼마나 몰아치는가.',
+ '동작이 요구하는 만큼만 쓰고, 컷 수를 채우려고 장면을 늘리지 마십시오.',
+ '',
+ '[① 인과 — 액션은 나열이 아니라 사슬입니다]',
+ '앞 동작이 뒤 동작의 원인이어야 합니다. 행동마다 그래서 무엇이 달라졌는지가 붙습니다.',
+ '  나열(X): 그가 주먹을 뻗는다. 그녀가 피한다. 그가 넘어진다.',
+ '  사슬(O): 그가 주먹을 뻗고 → 그녀가 몸을 틀어 흘려보내자 → 헛나간 팔에 끌려',
+ '           그가 앞으로 무너진다.',
+ '반응이 없는 동작, 결과가 없는 타격은 쓰지 마십시오. 맞으면 반드시 무언가 변합니다.',
+ '',
+ '[② 물리적 상호작용 — 어디가 닿고 힘이 어디로 가는가]',
+ "'싸운다' '공격한다' 는 아무 그림도 만들지 않습니다. 접촉을 쓰십시오.",
+ '- 닿는 지점: 주먹이 턱, 어깨가 가슴, 등이 벽, 손이 손목.',
+ '- 힘의 방향: 뒤로 밀린다 · 옆으로 꺾인다 · 아래로 무너진다 · 위로 들린다.',
+ '- 맞은 몸의 결과: 머리가 젖혀지고, 발이 끌리고, 손이 벽을 짚습니다.',
+ '- 무게가 실린 곳이 보이게: 딛는 발, 기울어진 상체, 버티는 무릎.',
+ '주변도 함께 반응합니다 — 먼지, 흔들리는 물건, 튀는 파편, 밀려나는 의자.',
+ '',
+ '[③ 컷 연결 — 다음 컷은 앞 컷의 계속입니다]',
+ '컷이 바뀌어도 동작은 끊기지 않습니다. 앞 컷에서 시작한 움직임이 다음 컷에서',
+ '이어져 끝납니다 — 뻗기 시작한 팔은 다음 컷에서 닿습니다.',
+ '컷마다 자세를 처음부터 다시 잡지 마십시오. 위치 · 방향 · 기세가 넘어갑니다.',
+ '끊는 자리는 동작의 정점입니다 — 닿는 순간, 차는 순간, 부딪히는 순간.',
+ '동작이 끝난 뒤가 아니라, 끝나기 직전에 넘어갑니다.',
+ '',
+ '[④ 속도 — 액션은 컷이 몰아칩니다]',
+ // v1062: 컷 수 지정을 걷어내면서 속도 신호까지 같이 빠졌다('컷당 1~1.5초 ·
+ //   일반씬보다 훨씬 빠릅니다'). 개수는 다시 세지 않되, 체감 속도는 되돌린다.
+ //   액션의 정의적 특성이라 이게 없으면 대화씬 호흡으로 늘어진다.
+ '액션의 컷 전환은 일반씬과 비교가 안 되게 빠릅니다. 대화씬 호흡으로 쓰면 액션이',
+ '아닙니다. 한 컷이 한 동작을 넘게 담지 마십시오 — 동작 하나가 끝나면 바로 다음 컷입니다.',
+ '- 컷 없이 길게 흘러가는 구간을 만들지 마십시오. 액션은 단일 테이크가 아닙니다.',
+ '- 여유 있게 머무는 컷은 딱 하나 — 충돌 직후의 한 박자. 그 뒤엔 즉시 다시 몰아칩니다.',
+ '- 뒤로 갈수록 더 빨라집니다. 클립 끝이 가장 급합니다.',
+ '★ ③ 과 부딪히지 않습니다. 빠르게 끊되, 끊긴 컷들이 같은 동작의 연속이어야 합니다.',
+ '  빠른 것은 컷이고, 이어지는 것은 몸입니다.',
  '',
  '[카메라 — 액션씬]',
  '거친 핸드헬드가 기본입니다. 삼각대에 얹은 듯 매끈한 컷은 액션 사이의 한 박자에만.',
@@ -4731,10 +4795,27 @@ const PROJECT_CUT_TEMPO_FOR = (kind, sec) => {
 // 액션씬은 영상 모델에도 한 번 더 못 박는다. 프롬프트 문장만으로는 카메라가
 //   삼각대에 얹힌 듯 얌전하게 나오는 경우가 있다.
 const PROJECT_VIDEO_ACTION_RULE = [
+ // v1062: Seedance 2.5 로 오면서 세 가지를 더 못 박는다 — 인과 · 접촉 · 연결.
+ //   2.0 은 컷 수를 세어 줘야 움직였고, 그 결과 동작이 컷 단위로 토막나
+ //   '때린다 / 피한다 / 넘어진다' 가 서로 이어지지 않는 클립이 나왔다.
+ //   2.5 는 흐름을 읽으므로 개수 대신 사슬을 준다.
  'ACTION SCENE: handheld and rough. The camera follows the bodies at shoulder',
  'height, jolts on impact, whips to catch a movement, and is locked off only for',
  'one held beat after an impact.',
- 'Cuts are short and land ON the impact, not after it.',
+ 'CAUSALITY: every move is caused by the one before it. This is never a list of',
+ 'separate actions — each hit, block or fall is the direct result of the previous',
+ 'motion. If a blow lands, something changes.',
+ 'PHYSICAL CONTACT: show what touches what, which way the force travels, and what',
+ 'it does to the body that receives it — head snapped back, feet dragging, a hand',
+ 'catching the wall. Weight is visible in the planted foot and the leaning torso.',
+ 'The surroundings react too: dust, rattling objects, debris.',
+ 'CONTINUITY ACROSS CUTS: a movement that starts in one shot finishes in the next.',
+ 'Position, direction and momentum carry over — bodies never reset to a fresh pose',
+ 'on a cut.',
+ 'RAPID CUTTING: cuts come fast — far faster than a dialogue scene, and faster',
+ 'toward the end. One action per shot; cut on the peak of a motion, just before it',
+ 'completes, never after. This is never one long flowing take. The only shot that',
+ 'holds is a single beat right after an impact, and then it accelerates again.',
  'Motion stays readable — the frame shakes, the action inside it does not blur to',
  'mush. No zoom; shot size changes by cutting.',
 ].join('\n');
@@ -18134,8 +18215,10 @@ const projectRefLiveSrc = (item) => {
  } else {
  const user = [
  `[구간] ${seg.kind === 'action' ? '액션씬' : '일반씬'} · ${seg.sec}초`,
- // v989: 컷 호흡·카메라·화자 규칙은 씬 종류마다 다르다. 클립 길이에 맞춘
- //   컷 수를 코드가 계산해 넘긴다 — '빠르게' 라는 말만으로는 안 움직인다.
+ // v989: 컷 호흡·카메라·화자 규칙은 씬 종류마다 다르다. 일반씬은 클립 길이에
+ //   맞춘 컷 수를 코드가 계산해 넘긴다 — '빠르게' 라는 말만으로는 안 움직인다.
+ //   v1062: 액션씬은 반대다. Seedance 2.5 는 컷 나누기를 스스로 하므로 개수를
+ //     넘기지 않고 방향만 준다 — 인과 · 물리적 접촉 · 컷 사이 동작 연결.
  PROJECT_CUT_TEMPO_FOR(seg.kind, seg.sec),
  m.no || m.place || m.time ? `[씬] ${[m.no ? `S#${m.no}` : '', m.place, m.time].filter(Boolean).join(' / ')}` : '',
  refLine ? `[이 구간에 등장] ${refLine}` : '',
@@ -36892,7 +36975,7 @@ Style: photorealistic, cinematic, seamless integration.${v.bgPrompt.trim() ? `\n
  const rb = CROWD_PROMPTS[scene.key] || CROWD_PROMPTS.general;
  const densIdx = Math.max(0, CROWD_DENSITY.findIndex(d => d.key === v.crowdDensity));
  const densWord = rb.density[densIdx] || rb.density[2];
- let prompt = `[DENSITY]: ${densWord}\n\n${CROWD_LOCK}\n\n${rb.body}`;
+ let prompt = `${VFX_SOURCE_LOCK}\n\n[DENSITY]: ${densWord}\n\n${CROWD_LOCK}\n\n${rb.body}`;
  if (v.crowdConcept.trim()) prompt += `\n\n[Additional detail] ${v.crowdConcept.trim()}`;
  if (useRef) prompt += `\n\nUse the provided reference image [Image1] as a visual guide for the appearance and style of the added elements — match its look, but do not copy it wholesale or let it alter the original subjects.`;
  const url = await callSeedanceVideo({ prompt, duration: dur, resolution: res, aspectRatio: asp, generateAudio: true, images, videos: [v.crowdVideo.dataUrl] });
@@ -36922,16 +37005,16 @@ Style: photorealistic, cinematic, seamless integration.${v.bgPrompt.trim() ? `\n
  try {
  // 이미지 레퍼런스 안내 (형태·색·질감만 참조, 조명·각도·스케일·그림자는 원본 영상)
  const refLines = [];
- if (iTarget) refLines.push(`[Image${iTarget}] is a cropped close-up of the ⟪TARGET⟫ taken from the source video — use it ONLY to identify which object to replace (its shape, color, and texture). Follow the source video itself for lighting, angle, scale, and shadows.`);
- if (iRepl) refLines.push(`[Image${iRepl}] shows the desired ⟪REPLACEMENT⟫ on a clean background — reference ONLY its shape, color, and texture. Match its lighting, angle, scale, and shadows to the source video, not to this image.`);
+ if (iTarget) refLines.push(`[Image${iTarget}] is a cropped close-up of the ⟪TARGET⟫ taken from [Video] — use it ONLY to identify which object to replace (its shape, color, and texture). Follow [Video] itself for lighting, angle, scale, and shadows.`);
+ if (iRepl) refLines.push(`[Image${iRepl}] shows the desired ⟪REPLACEMENT⟫ on a clean background — reference ONLY its shape, color, and texture. Match its lighting, angle, scale, and shadows to [Video], not to this image.`);
  const refBlock = refLines.length ? `\n\nIMAGE REFERENCES:\n${refLines.join('\n')}` : '';
  // 텍스트가 없으면 첨부 이미지로 대상을 지칭
  const targetText = v.elTarget.trim() || (iTarget ? `the object shown in [Image${iTarget}]` : '');
  const replText = v.elReplacement.trim() || (iRepl ? `the object shown in [Image${iRepl}]` : '');
- const prompt = `⟪TARGET⟫: ${targetText}
+ const prompt = `${VFX_SOURCE_LOCK}\n\n⟪TARGET⟫: ${targetText}
 ⟪REPLACEMENT⟫: ${replText}
 
-Replace ONLY the ⟪TARGET⟫ in the source video with ⟪REPLACEMENT⟫.
+Replace ONLY the ⟪TARGET⟫ in [Video] with ⟪REPLACEMENT⟫.
 
 KEEP EVERYTHING ELSE EXACTLY THE SAME — do not change: person's face, expression, hair, skin tone, clothing; body motion, pose, hand position and movement; camera angle, motion, zoom, focus; background, props, lighting direction and color temperature, shadows; color grade, grain, overall tone; framing, timing, playback speed.
 
@@ -36971,13 +37054,13 @@ AUDIO:
  const subjectText = v.sfxSubject.trim() || (iSubj ? `the subject shown in [Image${iSubj}]` : '');
  const effectText = v.sfxEffect.trim() || (iEff ? `the visual effect shown in [Image${iEff}]` : '');
  const refLines = [];
- if (iSubj) refLines.push(`[Image${iSubj}] is a cropped close-up of ⟪SUBJECT⟫ taken from the source video — use it ONLY to identify who/which body part the effect applies to. Follow the source video itself for motion, timing, angle, scale, and lighting.`);
- if (iEff) refLines.push(`[Image${iEff}] shows the desired ⟪EFFECT⟫ — reference ONLY its color, texture, and shape. Its occurrence position, timing, scale, and lighting must follow the person's motion in the source video, not this image.`);
+ if (iSubj) refLines.push(`[Image${iSubj}] is a cropped close-up of ⟪SUBJECT⟫ taken from [Video] — use it ONLY to identify who/which body part the effect applies to. Follow [Video] itself for motion, timing, angle, scale, and lighting.`);
+ if (iEff) refLines.push(`[Image${iEff}] shows the desired ⟪EFFECT⟫ — reference ONLY its color, texture, and shape. Its occurrence position, timing, scale, and lighting must follow the person's motion in [Video], not this image.`);
  const refBlock = refLines.length ? `\n\nIMAGE REFERENCES:\n${refLines.join('\n')}` : '';
- const prompt = `⟪SUBJECT⟫: ${subjectText}
+ const prompt = `${VFX_SOURCE_LOCK}\n\n⟪SUBJECT⟫: ${subjectText}
 ⟪EFFECT⟫: ${effectText}
 
-PRIMARY TASK — this is a VFX shot. Apply the following visual effect to ${subjectText} in the source video: ${effectText}. The effect MUST be clearly visible, prominent, and unmistakable throughout the shot — do NOT output the source video unchanged. Add ONLY this effect and no other new element.
+PRIMARY TASK — this is a VFX shot. Apply the following visual effect to ${subjectText} in [Video]: ${effectText}. The effect MUST be clearly visible, prominent, and unmistakable throughout the shot — do NOT output [Video] unchanged. Add ONLY this effect and no other new element.
 
 KEEP THE PERSON'S ACTING EXACTLY THE SAME — do not change: facial expression, emotion, eye direction, and reactions; body motion, gestures, pose, hand movement, and their timing; the performance and energy of the original acting.
 
