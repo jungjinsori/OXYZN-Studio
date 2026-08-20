@@ -5103,14 +5103,29 @@ const OUTFIT_RULE = [
  //   속옷으로 그려 넣던 실제 결함(v971)을 막는 문장이다.
  'Match exactly — design, colour, pattern, fabric, fit, closures. Open stays open,',
  'fastened stays fastened. EVERY layer it shows (shirt under jacket, tie, vest);',
- 'add none it does not. Where it leaves skin uncovered, that skin stays bare.',
+ 'add none it does not.',
  'Garment only — not its mannequin, pose, framing or background. It defines what',
  'the garment IS, not whether it is worn now.',
- 'Any smooth grey or neutral surface inside the garment — open front, neckline,',
- 'armhole, any gap — is the mannequin, never clothing. Add no top, camisole,',
- 'undershirt, bodysuit or underwear beneath.',
- 'The IDENTITY image gives face, hair and body proportions only; its plain',
- 'grey-charcoal unitard is casting-sheet kit and never appears in the video.',
+ // v1068: 회색이 인물의 손·팔로 그대로 나오던 결함.
+ //   전 문장은 회색을 '옷 안쪽(앞섶·목둘레·진동)' 으로만 한정했다. 그런데
+ //   의상 시트의 마네킹은 몸 전체가 회색이라(14215), 소매 끝을 지난 손과
+ //   팔뚝 · 목 · 종아리는 '옷 안쪽' 이 아니어서 규칙에 걸리지 않았다.
+ //   게다가 문장이 '옷이 아니다' 라는 부정만 하고 그 자리에 무엇을 그릴지를
+ //   말하지 않아, 속옷을 안 그리고 회색을 그대로 두는 것이 규칙에 맞는 답이
+ //   되어 버렸다. 범위를 옷 바깥까지 넓히고, 치환 대상을 못 박는다.
+ 'The wardrobe image is worn by a featureless LIGHT GREY DISPLAY FORM. That grey is',
+ 'never skin and never clothing — it does not appear in the video at all.',
+ 'WHEREVER the grey shows — inside the garment (open front, neckline, armhole, any',
+ 'gap) AND beyond it (hands, wrists, forearms, neck, throat, calves, ankles, feet) —',
+ 'render THEIR OWN BARE SKIN, in the skin tone from their identity image.',
+ 'Never leave a grey, plastic, matte or mannequin-coloured hand, arm, neck or leg.',
+ 'Add no top, camisole, undershirt, bodysuit or underwear beneath.',
+ // v1067: 얼굴 이미지가 캐스팅 시트라고 단정하지 않는다. 인물 시트·업로드로도
+ //   얼굴을 넣을 수 있게 되면서, 평상복을 입은 사진이 신원 이미지가 될 수 있다.
+ //   회색 유니타드만 짚으면 그 경우 문장이 헛돈다 — 둘 다 덮게 쓴다.
+ 'The IDENTITY image gives face, hair and body proportions only. Whatever it shows',
+ 'them wearing — a plain grey-charcoal casting unitard, or ordinary clothes in a',
+ 'photo — is never worn in the video. The wardrobe image alone decides that.',
 ].join('\n');
 
 // 앞 클립과 같은 씬일 때만 붙인다. 씬이 바뀌면 장소가 바뀌므로
@@ -18105,8 +18120,11 @@ const projectRefLiveSrc = (item) => {
  if (x.kindLabel !== '의상') return;
  const who = x.name.replace(/의 의상$/, '');
  const ci = fullList.findIndex(y => y.kindLabel === '인물' && y.name === who);
- if (ci < 0) return;
- outfitPairs.push(`${who} — identity Image ${ci + 1}, wardrobe Image ${i + 1}.`);
+ // v1067: 인물 이미지가 없어도 의상 줄은 남긴다. 전에는 통째로 버려서,
+ //   의상 이미지는 보내면서 그것이 누구의 옷인지 한 마디도 안 했다.
+ outfitPairs.push(ci >= 0
+ ? `${who} — identity Image ${ci + 1}, wardrobe Image ${i + 1}.`
+ : `${who} — wardrobe Image ${i + 1}. No identity image for ${who}; take the garment from it and nothing else.`);
  });
  const outfitDirectives = outfitPairs.length ? [OUTFIT_RULE, ...outfitPairs] : [];
  // v979: 장소도 같은 방식으로 못 박는다 — 이 이미지가 공간의 유일한 출처다
@@ -18708,11 +18726,11 @@ const projectRefLiveSrc = (item) => {
  const cur = p.sceneRefs[sceneKey] || {};
  const patch = slot === 'costume'
  ? { costumeUrl: assetUrl, costumeSource: source }
- // 얼굴이 시트가 아닌 것으로 바뀌면 의상도 뗀다. 남겨두면 화면에 안 보이는 채로
- //   모델에는 계속 딸려 간다.
  : { assetUrl, source: source || 'manual',
- // 캐릭터가 아닌 것으로 바꾸면 의상도 뗀다 — 남으면 화면에 없는 채로 모델에 간다
- ...(['character', 'actor'].includes(source) ? {} : { costumeUrl: '', costumeSource: '' }),
+ // v1067: 얼굴을 '뗐을 때' 만 옷을 뗀다. 전에는 캐릭터·배우 자산이 아닌
+ //   것으로 바꾸면 옷을 지웠다 — 시트·업로드로 얼굴을 넣는 순간 붙여둔 옷이
+ //   사라져서, 옷 슬롯을 열어줘도 쓸 수가 없다.
+ ...(assetUrl ? {} : { costumeUrl: '', costumeSource: '' }),
  // v923: 보이스는 얼굴을 바꿀 때마다 새로 정해진다. 없으면 비워서 이전 것이
  //   화면에 안 보이는 채로 모델에 따라가지 않게 한다.
  voiceUrl: extra?.voiceUrl || '', voiceName: extra?.voiceName || '',
@@ -31408,9 +31426,12 @@ ${sampleText}`;
  )}
  {item.name}
  </button>
- {/* v908: 캐릭터와 의상은 한 묶음이다. 캐릭터 자산에만 옷 슬롯을 낸다 —
-     배우·인물 시트·업로드에는 내지 않는다. */}
- {k === 'characters' && (item.source === 'character' || item.source === 'actor') && (
+ {/* v1067: 옷 슬롯을 얼굴이 붙은 모든 인물에게 낸다.
+     v908 은 캐릭터·배우 자산에만 냈다 — 인물 시트나 업로드로 올린 인물은
+     옷을 붙일 방법이 없었다. 의상은 출처와 무관하게 그 인물의 옷이다.
+     얼굴이 없는 줄(이름만 자동으로 잡힌 행)에는 내지 않는다 — 옷만 있고
+     얼굴이 없으면 그 옷을 누구에게 묶을지가 없다. */}
+ {k === 'characters' && !!(item.assetUrl || item.assetUri) && (
  <button type="button"
  title={item.costumeUrl ? `${item.name}의 의상 · 바꾸기` : `${item.name}의 의상 붙이기`}
  onClick={() => projectRefAttach(grp.key, k, item, 'costume')}
