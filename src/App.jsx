@@ -8379,11 +8379,17 @@ const characterStoreBytes = async (id, base64, mime) => {
 // 우리 쪽 로컬 주소를 모델이 읽을 수 있는 형태로 바꾼다 (그 밖의 주소는 그대로).
 //   file:// — 캐릭터·보이스 원본 (v974)
 //   ffs://  — 생성 결과를 받아둔 파일 (v976). 둘 다 외부 API 가 못 읽는다.
+// v1065: file:// 과 ffs:// 를 같은 방식으로 푼다.
+//   전에는 file:// 만 slice(7) 로 잘랐다. 윈도에서 file:///C:/... 의 뒤쪽은
+//   '/C:/Users/...' 라 앞의 슬래시가 남고, path.resolve 가 'C:\C:\Users\...' 를
+//   만들어 낸다 — 있지도 않은 경로라 메인의 localRead 가 거부한다. 실패해도
+//   조용히 빠지므로 레퍼런스 목록에서 그 인물만 사라지고, 얼굴 없이 생성됐다.
+//   (2026-08-20 · 싱클레어 · 데미안. 라이브러리에서 고른 인물은 file:// 로,
+//    앱이 생성한 인물은 ffs:// 로 저장돼서 후자만 멀쩡히 붙고 있었다.)
 const assetSrcForModel = async (src) => {
  const u = String(src || '');
  let fp = '';
- if (u.startsWith('file://')) fp = decodeURI(u.slice('file://'.length));
- else if (u.startsWith('ffs://')) {
+ if (u.startsWith('file://') || u.startsWith('ffs://')) {
  try {
  const parsed = new URL(u);
  fp = decodeURIComponent(parsed.pathname || '').replace(/^\/+/, '');
@@ -17995,6 +18001,23 @@ const projectRefLiveSrc = (item) => {
  // 실제로 보내는 이미지와 같은 순서로 번호를 매긴다.
  //   앞 클립이 있으면 그 마지막 프레임을 맨 앞에 둔다 — 이어붙일 기준이다.
  const refList = projectRefListFor(seg, sceneKey, prevSameScene ? prev : null);
+ // v1066: 레퍼런스를 읽는 것을 생성 맨 앞으로 당기고, 하나라도 못 읽으면 멈춘다.
+ //   전에는 목록에서 조용히 빼고 그대로 생성했다. 붙인 줄 알았던 얼굴·의상이
+ //   빠진 채 영상이 나오고, 그 사실은 결과를 봐야 알았다 (2026-08-20).
+ //   여기서 멈추면 뒤따르는 과금 호출이 하나도 안 나간다 —
+ //   앞 클립 끝 상태 읽기(Sonnet) · 프롬프트 작성(Claude) · 영상 생성(ARK).
+ //   등록 안 한 레퍼런스는 애초에 refList 에 없으므로 여기 걸리지 않는다.
+ //   걸리는 것은 '등록은 됐는데 파일을 못 읽는' 고장난 상태뿐이다.
+ let fullList = refList.slice(0, arkRefMax(PROJECT_TIER_FOR(seg.kind), 'images'));
+ {
+   const resolved = await Promise.all(fullList.map(x => assetSrcForModel(x.assetUrl)));
+   const lost = fullList.filter((x, i) => !resolved[i]);
+   if (lost.length) {
+     const who = lost.map(x => `${x.name}(${x.kindLabel})`).join(' · ');
+     throw new Error(`레퍼런스를 읽지 못해 멈췄습니다 — ${who}. 파일이 옮겨졌거나 지워졌을 수 있습니다. 자료 탭에서 해당 항목의 이미지를 다시 넣어주세요. (생성 비용은 나가지 않았습니다)`);
+   }
+   fullList = fullList.map((x, i) => ({ ...x, assetUrl: resolved[i] }));
+ }
  const prevAlive = !!prev?.clipUrl && arkUrlFresh(prev.clipTs);
  if (!isEdit && !noCont && projectContVideoOn(now) && prevSameScene && prev?.clipUrl) {
  if (prevAlive) { contVideo = prev.clipUrl; contVia = '원본 주소'; }
@@ -18026,21 +18049,6 @@ const projectRefLiveSrc = (item) => {
  contNote = await projectEndStateOf(prev, names);
  }
  mark('앞 클립 끝 읽기');
- // 연결 프레임이 빠진 만큼 실제 레퍼런스에 아홉 자리를 다 쓴다
- let fullList = refList.slice(0, arkRefMax(PROJECT_TIER_FOR(seg.kind), 'images'));
- // v974: 캐릭터 원본은 userData 파일(file://)이다. ARK 는 그 주소를 못 읽으므로
- //   읽어서 data URL 로 바꾼다. 못 읽은 항목은 목록에서 아예 빼야 한다 —
- //   남겨 두면 callSeedanceVideo 의 filter(Boolean) 이 걸러내면서 Image 번호가
- //   한 칸씩 밀리고, 프롬프트가 가리키는 사람과 실제 이미지가 어긋난다.
- {
- const resolved = await Promise.all(fullList.map(x => assetSrcForModel(x.assetUrl)));
- const kept = [];
- fullList.forEach((x, i) => {
- if (resolved[i]) kept.push({ ...x, assetUrl: resolved[i] });
- else console.warn(`[프로젝트] 레퍼런스를 읽지 못해 제외합니다 — ${x.name} (${x.kindLabel})`);
- });
- fullList = kept;
- }
  refImages = fullList.map(x => x.assetUrl);
  const refIndex = [
  ...fullList.map((x, i) => `Image ${i + 1} = ${x.name} (${x.kindLabel})`),
