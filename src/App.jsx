@@ -4957,16 +4957,24 @@ const PROJECT_VIDEO_EDIT_RULE = [
 //   문서가 지원한다고 말한 형태로 바꿔 본다. 137단어 → 34단어.
 //   ★ 실패하면 v1038 로 되돌린다. 길게 쓰는 쪽이 나은지 짧게 쓰는 쪽이 나은지는
 //     이 한 번의 생성으로 갈린다.
+// v1069: 문서가 주는 형태 그대로 쓴다 — "No BGM, only ambient and action sounds".
+//   두 가지를 고친다.
+//   ① 자기모순 — 'no sound effects' 라고 해놓고 바로 다음 줄에서 footsteps ·
+//      cloth · doors 를 요구하고 있었다. 그것들이 곧 sound effect 다. 문서의
+//      'only ambient and action sounds' 는 이 충돌 없이 같은 일을 한다.
+//   ② 희석 — whoosh · boom · sting · riser · drone 은 문서가 검증했다고 말한
+//      범위(자막 · 오디오) 밖의 세부 부정이다. v1040 에서 이름으로 불러도
+//      스우시가 그대로 났다. 목록이 길수록 핵심 토큰이 묻힌다.
+//   문서는 이 지시를 프롬프트 '끝' 에 둘 때 가장 안정적이라고도 적어놨다 —
+//   PROJECT_FINAL_LINE 이 그 자리를 맡는다.
 const PROJECT_SOUND_RULE = [
- 'SOUND: no BGM, no score, no soundtrack, no sound effects, no whoosh or boom on',
- 'a cut, no sting on a look, no riser, no drone.',
- 'Diegetic sound only — voices, footsteps, cloth, doors, objects being handled,',
- 'room air, and whatever the story itself makes here.',
+ 'SOUND: No BGM, only ambient and action sounds — voices, footsteps, cloth, doors,',
+ 'objects being handled, room air, and whatever the story itself makes here.',
 ].join('\n');
 
 // 마지막에 읽는 줄. 짧게 — 길면 앞 조항을 되풀이하는 것으로 흘려 읽는다.
 // v1040: 앞 조항과 같은 형식으로 맞췄다.
-const PROJECT_FINAL_LINE = 'FINAL: no BGM, no sound effects. Only sound made in this room.';
+const PROJECT_FINAL_LINE = 'FINAL: No BGM, only ambient and action sounds.';
 
 // v1006: 보이스 레퍼런스. 예전에는 'When A speaks, the voice timbre references
 //   Audio 1.' 두 줄뿐이었다. 그러면 보이스가 없는 인물에게도 그 목소리가 실린다 —
@@ -5763,6 +5771,13 @@ const projectCanGenerate = (seg) => (Number(seg?.sec) || 0) <= PROJECT_GEN_MAX_F
 // v913: 콘티뉴이티 참조를 뽑을 구간 — 앞 클립의 끝 40%.
 //   중간에서 뽑으면 이미 지나간 동작을 물려주게 되어 연기가 되돌아간다.
 const PROJECT_CONT_RANGE = { fromRatio: 0.6, toRatio: 0.98 };
+// v1070: 끝 상태를 읽을 프레임의 가로 해상도. 512 였다 — 우산 자루의 은색
+//   금속 링이 주먹에 감싸인 채로 몇 픽셀이 되어 '뚜껑 달린 작은 병' 으로
+//   읽혔고, 그 병이 다음 클립 프롬프트에 연기까지 붙어 실렸다. 원본이 1280 이라
+//   줄이지 않고 그대로 본다. 비전 토큰은 8장에 약 1,600 → 9,800 으로 늘지만
+//   Sonnet 입력이라 클립당 몇 원이고, 잘못 읽은 소지물이 다음 클립들로
+//   번지는 비용이 훨씬 크다.
+const PROJECT_CONT_PX = 1280;
 // v912: 버튼에 붙는 값은 '지금 실제로 나가는 비용' 이다. 2.5 가 안 열려서
 //   일반씬도 2.0 으로 뽑히므로 종류와 무관하게 video(2.0) 단가로 잡는다.
 //   (2단계의 예상 비용은 2.5 가 열린 뒤를 가정한 계획값이라 서로 다르다.)
@@ -17749,23 +17764,23 @@ const projectRefLiveSrc = (item) => {
  //   (InputImageSensitiveContentDetected · content[1] = 첫 연결 프레임).
  //   그래서 앞 클립은 영상 원본 URL 그대로 Video 1 로 넘기고(출처 유지),
  //   프레임은 우리 쪽에서만 읽어 위치를 문장으로 적어 보낸다. 글은 검열을 안 탄다.
- const projectEndStateOf = async (prevSeg, names) => {
+ const projectEndStateOf = async (prevSeg, names, propNames = []) => {
  // v947: 받아둔 파일을 먼저 쓴다. 원본 주소는 24시간이면 죽는다.
  const readSrc = projectClipSrc(prevSeg);
  if (!readSrc) return '';
- const key = `note|${prevSeg.clipFile || prevSeg.clipUrl}|${names.join(',')}`;
+ const key = `note|${prevSeg.clipFile || prevSeg.clipUrl}|${names.join(',')}|${propNames.join(',')}`;
  const hit = projectShotRefCache.current.get(key);
  if (hit != null) return hit;
 
  let frames = [];
  try {
- frames = await extractFramesFromVideo(readSrc, 8, 512, PROJECT_CONT_RANGE);
+ frames = await extractFramesFromVideo(readSrc, 8, PROJECT_CONT_PX, PROJECT_CONT_RANGE);
  } catch (e1) {
  try {
  const res = await fetch(readSrc);
  const blob = await res.blob();
  const obj = URL.createObjectURL(blob);
- try { frames = await extractFramesFromVideo(obj, 8, 512, PROJECT_CONT_RANGE); } finally { URL.revokeObjectURL(obj); }
+ try { frames = await extractFramesFromVideo(obj, 8, PROJECT_CONT_PX, PROJECT_CONT_RANGE); } finally { URL.revokeObjectURL(obj); }
  } catch (e2) {
  console.warn('[프로젝트] 앞 클립에서 프레임을 못 뽑았습니다 — 끝 상태 설명 없이 갑니다.', e1?.message, e2?.message);
  return '';
@@ -17814,6 +17829,7 @@ const projectRefLiveSrc = (item) => {
     머리 : 헝클어졌는지 · 젖었는지 · 묶었는지
     몸 : 상처 · 피 · 먼지 · 땀 · 눈물
     손 : 왼손과 오른손에 각각 무엇이 있는지 (아무것도 없으면 '빈손')
+         물건 이름은 위 오브제 목록에서 고르십시오. 확실치 않으면 그렇게 적습니다.
   ★ 보이지 않아 판단이 안 되는 항목은 '확인 불가' 라고 적으십시오. '없음' 이라고
     적지 마십시오 — 둘은 다릅니다. 다음 클립이 '없음' 을 읽으면 실제로 벗겨서
     만듭니다. 화면에 아예 안 보이는 인물은 모든 항목이 '확인 불가' 입니다.
@@ -17833,6 +17849,10 @@ const projectRefLiveSrc = (item) => {
 - ★ 어떤 인물의 자세나 위치가 프레임에서 확실하지 않으면 그 사람 줄에
   '자세를 알 수 없음' 이라고 적으십시오. 옆 사람 것을 갖다 쓰지 마십시오.
 - 이름은 준 목록에 있는 것만 쓰십시오. 목록에 없는 사람은 '지나가던 행인' 처럼 적습니다.
+- ★ 손에 들거나 몸에 걸친 물건도 마찬가지입니다. [이 씬에 등록된 오브제] 목록이
+  주어졌다면 그 이름으로 부르십시오. 목록에 없는 물건이면 이름을 지어내지 말고
+  '무엇인지 확실치 않은 물건' 이라고 적으십시오. 실제로 우산 자루를 '작은 병' 으로
+  적어, 다음 클립이 있지도 않은 병을 손에 쥐여 준 일이 있습니다.
 - ★ 화면에 안 보이는 인물은 '보이지 않음' 이라고 분명히 적으십시오.
   빼고 넘어가면 다음 클립이 그 사람의 자리를 지어냅니다. 실제로 그렇게 됐습니다.
   화면 밖이어도 시선이나 내민 손으로 어느 쪽에 있는지 알 수 있으면 그렇게 적으십시오.
@@ -17851,6 +17871,13 @@ const projectRefLiveSrc = (item) => {
  content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: String(f.dataUrl).split(',')[1] } });
  });
  content.push({ type: 'text', text: `등장인물: ${names.length ? names.join(', ') : '(이름 미상)'}` });
+ // v1070: 등장 가능한 오브제 이름을 함께 준다. 이것이 없어서 우산 자루의
+ //   금속 링을 '작은 병' 으로 읽고, 그 병이 다음 클립 프롬프트에 연기까지
+ //   붙어 실렸다. 인물 이름에는 이미 '준 목록에서만' 규칙이 있는데
+ //   소지물에는 같은 장치가 없었다.
+ if (propNames.length) {
+ content.push({ type: 'text', text: `이 씬에 등록된 오브제: ${propNames.join(', ')}` });
+ }
  // v1047: 앞 클립의 대본을 함께 준다. 프레임 8장은 클립의 '끝' 뿐이라, 화면 밖으로
  //   빠진 인물의 소지물은 프레임만으로는 알 길이 없다 — 서준이 가방을 메고
  //   들어왔는데 마지막 컷이 미래의 클로즈업이어서 가방이 통째로 누락됐다.
@@ -18061,7 +18088,9 @@ const projectRefLiveSrc = (item) => {
  if (canReadPrev) {
  setProjectGenJob(j => (j && j.segId === segId ? { ...j, phase: '앞 클립의 끝 상태 읽는 중' } : j));
  const names = use.characters.map(x => x.name).filter(Boolean);
- contNote = await projectEndStateOf(prev, names);
+ // v1070: 등록된 오브제 이름을 함께 넘긴다 — 손에 든 것을 지어내지 않게
+ const propNames = (use.objects || []).map(x => String(x?.name || '').trim()).filter(Boolean);
+ contNote = await projectEndStateOf(prev, names, propNames);
  }
  mark('앞 클립 끝 읽기');
  refImages = fullList.map(x => x.assetUrl);
