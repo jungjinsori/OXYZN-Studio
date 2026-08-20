@@ -7926,6 +7926,13 @@ const ARK_VIDEO_RATES = { // [영상입력 없음, 영상입력 있음] — USD 
 const ARK_VIDEO_MAX_RES = { video: '1080p', videoFast: '720p', videoMini: '720p', video25: '1080p' };
 // v936: 1회 생성 상한(초). 2.0 계열은 15초, 2.5 는 30초.
 const ARK_VIDEO_MAX_SEC = { video: 15, videoFast: 15, videoMini: 15, video25: 30 };
+// v1064: r2v(참조 생성) 는 원본 영상 크기에 하한이 있다. API 를 직접 찔러 확인한 값 —
+//   "the parameter video height ... must be greater than or equal to 300 ... in r2v"
+//   "the parameter video pixel count ... must be greater than or equal to 407696 ... in r2v"
+//   둘 다 걸린다. 407696px 는 854x480(=409920) 이 겨우 통과하는 값이라 사실상 480p 하한.
+//   업로드 시점에 막지 않으면 fal 업로드까지 다 돌고 나서 영어 원문으로 거절당한다.
+const ARK_R2V_MIN_HEIGHT = 300;
+const ARK_R2V_MIN_PIXELS = 407696;
 // v1049: 티어가 못 내는 해상도를 요청하면 400 이 난다. 상한으로 내려서 준다.
 //   (2.5 는 4K 가 없어 1080p 가 천장이다)
 const ARK_RES_ORDER = ['480p', '720p', '1080p', '4k'];
@@ -36682,7 +36689,50 @@ ${sampleText}`;
  { key: 'sfx', label: '특수효과', ready: true },
  ];
  const readImg = (file, cb) => { if (!file || !file.type.startsWith('image/')) return; const rd = new FileReader(); rd.onload = () => { const dataUrl = String(rd.result); const im = new window.Image(); im.onload = () => cb({ base64: dataUrl.split(',')[1], mimeType: file.type, dataUrl, name: file.name, w: im.naturalWidth, h: im.naturalHeight }); im.onerror = () => cb({ base64: dataUrl.split(',')[1], mimeType: file.type, dataUrl, name: file.name }); im.src = dataUrl; }; rd.readAsDataURL(file); };
- const readVid = (file, cb) => { if (!file || !file.type.startsWith('video/')) return; const rd = new FileReader(); rd.onload = () => { const dataUrl = String(rd.result); const vd = document.createElement('video'); vd.preload = 'metadata'; vd.onloadedmetadata = () => { const w = vd.videoWidth, h = vd.videoHeight; const r = (w && h) ? w / h : 16 / 9; const asp = r > 1.2 ? '16:9' : (r < 0.83 ? '9:16' : '1:1'); cb({ dataUrl, name: file.name }, Math.round(vd.duration || 5), asp); }; vd.onerror = () => cb({ dataUrl, name: file.name }, 5, '16:9'); vd.src = dataUrl; }; rd.readAsDataURL(file); };
+ // v1064: 원본 영상을 받을 때 두 가지를 미리 거른다.
+ //   · 크기 — ModelArk r2v 하한(높이 300 · 픽셀수 407696)에 못 미치면 아예 막는다.
+ //   · 길이 — duration 은 정수 초만 보낼 수 있어 소수점·4초 미만·30초 초과는
+ //     원본과 어긋난다. 막지는 않고 어떻게 나갈지 알려 준다. VFX 프롬프트가
+ //     "프레임 수까지 동일" 을 요구하므로 여기서 어긋나면 프롬프트로는 못 막는다.
+ const readVid = (file, cb) => {
+   if (!file || !file.type.startsWith('video/')) return;
+   const rd = new FileReader();
+   rd.onload = () => {
+     const dataUrl = String(rd.result);
+     const vd = document.createElement('video');
+     vd.preload = 'metadata';
+     vd.onloadedmetadata = () => {
+       const w = vd.videoWidth, h = vd.videoHeight;
+       const r = (w && h) ? w / h : 16 / 9;
+       const asp = r > 1.2 ? '16:9' : (r < 0.83 ? '9:16' : '1:1');
+       if (w && h && (h < ARK_R2V_MIN_HEIGHT || w * h < ARK_R2V_MIN_PIXELS)) {
+         try {
+           showToast(`영상이 너무 작습니다 — ${w}×${h}. 480p(854×480) 이상이어야 합니다.`, 'error');
+         } catch {}
+         return;
+       }
+       // 일부 webm 은 메타데이터만으로 길이를 못 읽어 Infinity 가 나온다 — 그때는 경고를 건너뛴다
+       const d0 = Number(vd.duration);
+       const rawSec = Number.isFinite(d0) && d0 > 0 ? d0 : 0;
+       const sec = rawSec ? Math.round(rawSec) : 5;
+       if (!rawSec) { cb({ dataUrl, name: file.name }, sec, asp); return; }
+       const maxSec = ARK_VIDEO_MAX_SEC.video25;
+       let note = null;
+       if (rawSec > maxSec) {
+         note = `원본이 ${rawSec.toFixed(1)}초입니다 — 앞 ${maxSec}초까지만 생성됩니다.`;
+       } else if (rawSec < 4) {
+         note = `원본이 ${rawSec.toFixed(1)}초입니다 — 4초로 늘려 생성되어 원본과 어긋납니다.`;
+       } else if (Math.abs(rawSec - sec) > 0.05) {
+         note = `원본이 ${rawSec.toFixed(1)}초입니다 — 정수 초만 보낼 수 있어 ${sec}초로 생성됩니다.`;
+       }
+       if (note) { try { showToast(note, 'load'); } catch {} }
+       cb({ dataUrl, name: file.name }, sec, asp);
+     };
+     vd.onerror = () => cb({ dataUrl, name: file.name }, 5, '16:9');
+     vd.src = dataUrl;
+   };
+   rd.readAsDataURL(file);
+ };
  const imgBox = (label, value, onSet, onClear, inputId) => (
  <div>
  <div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>{label}</div>
