@@ -21677,13 +21677,19 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  return results;
  };
 
- // v782: 업스케일 결과 저장 — FFS 네이밍 규칙 + 아카이브(비디오) 분류
+ // v782: 업스케일 결과 저장 — 아카이브(비디오) 분류
+ // v1071: 이름을 FFS 규칙에서 빼고 '원본이름_해상도' 로 둔다. 업스케일은 새로
+ //   만든 것이 아니라 같은 영상의 다른 판이라, 원본과 나란히 놓였을 때 어느
+ //   것의 몇 p 인지 바로 읽히는 편이 낫다. ffsBuildName 을 태우면 FFS_Upscale_
+ //   접두어와 _v001 이 붙고, ffsToken 이 공백과 언더스코어를 지워 원본
+ //   파일명이 뭉개진다 — 그래서 여기서는 직접 만든다.
  const handleDownloadUpscale = async (job) => {
  const url = job?.resultUrl;
  if (!url) return;
  const base = String(job.params?.name || '영상').replace(/\.[^.]+$/, '');
- const tag = `${job.params?.outH || ''}p`;
- const fileName = (await ffsBuildName({ type: 'Upscale', parts: [base, tag] })) + '.mp4';
+ const safe = base.replace(/[\\\\/:*?"<>|]/g, '').trim() || '영상';
+ const h = Number(job.params?.outH) || 0;
+ const fileName = safe + (h ? '_' + h : '') + '.mp4';
  setConfirmDialog({
  title: '영상 저장',
  message: `"${fileName}"\n\n다운로드 폴더에 저장되고, 아카이브(비디오)에도 보관됩니다.`,
@@ -38149,10 +38155,24 @@ AUDIO:
  // v1058: 파일명을 원곡과 맞춘다. 같은 인자로 이름을 만들고 Inst 만 뒤에 _inst 를 붙인다.
  //   전에는 장르+태그로 따로 지었더니(FFS_시네마틱_Inst_v001) 원곡과 짝인 게 안 보였다.
  //   이제 FFS_시네마틱_긴장_v001.mp3 / FFS_시네마틱_긴장_v001_inst.wav 로 나란히 남는다.
+ // v1072: 그런데 번호가 어긋났다 — 원곡을 받고 Inst 를 받으면 _v002_inst 가 됐다.
+ //   ffs-name 은 다운로드 폴더와 아카이브를 훑어 'base_vNNN' 의 최대값+1 을 준다.
+ //   그 정규식이 `_v(\d{3})(?:\.|$|_)` 라 base_v001.mp3 뿐 아니라 base_v001_inst.wav
+ //   까지 같이 센다. 즉 방금 자기가 내보낸 원곡을 보고 다음 번호를 발급한 것이다.
+ //   할당기를 고칠 일이 아니다 — 그건 의도대로 동작한다. 짝을 이루는 둘이
+ //   이름을 '한 번만' 받아 나눠 쓰면 된다. 먼저 누른 쪽이 발급받아 엔트리에
+ //   남기고, 나중 쪽은 그것을 그대로 쓴다. 어느 쪽을 먼저 눌러도 같다.
  const dl = async (url, suffix, ext) => {
  const s2 = selectedEntry.settings || {};
  const mood2 = Array.isArray(s2.mood) ? s2.mood[0] : s2.mood;
- const base = await ffsBuildName({ type: s2.genre || '작곡', parts: mood2 ? [mood2] : [], version: selectedEntry.version });
+ let base = selectedEntry.fileBase;
+ if (!base) {
+ base = await ffsBuildName({ type: s2.genre || '작곡', parts: mood2 ? [mood2] : [], version: selectedEntry.version });
+ setMusicToolData(p => ({
+ ...p,
+ history: (p.history || []).map(h => (h.version === selectedEntry.version ? { ...h, fileBase: base } : h)),
+ }));
+ }
  const fname = base + (suffix || '') + '.' + ext;
  try {
  const res = await fetch(url); const blob = await res.blob();
