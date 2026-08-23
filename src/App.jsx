@@ -14318,11 +14318,22 @@ SETTING: pure white studio cyclorama, soft even key with gentle fill, subtle con
 
 AVOID: a second person; anime or CGI look; glamour makeup; coloured lighting or background; props; any rendered text or watermark other than the height label.`;
 
-// 룰북 토큰 치환 — 사용자 입력(성별·나이·이름·신장·외적 특징)을 프롬프트로 조립
 // v785: Seedream 권장 프롬프트 길이 = 600 영어단어. 초과하면 문서가 명시한 대로
 //   "정보가 분산되어 모델이 디테일을 무시하고 주요 요소에만 집중"한다.
 //   사용자 묘사가 길어질수록 넘치므로 워크스페이스에 실시간 카운터를 노출한다.
-const SEEDREAM_PROMPT_WORD_LIMIT = 600;
+// v1076: 상한을 900 으로 올린다. 600 은 여전히 문서의 권장치이고 그 자체는
+//   맞지만, 이 시트의 고정 문구만으로 이미 그 선을 넘는다 —
+//   룰북 478 + 의상 106~171 + 조립문/토큰. 아무것도 입력하지 않은 여성 시트가
+//   702, 나이까지 넣으면 733 이다. 즉 카운터가 처음부터 빨간불이라
+//   '지금 내 입력이 긴가' 를 판단하는 데 아무 쓸모가 없었다.
+//   줄이는 쪽도 재 봤다 — 겹말을 걷어내 591 까지 내려갔지만, 남는 여유가
+//   20단어 안쪽이라 묘사를 조금만 적어도 다시 넘는다. 룰북의 레이아웃 문구는
+//   하나하나가 실패를 막는 장치라(zoom OUT rather than crop · not an A-pose)
+//   그 이상 자르면 회귀 위험이 크다.
+//   실사용에서 700 안팎으로 잘 나오고 있다는 것이 확인됐다. 600 은 하드 캡이
+//   아니라 권장치이므로, 경고는 '사용자가 실제로 길게 썼을 때' 만 뜨도록
+//   기준선(약 750) 위로 여유를 두고 잡는다.
+const SEEDREAM_PROMPT_WORD_LIMIT = 900;
 const countPromptWords = (s) => String(s || '').trim().split(/\s+/).filter(Boolean).length;
 
 function buildCharacterPrompt({ gender, age, name, height, features }) {
