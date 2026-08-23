@@ -14277,9 +14277,17 @@ const CHARACTER_GENDERS = [
  { id: 'female', label: '여성', en: 'female' },
 ];
 // 성별별 고정 의상 — 체형(쉐입)이 드러나도록
+// v1073: 여성 캐릭터의 몸매가 제대로 안 잡히던 문제. 원인은 두 가지였다 —
+//   ① 여성 스펙이 남성과 넥라인 한 줄만 다르고 나머지가 글자 그대로 같았다.
+//      같은 문장을 주면 같은 실루엣이 나온다.
+//   ② '체형이 드러나도록' 은 주석에만 있고 프롬프트에는 없었다. 모델에게는
+//      'skin-tight' 밖에 안 갔고, 그것만으로는 가슴 윤곽이 통짜 튜브로 뭉갠다.
+//   레오타드를 입히는 목적 자체가 실루엣 기록이므로, 가슴-허리-엉덩이 선이
+//   그 배우의 실제 체형으로 읽히라고 못 박는다. 캐스팅 기록이라는 성격은
+//   그대로 지킨다 — 가슴은 덮이고, 과장하지도 않는다.
 const CHARACTER_WARDROBE = {
- female: 'a ONE-PIECE sleeveless grey-charcoal dance unitard — one continuous skin-tight garment from the shoulders to a mid-thigh hem, with no waistband and no seam at the waist: athletic outerwear, never an undershirt and never a layer worn under other clothing. Matte compression knit (spandex) clinging to every contour, never cotton or jersey. Plain, no logos. Legs bare below the hem so the silhouette and true proportions read clearly, scoop neckline with wide straps',
- male: 'a ONE-PIECE sleeveless grey-charcoal dance unitard — one continuous skin-tight garment from the shoulders to a mid-thigh hem, with no waistband and no seam at the waist: athletic outerwear, never an undershirt and never a layer worn under other clothing. Matte compression knit (spandex) clinging to every contour, never cotton or jersey. Plain, no logos. Legs bare below the hem so the silhouette and true proportions read clearly, crew neckline with wide shoulder panels',
+ female: 'a ONE-PIECE sleeveless grey-charcoal dance unitard — one continuous skin-tight garment from the shoulders to a mid-thigh hem, with no waistband and no seam at the waist: athletic outerwear, never an undershirt and never a layer worn under other clothing. Matte compression knit (spandex) clinging to every contour, never cotton or jersey. Plain, no logos. Cut like a dancer\'s leotard, with bust darts and princess seams so the chest contour is defined and the bust-waist-hip line reads as the build stated in [APPEARANCE] — never flattened into a straight tube, never compressed away, and never enlarged beyond what she has. Legs bare below the hem so the silhouette and true proportions read clearly, scoop neckline with wide straps; chest fully covered, no cleavage — this is a casting record, not a glamour shot',
+ male: 'a ONE-PIECE sleeveless grey-charcoal dance unitard — one continuous skin-tight garment from the shoulders to a mid-thigh hem, with no waistband and no seam at the waist: athletic outerwear, never an undershirt and never a layer worn under other clothing. Matte compression knit (spandex) clinging to every contour, never cotton or jersey. Plain, no logos. The knit follows the chest, waist and hip line so the build stated in [APPEARANCE] reads — never flattened into a straight tube. Legs bare below the hem so the silhouette and true proportions read clearly, crew neckline with wide shoulder panels',
 };
 const CHARACTER_RULEBOOK = `Create ONE photorealistic ACTOR PROFILE SHEET for live-action drama casting — one performer, a documentary record, not a fashion or beauty shoot.
 
@@ -14296,7 +14304,7 @@ Every panel keeps the whole head inside the frame with a small margin — never 
 
 WARDROBE: [WARDROBE]
 
-SKIN: photorealistic with visible pores and fine texture, healthy complexion carrying only sparse barely noticeable marks and fine lines suited to the stated age. No airbrushing, no beauty-filter smoothing, no acne. An ordinary real person plausible for the stated age and height, never an idealized or doll-like model.
+SKIN: photorealistic with visible pores and fine texture, healthy complexion carrying only sparse barely noticeable marks and fine lines suited to the stated age. No airbrushing, no beauty-filter smoothing, no acne. The FINISH is that of an ordinary real person, never an idealized or doll-like render. This applies to skin and rendering only — it never overrides the build described in [APPEARANCE].
 
 SETTING: pure white studio cyclorama, soft even key with gentle fill, subtle contact shadow under the feet. A real photograph on a full-frame studio camera with a prime portrait lens — natural depth of field, accurate colour, fine photographic grain.
 
@@ -14319,7 +14327,10 @@ function buildCharacterPrompt({ gender, age, name, height, features }) {
  `[WARDROBE] = ${CHARACTER_WARDROBE[g.id]}`,
  `[APPEARANCE] = ${String(features || '').trim() || 'ordinary, natural appearance appropriate to the stated age'}`,
  ];
- return `${parts.join('\n')}\n\nThe performer in every panel is [SUBJECT], with this appearance: [APPEARANCE].\n\n${CHARACTER_RULEBOOK}`;
+ // v1074: [APPEARANCE] 가 얼굴만이 아니라 체형까지 덮는다는 것을 밝혀 준다.
+ //   'with this appearance' 한 마디로는 외모 · 얼굴로 좁게 읽혀, 사용자가 적은
+ //   체형 묘사가 평균 체형으로 되돌아갔다. 여기가 최우선이라고 못 박는다.
+ return `${parts.join('\n')}\n\nThe performer in every panel is [SUBJECT]. [APPEARANCE] describes them — face, hair AND BODY BUILD. Follow it exactly, including build, weight, frame and proportions; it OUTRANKS every default in this brief. Do not normalise it toward an average body. Where it says nothing, fall back to an ordinary, natural default.\n\n${CHARACTER_RULEBOOK}`;
 }
 
 // v757: 의상 시트용 성별·체형 옵션 (마네킹 프로포션 지정)
