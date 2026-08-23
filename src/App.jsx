@@ -14277,17 +14277,25 @@ const CHARACTER_GENDERS = [
  { id: 'female', label: '여성', en: 'female' },
 ];
 // 성별별 고정 의상 — 체형(쉐입)이 드러나도록
-// v1073: 여성 캐릭터의 몸매가 제대로 안 잡히던 문제. 원인은 두 가지였다 —
-//   ① 여성 스펙이 남성과 넥라인 한 줄만 다르고 나머지가 글자 그대로 같았다.
-//      같은 문장을 주면 같은 실루엣이 나온다.
-//   ② '체형이 드러나도록' 은 주석에만 있고 프롬프트에는 없었다. 모델에게는
-//      'skin-tight' 밖에 안 갔고, 그것만으로는 가슴 윤곽이 통짜 튜브로 뭉갠다.
-//   레오타드를 입히는 목적 자체가 실루엣 기록이므로, 가슴-허리-엉덩이 선이
-//   그 배우의 실제 체형으로 읽히라고 못 박는다. 캐스팅 기록이라는 성격은
-//   그대로 지킨다 — 가슴은 덮이고, 과장하지도 않는다.
+// v1073: 여성 캐릭터의 몸매가 제대로 안 잡히던 문제. 여성 스펙이 남성과 넥라인
+//   한 줄만 다르고 나머지가 같았고, '체형이 드러나도록' 은 주석에만 있었다.
+// v1075: 넥라인을 나이로 가른다. 의상은 CHARACTER_WARDROBE[g.id] 로 무조건
+//   붙는데 나이 칸은 자유 입력이라, 넥라인을 내려 두면 미성년 캐릭터 시트에도
+//   그대로 적용된다. 성인으로 확인될 때만 내리고, 확인이 안 되면(빈칸 · 숫자가
+//   아닌 값 포함) 덮는 쪽을 쓴다. 모르면 안전한 쪽이 기본이다.
 const CHARACTER_WARDROBE = {
- female: 'a ONE-PIECE sleeveless grey-charcoal dance unitard — one continuous skin-tight garment from the shoulders to a mid-thigh hem, with no waistband and no seam at the waist: athletic outerwear, never an undershirt and never a layer worn under other clothing. Matte compression knit (spandex) clinging to every contour, never cotton or jersey. Plain, no logos. Cut like a dancer\'s leotard, with bust darts and princess seams so the chest contour is defined and the bust-waist-hip line reads as the build stated in [APPEARANCE] — never flattened into a straight tube, never compressed away, and never enlarged beyond what she has. Legs bare below the hem so the silhouette and true proportions read clearly, scoop neckline with wide straps; chest fully covered, no cleavage — this is a casting record, not a glamour shot',
- male: 'a ONE-PIECE sleeveless grey-charcoal dance unitard — one continuous skin-tight garment from the shoulders to a mid-thigh hem, with no waistband and no seam at the waist: athletic outerwear, never an undershirt and never a layer worn under other clothing. Matte compression knit (spandex) clinging to every contour, never cotton or jersey. Plain, no logos. The knit follows the chest, waist and hip line so the build stated in [APPEARANCE] reads — never flattened into a straight tube. Legs bare below the hem so the silhouette and true proportions read clearly, crew neckline with wide shoulder panels',
+ female: 'a ONE-PIECE sleeveless grey-charcoal dance unitard — one continuous skin-tight garment from the shoulders to a mid-thigh hem, with no waistband and no seam at the waist: athletic outerwear, never an undershirt and never a layer worn under other clothing. Matte compression knit (spandex) clinging to every contour, never cotton or jersey. Plain, no logos. Cut like a dancer\'s leotard, with bust darts and princess seams so the chest contour is defined and the bust-waist-hip line reads as the build stated in [APPEARANCE] (or an ordinary build if it does not say) — never flattened into a straight tube, never compressed away, and never enlarged beyond what she has. Legs bare below the hem so the silhouette and true proportions read clearly, [NECK]',
+ male: 'a ONE-PIECE sleeveless grey-charcoal dance unitard — one continuous skin-tight garment from the shoulders to a mid-thigh hem, with no waistband and no seam at the waist: athletic outerwear, never an undershirt and never a layer worn under other clothing. Matte compression knit (spandex) clinging to every contour, never cotton or jersey. Plain, no logos. The knit follows the chest, waist and hip line so the build stated in [APPEARANCE] (or an ordinary build if it does not say) reads — never flattened into a straight tube. Legs bare below the hem so the silhouette and true proportions read clearly, crew neckline with wide shoulder panels',
+};
+// 여성 넥라인 — 나이가 성인으로 확인될 때만 내린다
+const CHARACTER_NECKLINE = {
+ adult: 'a deep scoop / V neckline cut low on the chest so the décolletage and the upper curve of the bust read clearly, with narrower straps. The breasts stay fully covered by the knit — this is a body reference for casting, not lingerie and not a glamour shot',
+ guarded: 'a scoop neckline with wide straps; chest fully covered, no cleavage — this is a casting record, not a glamour shot',
+};
+// 나이 문자열에서 첫 숫자를 읽는다. '20대' → 20, '십대' · 빈칸 → NaN(덮는 쪽)
+const characterIsAdult = (age) => {
+ const n = parseInt(String(age ?? '').replace(/[^\d]/g, ' ').trim(), 10);
+ return Number.isFinite(n) && n >= 18;
 };
 const CHARACTER_RULEBOOK = `Create ONE photorealistic ACTOR PROFILE SHEET for live-action drama casting — one performer, a documentary record, not a fashion or beauty shoot.
 
@@ -14324,7 +14332,10 @@ function buildCharacterPrompt({ gender, age, name, height, features }) {
  const parts = [
  `[SUBJECT] = ${g.en}${age ? `, ${String(age).trim()} years old` : ''}${name ? ` (character name: ${String(name).trim()})` : ''}`,
  `[HEIGHT] = ${heightText}`,
- `[WARDROBE] = ${CHARACTER_WARDROBE[g.id]}`,
+ // v1075: 여성 넥라인은 나이가 성인으로 확인될 때만 내린다
+ `[WARDROBE] = ${g.id === 'female'
+   ? CHARACTER_WARDROBE.female.replace('[NECK]', characterIsAdult(age) ? CHARACTER_NECKLINE.adult : CHARACTER_NECKLINE.guarded)
+   : CHARACTER_WARDROBE[g.id]}`,
  `[APPEARANCE] = ${String(features || '').trim() || 'ordinary, natural appearance appropriate to the stated age'}`,
  ];
  // v1074: [APPEARANCE] 가 얼굴만이 아니라 체형까지 덮는다는 것을 밝혀 준다.
