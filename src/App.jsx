@@ -5121,12 +5121,24 @@ const OUTFIT_RULE = [
  //   게다가 문장이 '옷이 아니다' 라는 부정만 하고 그 자리에 무엇을 그릴지를
  //   말하지 않아, 속옷을 안 그리고 회색을 그대로 두는 것이 규칙에 맞는 답이
  //   되어 버렸다. 범위를 옷 바깥까지 넓히고, 치환 대상을 못 박는다.
+ // v1077: 아테나가 통째로 회색 조각상으로 나왔다. 투구가 원인이다 —
+ //   마네킹임을 알려주는 가장 강한 단서가 '민둥한 회색 머리' 인데, 투구가
+ //   그것을 덮어 버린다. 투구의 얼굴 구멍으로 보이는 회색 면은 '머리가 없다'
+ //   가 아니라 '얼굴이 회색이다' 로 읽히고, 그리스 배경 + 투구 + 회색 피부는
+ //   곧 청동상이다. 한번 조각상으로 읽히면 얼굴에서 팔 · 손 · 다리까지 번진다.
+ //   머리가 드러난 헤라 · 아프로디테는 멀쩡했다.
+ //   부위 목록에 얼굴 · 머리 · 어깨 · 허벅지가 빠져 있던 것도 함께 고친다.
  'The wardrobe image is worn by a featureless LIGHT GREY DISPLAY FORM. That grey is',
  'never skin and never clothing — it does not appear in the video at all.',
  'WHEREVER the grey shows — inside the garment (open front, neckline, armhole, any',
- 'gap) AND beyond it (hands, wrists, forearms, neck, throat, calves, ankles, feet) —',
- 'render THEIR OWN BARE SKIN, in the skin tone from their identity image.',
- 'Never leave a grey, plastic, matte or mannequin-coloured hand, arm, neck or leg.',
+ 'gap) and ANYWHERE the body reaches past it (face, head, neck, throat, shoulders,',
+ 'arms, hands, torso, thighs, calves, ankles, feet) — render THEIR OWN LIVING SKIN,',
+ 'in the skin tone from their identity image.',
+ '★ THE WEARER IS A LIVING HUMAN, never a statue, mannequin, effigy, or a figure of',
+ 'bronze, marble, stone, silver or plastic. A helmet, mask, visor or headdress in the',
+ 'wardrobe image sits on the display form\'s blank head — behind and around it is this',
+ 'person\'s OWN FACE from their identity image: real skin, real eyes, an expression.',
+ 'Never a grey, silver, metallic or matte face, hand, arm or leg.',
  'Add no top, camisole, undershirt, bodysuit or underwear beneath.',
  // v1067: 얼굴 이미지가 캐스팅 시트라고 단정하지 않는다. 인물 시트·업로드로도
  //   얼굴을 넣을 수 있게 되면서, 평상복을 입은 사진이 신원 이미지가 될 수 있다.
