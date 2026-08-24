@@ -4996,9 +4996,11 @@ const PROJECT_VOICE_RULE_FOR = (named, others) => [
  + ' voice, never one of the referenced timbres.',
  'From a reference take vocal quality ONLY — pitch, weight, texture, age. Its',
  'words, language and delivery do not appear here.',
- '★ AND NOTHING ELSE FROM THAT FILE. Music, score, room tone, ambience, other',
- 'voices, recording quality — none of it belongs to this clip. It is a voice',
- 'sample, not an audio bed. This clip still has no music.',
+ // v1078: 부정 나열을 걷어낸다. 항목을 이름으로 부르면 오히려 그것이 나온다
+ //   (v1040 에서 whoosh 로 겪었다). 같은 제약을 긍정문으로 적는다 —
+ //   가져오는 것은 음색뿐이고, 나머지는 그 파일에 남는다.
+ '★ IT IS A VOICE SAMPLE, NOT AN AUDIO BED. Only the timbre carries over; whatever',
+ 'else that file contains stays in that file. The SOUND rule above is unchanged by it.',
 ].join('\n');
 
 // v1002: 대사 언어. 예전에는 한국어로 못 박혀 있었다.
@@ -5020,8 +5022,10 @@ const PROJECT_LANG_RULE_FOR = (lang) => {
  `images. Do not restyle, re-cast or reshape anyone toward a speaker of ${L.en},`,
  'and replace no one. These same people simply speak this language.',
  // v1012: 그 언어권 드라마에는 스코어가 거의 항상 깔려 있어 소리 양식까지 끌려간다.
- '★ AND NOTHING ABOUT THE SOUND. No music, no score, no audio styling because the',
- 'dialogue is in this language. The SOUND rule above holds unchanged.',
+ // v1078: 부정 나열을 지우고 위 SOUND 규칙을 가리키기만 한다. 문서가 지원한다고
+ //   말한 오디오 부정은 "No BGM, only ambient and action sounds" 하나뿐이다.
+ '★ THE SOUND RULE ABOVE IS UNCHANGED BY THE LANGUAGE. The mix stays exactly as it',
+ 'says, whatever language is spoken.',
  'Korean names keep the pronunciation the written form asks for. Korean elsewhere',
  'in this prompt is crew direction, never spoken.',
  ].join('\n');
