@@ -5073,9 +5073,17 @@ const PROJECT_VIDEO_RULES_REST = [
  'CAMERA: no zoom in, no zoom out, no digital punch-in — change shot size by',
  'cutting. Dolly, pan, tilt, handheld are fine.',
  '',
- 'PROPS: the only objects in frame are the ones this prompt names. A word merely',
- 'spoken in dialogue is not a prop — do not put an object in a hand because it was',
- 'mentioned.',
+ // v1081: 의상 이미지가 손에 들려 준 물건이 사라졌다 — 헤르메스의 카두케우스.
+ //   이 조항이 '프롬프트가 이름을 부른 물건만' 이라고 못 박는데, 지팡이는
+ //   프롬프트 본문에 안 적힌다. 의상 조항은 'what they wear · Garment only' 라
+ //   들고 있는 물건까지 덮지 않는다. 두 조항 사이로 빠진 것이다.
+ //   의상 · 신원 이미지가 몸에 걸치거나 손에 쥐여 준 것은 그 사람의 일부다.
+ 'PROPS: the only objects in frame are the ones this prompt names, plus whatever a',
+ 'wardrobe or identity image shows that person wearing or carrying — a staff, bag,',
+ 'weapon or instrument in their hand there is part of them and comes with them into',
+ 'every cut, even though this prompt never names it.',
+ 'A word merely spoken in dialogue is not a prop — do not put an object in a hand',
+ 'because it was mentioned.',
  '',
  'BACKGROUND LIFE: unless the script calls for an empty space, fill the location',
  'with people who plausibly belong there — ordinary activity, out of focus, away',
@@ -5417,6 +5425,16 @@ const PROJECT_VIDEO_PROMPT_SYS = `당신은 한국 드라마의 영상 생성 �
       이렇게:      [남자1] (Image 3), wearing the outfit in Image 4
   대본이 옷을 말로 적어 놓았어도(츄리닝 · 교복 · 정장) 그것을 프롬프트로
   옮기지 마십시오. 그 정보는 이미 의상 이미지에 있습니다.
+- ★★ 의상 이미지가 붙은 인물은 그 옷이 읽히는 컷을 최소 하나 가져야 합니다.
+  와이드샷 배경에 한 번 세워 두고 끝내지 마십시오. 역광 · 실루엣 · 얼굴 그림자로만
+  두면 의상 이미지는 쓰이지 못합니다 — 화면에서 옷이 차지할 면적도, 보이라는
+  지시도 없기 때문입니다.
+  실제로 그렇게 됐습니다 — 세 인물을 'backlit by the rising sun, their faces
+  shadowed' 로 미들그라운드에 세운 뒤 남은 컷에서 다시 부르지 않았더니, 셋 다
+  의상이 붙지 않은 채로 나왔습니다.
+  대사가 없는 인물이라도 미디엄샷이나 오버더숄더로 한 번은 잡아 주십시오.
+- 의상 결속은 'wearing the outfit in Image N' 으로 씁니다. 뜻이 같아도
+  다른 말로 바꾸지 마십시오.
 - 예외는 '상태' 뿐입니다. 끝 상태 설명이나 이 구간 대본이 옷에 일어난 변화를
   적었다면 그것은 옷 묘사가 아니라 사건이므로 적어야 합니다. 이때도 반드시
   그 사람 이름에 붙이고, 다른 사람에게 옮기지 마십시오.
@@ -18505,7 +18523,10 @@ const projectRefLiveSrc = (item) => {
  const bound = new RegExp(`${rxEsc(nm)}\\s*\\(Image ${i + 1}\\)`).test(prompt);
  const oi = fullList.findIndex(y => y.kindLabel === '의상' && String(y.name || '') === `${nm}의 의상`);
  const worn = oi < 0 ? true
- : new RegExp(`wearing the outfit in Image ${oi + 1}`).test(prompt);
+ // v1080: 표현 변형을 인정한다. 프롬프트 쓰는 쪽이 'in the outfit from Image 6'
+ //   처럼 뜻이 같은 문장을 써도 결속 없음으로 오판해 보정문을 덧붙이고 있었다.
+ //   단어 경계 표시로 Image 1 이 Image 10 에 걸리는 것도 막는다.
+ : new RegExp(`outfit (?:in|from) Image ${oi + 1}\\b`).test(prompt);
  if (bound && worn) return;
  fixes.push(`${nm} is the person in Image ${i + 1}`
  + (oi >= 0 ? `, wearing the outfit in Image ${oi + 1}` : '') + '.');
