@@ -5690,9 +5690,6 @@ const PROJECT_VIDEO_PROMPT_SYS = `당신은 한국 드라마의 영상 생성 �
    의상이 안 붙거나 서로 뒤바뀌었습니다.
 ⑨ 인물의 자리를 화면 기준으로 적었는가 — frame left · frame right · center.
    'her left' · 'his right' 처럼 인물 몸 기준으로 적으면 좌우가 뒤집힙니다.
-⑩ 장소를 말로 묘사하지 않았는가. 공간은 장소 이미지가 정합니다 —
-   'hillside clearing' · 'stone cottage' · 'distant mountains' 처럼 덧붙이면
-   이미지와 다른 곳이 나옵니다. 시간과 빛만 이 프롬프트가 정합니다.
 
 [출력]
 - 영문 프롬프트 한 단락. 설명·머리말·따옴표 없이 프롬프트만.
