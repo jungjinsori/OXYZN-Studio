@@ -5053,6 +5053,19 @@ const PROJECT_VIDEO_RULES_REST = [
  'oily sheen, stubble, or lines and wrinkles the image does not have. Clean, even,',
  'matte complexion. Only what the story put there — sweat, blood, dust, a wound —',
  'belongs on it.',
+ // v1083: 조명 지시가 무시됐다. 프롬프트에 faces shadowed 라고 적혀 있는데도
+ //   여신들의 얼굴이 또렷하게 나왔다. 위 조항들이 얼굴을 '밝히라' 고 읽힌 것이다 —
+ //   identity image is the ONLY source of face · IT OUTRANKS EVERY OTHER INPUT ·
+ //   SKIN ... at every shot size · Clean, even, matte complexion.
+ //   전부 '누구인가' 를 정하는 말인데 '얼마나 밝은가' 까지 정하는 것으로 작동했다.
+ //   둘을 갈라 준다. 정체성은 레퍼런스가, 노출은 이 프롬프트가 정한다.
+ 'LIGHT IS NOT IDENTITY. The rules above fix WHO a person is, never how much light',
+ 'falls on them. Follow the lighting this shot describes exactly — backlight, deep',
+ 'shadow, silhouette, or a sun flaring into the lens with veiling glare and blown-out',
+ 'highlights. Keep them there. A face lost in shadow, or washed out by flare, is',
+ 'still their face; a rim-lit outline is still their build. Never brighten a person,',
+ 'add fill light, cut the flare back, or turn them toward the sun to show the',
+ 'reference more clearly.',
  '',
  // v1038: 목록을 한 문단으로 눌렀다(103단어 → 약 55). 앞 클립 조항에 있던
  //   같은 목록은 지웠다 — 이 블록은 첫 컷에도 붙으므로 여기가 남는 자리다.
@@ -5149,7 +5162,7 @@ const OUTFIT_RULE = [
  '★ THE WEARER IS A LIVING HUMAN, never a statue, mannequin, effigy, or a figure of',
  'bronze, marble, stone, silver or plastic. A helmet, mask, visor or headdress in the',
  'wardrobe image sits on the display form\'s blank head — behind and around it is this',
- 'person\'s OWN FACE from their identity image: real skin, real eyes, an expression.',
+ 'person\'s OWN FACE from their identity image — living skin, not a blank display head.',
  'Never a grey, silver, metallic or matte face, hand, arm or leg.',
  'Add no top, camisole, undershirt, bodysuit or underwear beneath.',
  // v1067: 얼굴 이미지가 캐스팅 시트라고 단정하지 않는다. 인물 시트·업로드로도
