@@ -5670,6 +5670,15 @@ const PROJECT_VIDEO_PROMPT_SYS = `당신은 한국 드라마의 영상 생성 �
 ⑤ 큰따옴표 안에 괄호가 남아 있지 않은가.
 ⑥ 대본에 적힌 동작 · 시선 · 표정 중 프롬프트에 빠진 것이 있는가.
    빠졌으면 그 연기는 화면에 나오지 않습니다.
+⑦ 의상 이미지가 있는 인물마다, 그 옷이 읽히는 컷이 하나라도 있는가.
+   와이드샷 배경에 세워 두고 끝낸 인물이 없는가. 대사가 없어도 미디엄샷이나
+   오버더숄더를 한 컷은 줘야 합니다.
+⑧ 레퍼런스가 붙은 인물에게 backlit · silhouetted · faces shadowed ·
+   hard to see · in shadow 를 쓰지 않았는가. 이 표현을 쓰면 그 인물의 의상 ·
+   얼굴 이미지는 화면에 쓰이지 못합니다. 아침 해를 등지는 구도라도 그 인물만은
+   빛이 닿는 자리에 세우십시오.
+   실제로 그렇게 됐습니다 — 여신 셋을 'backlit by the rising sun, their faces
+   shadowed' 로 배경에 세웠더니 셋 다 의상이 안 붙거나 서로 뒤바뀌었습니다.
 
 [출력]
 - 영문 프롬프트 한 단락. 설명·머리말·따옴표 없이 프롬프트만.
@@ -18494,10 +18503,43 @@ const projectRefLiveSrc = (item) => {
  : '',
  fb ? `[고쳐달라는 것]\n${fb}\n이 지적을 반영해 다시 쓰십시오.` : '',
  ].filter(Boolean).join('\n\n');
- const raw = await callClaude(PROJECT_VIDEO_PROMPT_SYS, user, {
- model: 'claude-sonnet-4-5', maxTokens: 900, workCat: 'video',
- });
- prompt = String(raw || '').trim().replace(/^["'`]+|["'`]+$/g, '');
+ // v1082: 의상 레퍼런스가 붙은 인물이 '읽히는 컷' 을 못 받으면 다시 쓰게 한다.
+ //   지시문(★★ 조항)에 적어 뒀지만 18,000자 한가운데라 무시된다. 실제로
+ //   여신 셋을 backlit · faces shadowed 로 배경에 세운 프롬프트가 두 번 연속
+ //   나왔고, 셋 다 의상이 안 붙거나 서로 뒤바뀐 채로 생성됐다.
+ //   ModelArk 는 이미지에 이름표를 못 단다(role 은 reference_image 뿐)。
+ //   묶음이 전부 글로만 표현되므로, 글이 틀리면 바로잡을 곳이 여기밖에 없다.
+ const readableCut = /(close-?up|medium shot|medium close|over-the-shoulder|bust shot|single of|two-shot)/i;
+ const obscured = /(backlit|silhouett|shadowed|hard to see|in shadow|halo)/i;
+ const needsReadable = (txt) => fullList
+   .filter(x => x.kindLabel === '인물'
+     && fullList.some(y => y.kindLabel === '의상' && y.name === `${x.name}의 의상`))
+   .map(x => String(x.name || '').trim())
+   .filter(nm => nm && txt.includes(nm))
+   .filter(nm => !txt.split(/(?=Cut (?:to|back to))/)
+     .some(c => c.includes(nm) && readableCut.test(c) && !obscured.test(c)));
+
+ const writePrompt = async (extra) => {
+   const raw = await callClaude(PROJECT_VIDEO_PROMPT_SYS, extra ? `${user}\n\n${extra}` : user, {
+     model: 'claude-sonnet-4-5', maxTokens: 900, workCat: 'video',
+   });
+   return String(raw || '').trim().replace(/^["'`]+|["'`]+$/g, '');
+ };
+ prompt = await writePrompt('');
+ {
+   const miss = needsReadable(prompt);
+   if (miss.length) {
+     console.warn(`[프로젝트] 의상이 읽히는 컷이 없어 다시 씁니다 — ${miss.join(' · ')}`);
+     const note = `[다시 쓰십시오]\n${miss.join(' · ')} 는 의상 이미지가 붙어 있는데`
+       + ` 옷이 읽히는 컷이 하나도 없습니다. 배경에 세워 두거나 역광 · 실루엣 ·`
+       + ` 그림자로만 두지 마십시오. 각자에게 미디엄샷이나 오버더숄더를 한 컷씩`
+       + ` 주고, backlit · silhouetted · faces shadowed · hard to see 같은 표현을`
+       + ` 그 인물에게 쓰지 마십시오. 나머지는 그대로 두고 이 부분만 고쳐 다시 쓰십시오.`;
+     const retry = await writePrompt(note);
+     if (retry && needsReadable(retry).length < miss.length) prompt = retry;
+     else if (retry) prompt = retry;
+   }
+ }
  // v1010: 컷 사이를 빈 줄로 나눠 오는 경우가 있다. 지침은 'Cut to 로만 넘기고
  //   문단을 나누지 말라' 고 적혀 있는데(그래야 컷이 한 순간으로 읽힌다) 지켜지지
  //   않을 때가 있어 코드에서 정리한다. 한국어 클립에도 있던 일이라 언어와 무관하다.
