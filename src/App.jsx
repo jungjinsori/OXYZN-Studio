@@ -17439,10 +17439,27 @@ ${'\n'}[★ 타이틀이 들어갈 자리를 비워 두세요 — 가로형에�
  + prev
  + (fb ? `\n\n[고쳐달라는 것]\n${fb}\n위 지적을 반영해 처음부터 다시 나누십시오.` : '');
  // 대본이 길면 출력도 길다 — 대본을 그대로 옮겨 담기 때문이다.
- const maxTokens = Math.min(24000, Math.max(4000, Math.ceil(text.length * 1.6)));
- const out = await callClaude(PROJECT_SEGMENT_SYS, user, {
- model: 'claude-sonnet-4-5', maxTokens, workCat: 'plan',
+ // v1079: 계수가 영어 기준이었다. 한국어는 글자당 약 1.9 토큰이라
+ //   '글자수 × 1.6' 은 출력 한도를 입력보다 작게 잡는다. 실제로 2,623자 대본이
+ //   입력 5,001 토큰인데 한도가 4,196 으로 잡혀 그대로 잘렸다.
+ //   구간 나누기는 대본을 옮겨 담고 구조까지 붙이므로 입력의 1.5~2배는 나온다.
+ //   계수를 4 로, 하한을 8,000 으로 올린다.
+ const segMax = Math.min(24000, Math.max(8000, Math.ceil(text.length * 4)));
+ // 계수를 어떻게 잡아도 예외는 생긴다 — 잘리면 올려서 다시 부른다.
+ //   컷 프롬프트 경로가 이미 쓰는 방식과 같다. maxTokens 는 상한일 뿐이라
+ //   올려도 결과물이 달라지지 않고, 과금도 실제 생성분만 붙는다.
+ const callSeg = (mt) => callClaude(PROJECT_SEGMENT_SYS, user, {
+   model: 'claude-sonnet-4-5', maxTokens: mt, workCat: 'plan',
  });
+ const segTruncated = (e) => /응답이 너무 길어 잘렸|max_tokens/i.test(String(e?.message || ''));
+ let out;
+ try {
+   out = await callSeg(segMax);
+ } catch (e1) {
+   if (!segTruncated(e1)) throw e1;
+   console.warn(`[프로젝트] 구간 나누기 응답 잘림 — maxTokens ${segMax} → 32000 재시도`);
+   out = await callSeg(32000);
+ }
  let segs = projectNormalizeSegments(parseJsonFromResponse(out));
  if (!segs.length) throw new Error('구간이 비어 있습니다.');
  // v1002: 한국어가 아니면 여기서 곧바로 대사를 옮긴다 — 2단계에서 번역과
