@@ -18605,7 +18605,6 @@ const projectRefLiveSrc = (item) => {
      else if (retry) prompt = retry;
    }
  }
- }
  // v1010: 컷 사이를 빈 줄로 나눠 오는 경우가 있다. 지침은 'Cut to 로만 넘기고
  //   문단을 나누지 말라' 고 적혀 있는데(그래야 컷이 한 순간으로 읽힌다) 지켜지지
  //   않을 때가 있어 코드에서 정리한다. 한국어 클립에도 있던 일이라 언어와 무관하다.
@@ -18616,12 +18615,13 @@ const projectRefLiveSrc = (item) => {
  console.warn(`[프로젝트] 대사 안의 괄호 지시 ${_sp.hit}곳을 걷어냈습니다 — 그대로 두면 소리 내어 읽습니다.`);
  prompt = _sp.text;
  }
+ } // if (!draftPrompt) — 승인해 둔 프롬프트를 쓸 때는 위 후처리를 건너뛴다
  }
- if (!prompt) throw new Error('프롬프트가 비었습니다.');
+ if (!draftPrompt && !prompt) throw new Error('프롬프트가 비었습니다.');
  // v1010: 인물↔이미지 결속이 빠졌으면 코드가 채운다. 지침에 못 박아 뒀지만
  //   중국어 클립에서 실제로 빠졌고(의상 번호가 한 번도 안 적혔다), 그 클립에서
  //   인물이 다른 사람으로 바뀌었다. 모델의 준수에 기대지 않는다.
- if (!isEdit) {
+ if (!isEdit && !draftPrompt) {
  const rxEsc = (t) => String(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
  const fixes = [];
  fullList.forEach((x, i) => {
