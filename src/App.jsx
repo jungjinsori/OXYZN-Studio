@@ -8371,11 +8371,21 @@ const arkRefTokens = (prompt) => String(prompt || '')
 // base64 폴백도 "원본 그대로"에 해당한다. (문서가 금지하는 건 압축·전달로 인한 변형)
 // v773: Seedance 2.0 오디오 레퍼런스(reference_audio) — 문서 확인된 제약
 //   · 포맷 wav/mp3 · 개당 2~15초 · 최대 3개 · 전체 합 15초 이내 · 개당 15MB 이내
+// v1085: 2.5 는 다르다. 개수는 10개(ARK_REF_MAX), 길이 합은 30.2초 —
+//   후자는 API 가 거절 메시지로 직접 알려준 값이다. 개당 상한은 2.5 문서를
+//   확인하지 않았고, 지금은 인물 수를 늘리려고 우리 쪽에서 10초로 잡아 둔다.
 //   · 오디오 단독 입력 불가 (이미지/영상 레퍼런스가 최소 1개 필요) — 캐릭터 이미지가 항상 동반되므로 충족
 //   · 음색 레퍼런스 프롬프트 공식: "Character" says: "lines", voice timbre references "Audio n".
 const ARK_AUDIO_MAX_COUNT = 3;
 const ARK_AUDIO_MIN_SEC = 2;
-const ARK_AUDIO_MAX_SEC = 15;
+// v1085: 개당 상한을 15 → 10 초로 내린다. 2.5 의 '길이 합' 한도가 30.2 초라
+//   15초짜리면 두 명이 한계다. 10초로 맞추면 세 명이 들어간다.
+//   음색은 10초면 충분히 잡히고, 인물 수가 더 아쉽다는 판단이다.
+const ARK_AUDIO_MAX_SEC = 10;
+// 길이를 못 잰 보이스를 셀 때 쓰는 보수값. 예전 상한(15초)으로 받아 둔 것이
+//   라이브러리에 남아 있을 수 있으므로 새 상한이 아니라 이 값으로 센다 —
+//   적게 세면 합이 넘쳐 생성 자체가 거절된다.
+const ARK_AUDIO_ASSUME_SEC = 15;
 const ARK_AUDIO_MAX_BYTES = 15 * 1024 * 1024;
 // v1084: 붙인 보이스들의 '길이 합' 상한. 개당 2~15초는 첨부할 때 검사하는데
 //   합계는 아무도 안 봤다. 2.5 는 오디오를 10개까지 받으므로 15초짜리 셋만
@@ -18255,7 +18265,7 @@ const projectRefLiveSrc = (item) => {
  for (const x of voicePicked) {
  let sec = null;
  try { sec = await audioDurationOf(x.v.url); } catch { sec = null; }
- const take = Number.isFinite(sec) && sec > 0 ? sec : ARK_AUDIO_MAX_SEC;
+ const take = Number.isFinite(sec) && sec > 0 ? sec : ARK_AUDIO_ASSUME_SEC;
  if (voiceSecSum + take > ARK_AUDIO_TOTAL_MAX_SEC) {
  voiceDropped.push(`${x.c.name}(${take.toFixed(1)}초)`);
  continue;
