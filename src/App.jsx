@@ -31778,13 +31778,15 @@ ${sampleText}`;
  {c.usd} ({c.krw})
  </span>
  )}
- {/* v1086: 프롬프트만 만들고 멈춘다. ARK 영상 비용 전에 읽어볼 수 있다. */}
+ {/* v1086: 컷 서술만 만들고 멈춘다. ARK 영상 비용 전에 읽어볼 수 있다.
+     v1091: 이름을 '컷 서술' 로 바꿨다 — '프롬프트' 라고 하면 규칙까지
+     여기서 정하는 것으로 오해된다. 규칙은 코드가 붙인다. */}
  <button type="button" className="btn btn-ghost btn-sm"
    disabled={!genOk || busy}
    onClick={() => handleProjectGenerateClip(g.id, { promptOnly: true })}
-   title={g.draftPrompt ? '프롬프트를 다시 만듭니다 (영상은 안 뽑습니다)' : '프롬프트만 만들어 보여줍니다 — 영상 비용이 나가지 않습니다'}
+   title={g.draftPrompt ? '컷 서술을 다시 만듭니다 (영상은 안 뽑습니다)' : '컷 서술만 만들어 보여줍니다 — 영상 비용이 나가지 않습니다. 의상 · 소리 · 카메라 규칙은 뽑을 때 자동으로 붙습니다.'}
    style={{ height: 24, padding: '0 9px', fontSize: 10.5 }}>
-   {g.draftPrompt ? '프롬프트 다시' : '프롬프트만'}
+   {g.draftPrompt ? '컷 서술 다시' : '컷 서술만'}
  </button>
  <button type="button"
  className={`${g.clipUrl ? 'btn btn-ghost btn-sm' : 'btn btn-secondary btn-sm'}${mine ? ' ff-genbusy' : ''}`}
@@ -31825,7 +31827,7 @@ ${sampleText}`;
      <button type="button" className="btn btn-ghost btn-sm"
        onClick={() => setProjectData(p => ({ ...p,
          segments: p.segments.map(g2 => (g2.id === g.id ? { ...g2, draftPrompt: '' } : g2)) }))}
-       title="이 프롬프트를 버립니다. 다음에 뽑을 때 새로 씁니다."
+       title="이 컷 서술을 버립니다. 다음에 뽑을 때 새로 씁니다."
        style={{ height: 22, padding: '0 8px', fontSize: 10 }}>버리기</button>
    </div>
  </details>
