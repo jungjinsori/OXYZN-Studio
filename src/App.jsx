@@ -17788,7 +17788,29 @@ ${'\n'}[★ 타이틀이 들어갈 자리를 비워 두세요 — 가로형에�
  //   '고른 순간의 스냅샷' 이라 (ㄱ) 나중에 뗀 목소리가 남아 있거나
  //   (ㄴ) 이름만 같은 다른 인물에서 온 것일 수 있다.
  //   칩 스냅샷은 원본을 아예 못 찾았을 때만 쓴다.
+ // v1087: 이 프로젝트에서 인물에게 붙일 수 있는 보이스 목록.
+ //   캐릭터 라이브러리에 저장된 것과 배우 자산에 저장된 것을 모은다.
+ const projectVoiceChoices = () => {
+   const out = [];
+   (characterLibrary || []).filter(c => !c.deletedAt && c.voice).forEach(c => {
+     const u = voiceRefSrc(c.voice);
+     if (u) out.push({ value: u, label: `${c.name} — ${c.voice.name || '보이스'}`, name: c.voice.name || c.name });
+   });
+   (actorAssetLib.groups || []).forEach(g => {
+     const vo = actorVoices[g.id];
+     const u = vo ? voiceRefSrc(vo) : null;
+     if (u) out.push({ value: u, label: `${g.name || '배우'} — ${vo.name || '보이스'}`, name: vo.name || g.name });
+   });
+   return out;
+ };
  const projectRefVoice = (item) => {
+ // v1087: 사람이 직접 고른 보이스가 있으면 그것이 최우선이다.
+ //   v1006 이 칩의 voiceUrl 을 못 믿게 한 이유는 그것이 '고를 때 딸려온 스냅샷' 이라
+ //   나중에 어긋날 수 있어서였다. voicePinned 는 사람이 이 인물에게 직접 지정한
+ //   표시라 그 걱정이 없다. 인물 시트 · 업로드로 얼굴을 넣은 인물도 이걸로 붙인다.
+ if (item?.voicePinned && item?.voiceUrl) {
+   return { url: String(item.voiceUrl), name: String(item.voiceName || '') };
+ }
  const c = projectRefCharOf(item, { strict: true });
  if (c) return c.voice ? { url: voiceRefSrc(c.voice) || '', name: c.voice.name || '' } : { url: '', name: '' };
  const g = projectRefActorOf(item, { strict: true });
@@ -18953,6 +18975,15 @@ const projectRefLiveSrc = (item) => {
  if (slot === 'asset' && kind === 'characters' && !actorAssetLib.loadedAt && !actorAssetLib.loading) loadActorAssets();
  };
 
+ // v1087: 인물에게 보이스를 직접 지정한다. 빈 값이면 자동(캐릭터 자산에서 딸려오는 것)으로 되돌린다.
+ const projectRefSetVoice = (sceneKey, kind, id, voiceUrl, voiceName) => setProjectData(p => {
+   const cur = p.sceneRefs[sceneKey] || {};
+   const patch = voiceUrl
+     ? { voiceUrl: String(voiceUrl), voiceName: String(voiceName || ''), voicePinned: true }
+     : { voiceUrl: '', voiceName: '', voicePinned: false };
+   return { ...p, sceneRefs: { ...p.sceneRefs, [sceneKey]: { ...cur,
+     [kind]: (cur[kind] || []).map(x => (x.id === id ? { ...x, ...patch } : x)) } } };
+ });
  const projectRefSetAsset = (sceneKey, kind, id, assetUrl, source, slot = 'asset', extra = null) => {
  // v1031: 바꿔 붙인 자산도 받아 둔다
  projectRefKeep(sceneKey, kind, id, slot === 'costume' ? 'costumeUrl' : 'assetUrl', assetUrl);
@@ -31690,6 +31721,29 @@ ${sampleText}`;
  : <Shirt size={10} />}
  </button>
  )}
+ {/* v1087: 보이스 붙이기 — 인물 시트 · 업로드로 얼굴을 넣은 인물에게도 목소리를 준다.
+     캐릭터 자산을 걸면 그 캐릭터의 보이스가 자동으로 딸려 오지만, 그 밖의 경우에는
+     붙일 방법이 없었다. 여기서 고른 것은 voicePinned 로 표시해 최우선으로 쓴다. */}
+ {k === 'characters' && !!(item.assetUrl || item.assetUri) && (() => {
+   const choices = projectVoiceChoices();
+   const cur = item.voicePinned ? String(item.voiceUrl || '') : '';
+   const has = !!cur || !!projectRefVoice(item).url;
+   if (!choices.length) return null;
+   return (
+     <span onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex' }}>
+       <CustomSelect
+         value={cur}
+         onChange={(val) => {
+           const hit = choices.find(c => c.value === val);
+           projectRefSetVoice(grp.key, k, item.id, val, hit?.name || '');
+         }}
+         options={[{ value: '', label: '보이스 — 자동' },
+           ...choices.map(c => ({ value: c.value, label: c.label }))]}
+         fontSize={10}
+         style={{ width: 96, height: 18, borderColor: has ? 'var(--green-500)' : 'var(--border)' }} />
+     </span>
+   );
+ })()}
  {/* v923: 보이스는 캐릭터를 걸 때 자동으로 딸려 온다. 붙었다는 것만 보인다 —
      여기서 고르는 것이 아니라 캐릭터 자산에 저장된 것을 그대로 쓴다. */}
  {/* v1028: 성별 — 눌러서 없음 → 남 → 여 로 돌린다. 대본에 안 적혀 있으면
