@@ -18675,7 +18675,10 @@ const projectRefLiveSrc = (item) => {
  //   읽어 보고 괜찮으면 그대로 클립을 뽑고, 고칠 데가 있으면 고쳐서 뽑는다.
  //   회색 유니타드 · 월계관 교차 · 역광 실종 — 전부 여기서 잡을 수 있었던 것들이다.
  if (promptOnly) {
-   setProjectData(p => ({ ...p, segments: p.segments.map(g2 => (g2.id === segId ? { ...g2, draftPrompt: prompt } : g2)) }));
+ // v1092: 전체 조립본도 함께 담는다 — 규칙 블록이 어떻게 실렸는지 눈으로
+ //   확인하려면 이것이 있어야 한다. 생성에는 쓰지 않는다(본문만 쓴다).
+ //   그래서 규칙을 고친 뒤 이 값이 낡아도 결과에는 영향이 없다.
+   setProjectData(p => ({ ...p, segments: p.segments.map(g2 => (g2.id === segId ? { ...g2, draftPrompt: prompt, draftFull: finalPrompt } : g2)) }));
    setProjectGenJob(null);
    projectUp({ error: '' });
    return true;
@@ -31826,10 +31829,26 @@ ${sampleText}`;
      </span>
      <button type="button" className="btn btn-ghost btn-sm"
        onClick={() => setProjectData(p => ({ ...p,
-         segments: p.segments.map(g2 => (g2.id === g.id ? { ...g2, draftPrompt: '' } : g2)) }))}
+         segments: p.segments.map(g2 => (g2.id === g.id ? { ...g2, draftPrompt: '', draftFull: '' } : g2)) }))}
        title="이 컷 서술을 버립니다. 다음에 뽑을 때 새로 씁니다."
        style={{ height: 22, padding: '0 8px', fontSize: 10 }}>버리기</button>
    </div>
+   {/* v1092: 실제로 나갈 전체 프롬프트 — 읽기 전용. 규칙 블록이 어떻게 실렸는지
+       여기서 확인한다. 고치는 것은 위의 컷 서술뿐이다. */}
+   {g.draftFull && (
+   <details style={{ marginTop: 6 }}>
+     <summary className="micro" style={{ cursor: 'pointer', color: 'var(--text-tertiary)' }}>
+       조립된 전체 프롬프트 보기 ({String(g.draftFull).length.toLocaleString()}자) — 규칙 블록 확인용
+     </summary>
+     <textarea className="input" rows={14} value={g.draftFull} readOnly
+       style={{ marginTop: 6, fontSize: 11, lineHeight: 1.55, fontFamily: 'inherit',
+         resize: 'vertical', color: 'var(--text-secondary)' }} />
+     <div className="micro" style={{ marginTop: 4, color: 'var(--text-quaternary)' }}>
+       만들 때 조립된 것입니다. 실제 생성에는 위의 컷 서술에 규칙이 다시 붙어 나갑니다 —
+       규칙을 고쳤다면 '컷 서술 다시' 를 눌러 새로 조립하세요.
+     </div>
+   </details>
+   )}
  </details>
  )}
  {/* v916: 시간 초과로 끊긴 작업 — 서버에 남아 있으면 결과만 되찾는다 */}
