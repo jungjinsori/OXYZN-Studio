@@ -8377,6 +8377,13 @@ const ARK_AUDIO_MAX_COUNT = 3;
 const ARK_AUDIO_MIN_SEC = 2;
 const ARK_AUDIO_MAX_SEC = 15;
 const ARK_AUDIO_MAX_BYTES = 15 * 1024 * 1024;
+// v1084: 붙인 보이스들의 '길이 합' 상한. 개당 2~15초는 첨부할 때 검사하는데
+//   합계는 아무도 안 봤다. 2.5 는 오디오를 10개까지 받으므로 15초짜리 셋만
+//   붙어도 넘는다. 실제로 이렇게 거절당했다 —
+//     "audio total duration (seconds) ... must be less than or equal to 30.2
+//      for model dreamina-seedance-2-5 in r2v"
+//   30.2 가 한도이므로 30 으로 잡아 여유를 둔다.
+const ARK_AUDIO_TOTAL_MAX_SEC = 30;
 const ARK_AUDIO_MIME = /^audio\/(mpeg|mp3|wav|wave|x-wav|vnd\.wave)$/i;
 const arkAudioMimeOk = (m) => ARK_AUDIO_MIME.test(String(m || ''));
 // 오디오 길이 측정 — 첨부 시점에 2~15초 제약을 미리 걸러 생성 실패를 막는다
@@ -18240,11 +18247,29 @@ const projectRefLiveSrc = (item) => {
  //   ② 지시문 공백 — '누구는 Audio 1' 만 적고 '나머지는 이 목소리가 아니다' 를
  //      적지 않았다. 목소리 하나만 주면 모델은 그것을 모두에게 쓴다.
  const voiceUse = [];
+ // v1084: 길이 합이 상한을 넘으면 뒤쪽부터 뺀다. voicePicked 는 대사 줄 수가 많은
+ //   순으로 정렬돼 있으니 많이 말하는 인물의 음색이 먼저 자리를 잡는다.
+ //   길이를 못 재면 최대치로 잡아 보수적으로 센다 — 넘겨 보내면 생성 자체가 실패한다.
+ let voiceSecSum = 0;
+ const voiceDropped = [];
  for (const x of voicePicked) {
- try { voiceUse.push({ ...x, pub: await falPublicUrl(x.v.url, `${x.c.name} 보이스`) }); }
- catch (e) {
+ let sec = null;
+ try { sec = await audioDurationOf(x.v.url); } catch { sec = null; }
+ const take = Number.isFinite(sec) && sec > 0 ? sec : ARK_AUDIO_MAX_SEC;
+ if (voiceSecSum + take > ARK_AUDIO_TOTAL_MAX_SEC) {
+ voiceDropped.push(`${x.c.name}(${take.toFixed(1)}초)`);
+ continue;
+ }
+ try {
+ voiceUse.push({ ...x, pub: await falPublicUrl(x.v.url, `${x.c.name} 보이스`) });
+ voiceSecSum += take;
+ } catch (e) {
  console.warn(`[프로젝트] ${x.c.name} 의 보이스를 올리지 못해 제외합니다 — 남은 보이스가 이 인물에게 잘못 실리지 않게 번호를 다시 매깁니다.`, e?.message);
  }
+ }
+ if (voiceDropped.length) {
+ console.warn(`[프로젝트] 보이스 길이 합 상한(${ARK_AUDIO_TOTAL_MAX_SEC}초)을 넘어 제외합니다 — ${voiceDropped.join(' · ')}.`
+ + ` 실린 것 ${voiceSecSum.toFixed(1)}초. 빠진 인물의 목소리는 프롬프트가 글로 정합니다.`);
  }
  const audios = voiceUse.map(x => x.pub);
  const voiceNamed = voiceUse.map(x => x.c.name);
