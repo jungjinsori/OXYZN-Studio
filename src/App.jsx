@@ -18348,7 +18348,12 @@ const projectRefLiveSrc = (item) => {
  let prompt;
  // v1086: 승인해 둔 프롬프트가 있으면 다시 쓰지 않는다. 고치기 · 지적 반영은
  //   예외 — 그때는 새로 써야 한다. finalPrompt 가 이 블록 바깥이라 여기서 선언한다.
- const draftPrompt = (!feedback && !isEdit) ? String(seg.draftPrompt || '').trim() : '';
+ const rawDraft = (!feedback && !isEdit) ? String(seg.draftPrompt || '').trim() : '';
+ // v1090: 저장하는 것은 컷 서술(본문)뿐이다. 규칙 블록은 생성할 때마다 새로
+ //   조립한다 — 안 그러면 규칙을 고쳐도 저장본에 닿지 않아 조용히 옛 규칙으로
+ //   나간다(실제로 그랬다: 1.0.36 을 깔았는데 저장본이 옛 WARDROBE 를 물고 있었다).
+ //   예전 판은 finalPrompt 를 통째로 담았으므로, 규칙 문구가 섞여 있으면 버린다.
+ const draftPrompt = /LOCATION:|WARDROBE, per person|FINAL: No BGM/.test(rawDraft) ? '' : rawDraft;
  // v935: 고칠 클립의 주소가 죽었으면 받아둔 파일을 올려서 쓴다.
  let editVideo = isEdit ? seg.clipUrl : '';
  if (isEdit && !arkUrlFresh(seg.clipTs)) {
@@ -18572,7 +18577,9 @@ const projectRefLiveSrc = (item) => {
    });
    return String(raw || '').trim().replace(/^["'`]+|["'`]+$/g, '');
  };
- if (!draftPrompt) {
+ if (draftPrompt) {
+   prompt = draftPrompt;   // 승인해 둔 본문 — 규칙은 아래에서 새로 붙는다
+ } else {
    prompt = await writePrompt('');
  {
    const miss = needsReadable(prompt);
@@ -18590,6 +18597,7 @@ const projectRefLiveSrc = (item) => {
      else if (retry) prompt = retry;
    }
  }
+ }
  // v1010: 컷 사이를 빈 줄로 나눠 오는 경우가 있다. 지침은 'Cut to 로만 넘기고
  //   문단을 나누지 말라' 고 적혀 있는데(그래야 컷이 한 순간으로 읽힌다) 지켜지지
  //   않을 때가 있어 코드에서 정리한다. 한국어 클립에도 있던 일이라 언어와 무관하다.
@@ -18600,13 +18608,12 @@ const projectRefLiveSrc = (item) => {
  console.warn(`[프로젝트] 대사 안의 괄호 지시 ${_sp.hit}곳을 걷어냈습니다 — 그대로 두면 소리 내어 읽습니다.`);
  prompt = _sp.text;
  }
- } // if (!draftPrompt) — 승인해 둔 프롬프트를 쓸 때는 위 후처리를 건너뛴다
  }
- if (!draftPrompt && !prompt) throw new Error('프롬프트가 비었습니다.');
+ if (!prompt) throw new Error('프롬프트가 비었습니다.');
  // v1010: 인물↔이미지 결속이 빠졌으면 코드가 채운다. 지침에 못 박아 뒀지만
  //   중국어 클립에서 실제로 빠졌고(의상 번호가 한 번도 안 적혔다), 그 클립에서
  //   인물이 다른 사람으로 바뀌었다. 모델의 준수에 기대지 않는다.
- if (!isEdit && !draftPrompt) {
+ if (!isEdit) {
  const rxEsc = (t) => String(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
  const fixes = [];
  fullList.forEach((x, i) => {
@@ -18631,7 +18638,7 @@ const projectRefLiveSrc = (item) => {
  }
  mark(isEdit ? '고칠 내용 정리' : '프롬프트 쓰기');
  // 의상 지시문은 선두에 둔다 — 확산모델은 앞쪽 서술을 더 강하게 잡는다
- const finalPrompt = draftPrompt || [
+ const finalPrompt = [
  // v1007: 음악 금지를 앞으로 (예전에는 RULES_REST 안, 전체의 77% 지점).
  // v1010: 다만 맨 앞자리는 장소·의상에 돌려준다. 앞쪽 가중치가 가장 센 자리이고,
  //   그 자리를 음악에 내주자 인물·의상이 흔들렸다. 음악은 그 바로 뒤에 둔다 —
@@ -18668,7 +18675,7 @@ const projectRefLiveSrc = (item) => {
  //   읽어 보고 괜찮으면 그대로 클립을 뽑고, 고칠 데가 있으면 고쳐서 뽑는다.
  //   회색 유니타드 · 월계관 교차 · 역광 실종 — 전부 여기서 잡을 수 있었던 것들이다.
  if (promptOnly) {
-   setProjectData(p => ({ ...p, segments: p.segments.map(g2 => (g2.id === segId ? { ...g2, draftPrompt: finalPrompt } : g2)) }));
+   setProjectData(p => ({ ...p, segments: p.segments.map(g2 => (g2.id === segId ? { ...g2, draftPrompt: prompt } : g2)) }));
    setProjectGenJob(null);
    projectUp({ error: '' });
    return true;
@@ -31805,7 +31812,7 @@ ${sampleText}`;
  {g.draftPrompt && (
  <details style={{ marginTop: 8 }} open>
    <summary className="micro" style={{ cursor: 'pointer', color: 'var(--green-700)', fontWeight: 700 }}>
-     이 구간에 쓸 프롬프트 — 확인하고 뽑으세요 ({String(g.draftPrompt).trim().split(/\s+/).length} 단어)
+     이 구간의 컷 서술 — 확인하고 뽑으세요 ({String(g.draftPrompt).trim().split(/\s+/).length} 단어)
    </summary>
    <textarea className="input" rows={10} value={g.draftPrompt}
      onChange={(e) => { const v2 = e.target.value; setProjectData(p => ({ ...p,
@@ -31813,7 +31820,7 @@ ${sampleText}`;
      style={{ marginTop: 6, fontSize: 11.5, lineHeight: 1.6, fontFamily: 'inherit', resize: 'vertical' }} />
    <div className="micro" style={{ marginTop: 5, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
      <span style={{ color: 'var(--text-quaternary)' }}>
-       이 글이 그대로 영상 모델에 갑니다. 고치면 고친 대로 나갑니다.
+       컷 서술입니다. 고치면 고친 대로 나갑니다. 의상 · 소리 · 카메라 규칙은 뽑을 때 새로 붙습니다.
      </span>
      <button type="button" className="btn btn-ghost btn-sm"
        onClick={() => setProjectData(p => ({ ...p,
