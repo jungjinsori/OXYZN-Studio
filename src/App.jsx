@@ -18111,7 +18111,7 @@ const projectRefLiveSrc = (item) => {
  // 성공하면 true. 전체 생성이 이 값을 보고 이어갈지 멈출지 정한다.
  //   v945: noCont — 앞 클립 연결(Video 1)만 빼고 뽑는다. 출력 심사에 걸렸을 때
  //   그것이 원인인지 가르는 용도다. 다른 레퍼런스는 그대로 간다.
- const handleProjectGenerateClip = async (segId, { feedback, fromBatch, noCont } = {}) => {
+ const handleProjectGenerateClip = async (segId, { feedback, fromBatch, noCont, promptOnly } = {}) => {
  const now = projectDataRef.current;   // 배치 중에도 최신 상태를 본다
  const idx = now.segments.findIndex(g => g.id === segId);
  if (idx < 0) return false;
@@ -18361,6 +18361,9 @@ const projectRefLiveSrc = (item) => {
  : '')
  : '';
  let prompt;
+ // v1086: 승인해 둔 프롬프트가 있으면 다시 쓰지 않는다. 고치기 · 지적 반영은
+ //   예외 — 그때는 새로 써야 한다. finalPrompt 가 이 블록 바깥이라 여기서 선언한다.
+ const draftPrompt = (!feedback && !isEdit) ? String(seg.draftPrompt || '').trim() : '';
  // v935: 고칠 클립의 주소가 죽었으면 받아둔 파일을 올려서 쓴다.
  let editVideo = isEdit ? seg.clipUrl : '';
  if (isEdit && !arkUrlFresh(seg.clipTs)) {
@@ -18584,7 +18587,8 @@ const projectRefLiveSrc = (item) => {
    });
    return String(raw || '').trim().replace(/^["'`]+|["'`]+$/g, '');
  };
- prompt = await writePrompt('');
+ if (!draftPrompt) {
+   prompt = await writePrompt('');
  {
    const miss = needsReadable(prompt);
    if (miss.length) {
@@ -18600,6 +18604,7 @@ const projectRefLiveSrc = (item) => {
      if (retry && needsReadable(retry).length < miss.length) prompt = retry;
      else if (retry) prompt = retry;
    }
+ }
  }
  // v1010: 컷 사이를 빈 줄로 나눠 오는 경우가 있다. 지침은 'Cut to 로만 넘기고
  //   문단을 나누지 말라' 고 적혀 있는데(그래야 컷이 한 순간으로 읽힌다) 지켜지지
@@ -18641,7 +18646,7 @@ const projectRefLiveSrc = (item) => {
  }
  mark(isEdit ? '고칠 내용 정리' : '프롬프트 쓰기');
  // 의상 지시문은 선두에 둔다 — 확산모델은 앞쪽 서술을 더 강하게 잡는다
- const finalPrompt = [
+ const finalPrompt = draftPrompt || [
  // v1007: 음악 금지를 앞으로 (예전에는 RULES_REST 안, 전체의 77% 지점).
  // v1010: 다만 맨 앞자리는 장소·의상에 돌려준다. 앞쪽 가중치가 가장 센 자리이고,
  //   그 자리를 음악에 내주자 인물·의상이 흔들렸다. 음악은 그 바로 뒤에 둔다 —
@@ -18673,6 +18678,16 @@ const projectRefLiveSrc = (item) => {
  : '',
  PROJECT_FINAL_LINE,   // v1007: 마지막에 읽는 줄
  ].filter(Boolean).join('\n\n');
+
+ // v1086: 프롬프트만 만들고 멈춘다. 영상 호출 전이라 ARK 비용이 안 나간다.
+ //   읽어 보고 괜찮으면 그대로 클립을 뽑고, 고칠 데가 있으면 고쳐서 뽑는다.
+ //   회색 유니타드 · 월계관 교차 · 역광 실종 — 전부 여기서 잡을 수 있었던 것들이다.
+ if (promptOnly) {
+   setProjectData(p => ({ ...p, segments: p.segments.map(g2 => (g2.id === segId ? { ...g2, draftPrompt: finalPrompt } : g2)) }));
+   setProjectGenJob(null);
+   projectUp({ error: '' });
+   return true;
+ }
 
  // ── 2) 영상 ──
  dur = Math.max(4, Math.min(PROJECT_GEN_MAX_FOR(seg.kind), Math.round(seg.sec)));
@@ -31771,6 +31786,14 @@ ${sampleText}`;
  {c.usd} ({c.krw})
  </span>
  )}
+ {/* v1086: 프롬프트만 만들고 멈춘다. ARK 영상 비용 전에 읽어볼 수 있다. */}
+ <button type="button" className="btn btn-ghost btn-sm"
+   disabled={!genOk || busy}
+   onClick={() => handleProjectGenerateClip(g.id, { promptOnly: true })}
+   title={g.draftPrompt ? '프롬프트를 다시 만듭니다 (영상은 안 뽑습니다)' : '프롬프트만 만들어 보여줍니다 — 영상 비용이 나가지 않습니다'}
+   style={{ height: 24, padding: '0 9px', fontSize: 10.5 }}>
+   {g.draftPrompt ? '프롬프트 다시' : '프롬프트만'}
+ </button>
  <button type="button"
  className={`${g.clipUrl ? 'btn btn-ghost btn-sm' : 'btn btn-secondary btn-sm'}${mine ? ' ff-genbusy' : ''}`}
  disabled={!genOk || busy}
@@ -31793,6 +31816,28 @@ ${sampleText}`;
  // 접혀 있을 때 잘린 것이 보이게 아래를 흐린다
  maskImage: isOpen ? 'none' : 'linear-gradient(to bottom, #000 60%, transparent)',
  WebkitMaskImage: isOpen ? 'none' : 'linear-gradient(to bottom, #000 60%, transparent)' }}>{g.text}</div>
+ {/* v1086: 만들어 둔 프롬프트 — 읽고 고칠 수 있다. 여기서 고친 그대로 영상이 나간다. */}
+ {g.draftPrompt && (
+ <details style={{ marginTop: 8 }} open>
+   <summary className="micro" style={{ cursor: 'pointer', color: 'var(--green-700)', fontWeight: 700 }}>
+     이 구간에 쓸 프롬프트 — 확인하고 뽑으세요 ({String(g.draftPrompt).trim().split(/\s+/).length} 단어)
+   </summary>
+   <textarea className="input" rows={10} value={g.draftPrompt}
+     onChange={(e) => { const v2 = e.target.value; setProjectData(p => ({ ...p,
+       segments: p.segments.map(g2 => (g2.id === g.id ? { ...g2, draftPrompt: v2 } : g2)) })); }}
+     style={{ marginTop: 6, fontSize: 11.5, lineHeight: 1.6, fontFamily: 'inherit', resize: 'vertical' }} />
+   <div className="micro" style={{ marginTop: 5, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+     <span style={{ color: 'var(--text-quaternary)' }}>
+       이 글이 그대로 영상 모델에 갑니다. 고치면 고친 대로 나갑니다.
+     </span>
+     <button type="button" className="btn btn-ghost btn-sm"
+       onClick={() => setProjectData(p => ({ ...p,
+         segments: p.segments.map(g2 => (g2.id === g.id ? { ...g2, draftPrompt: '' } : g2)) }))}
+       title="이 프롬프트를 버립니다. 다음에 뽑을 때 새로 씁니다."
+       style={{ height: 22, padding: '0 8px', fontSize: 10 }}>버리기</button>
+   </div>
+ </details>
+ )}
  {/* v916: 시간 초과로 끊긴 작업 — 서버에 남아 있으면 결과만 되찾는다 */}
  {!g.clipUrl && g.pendingTaskId && (
  <div className="micro" style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap',
