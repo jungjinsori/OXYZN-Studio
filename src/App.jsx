@@ -31787,9 +31787,9 @@ ${sampleText}`;
  <button type="button" className="btn btn-ghost btn-sm"
    disabled={!genOk || busy}
    onClick={() => handleProjectGenerateClip(g.id, { promptOnly: true })}
-   title={g.draftPrompt ? '컷 서술을 다시 만듭니다 (영상은 안 뽑습니다)' : '컷 서술만 만들어 보여줍니다 — 영상 비용이 나가지 않습니다. 의상 · 소리 · 카메라 규칙은 뽑을 때 자동으로 붙습니다.'}
+   title={g.draftPrompt ? '프롬프트를 다시 만듭니다 (영상은 안 뽑습니다)' : '프롬프트를 만들어 보여줍니다 — 영상 비용이 나가지 않습니다'}
    style={{ height: 24, padding: '0 9px', fontSize: 10.5 }}>
-   {g.draftPrompt ? '컷 서술 다시' : '컷 서술만'}
+   {g.draftPrompt ? '프롬프트 재생성' : '프롬프트 생성'}
  </button>
  <button type="button"
  className={`${g.clipUrl ? 'btn btn-ghost btn-sm' : 'btn btn-secondary btn-sm'}${mine ? ' ff-genbusy' : ''}`}
@@ -31813,43 +31813,38 @@ ${sampleText}`;
  // 접혀 있을 때 잘린 것이 보이게 아래를 흐린다
  maskImage: isOpen ? 'none' : 'linear-gradient(to bottom, #000 60%, transparent)',
  WebkitMaskImage: isOpen ? 'none' : 'linear-gradient(to bottom, #000 60%, transparent)' }}>{g.text}</div>
- {/* v1086: 만들어 둔 프롬프트 — 읽고 고칠 수 있다. 여기서 고친 그대로 영상이 나간다. */}
+ {/* v1093: 전체 프롬프트를 늘 보여준다. 규칙 블록이 어떻게 실렸는지 확인하려고
+     뽑는 것이므로 접어 두면 뜻이 없다. 고칠 수 있는 것은 컷 서술뿐이라
+     그것만 아래에 편집란으로 따로 낸다. */}
  {g.draftPrompt && (
- <details style={{ marginTop: 8 }} open>
-   <summary className="micro" style={{ cursor: 'pointer', color: 'var(--green-700)', fontWeight: 700 }}>
-     이 구간의 컷 서술 — 확인하고 뽑으세요 ({String(g.draftPrompt).trim().split(/\s+/).length} 단어)
-   </summary>
-   <textarea className="input" rows={10} value={g.draftPrompt}
+ <div style={{ marginTop: 8 }}>
+   <div className="micro" style={{ color: 'var(--green-700)', fontWeight: 700, marginBottom: 5 }}>
+     이 구간의 프롬프트{g.draftFull ? ` · ${String(g.draftFull).length.toLocaleString()}자` : ''} — 확인하고 뽑으세요
+   </div>
+   {g.draftFull && (
+   <textarea className="input" rows={16} value={g.draftFull} readOnly
+     style={{ fontSize: 11, lineHeight: 1.55, fontFamily: 'inherit', resize: 'vertical',
+       color: 'var(--text-secondary)' }} />
+   )}
+   <div className="micro" style={{ marginTop: 8, marginBottom: 4, color: 'var(--text-tertiary)', fontWeight: 700 }}>
+     컷 서술 — 여기만 고칠 수 있습니다 ({String(g.draftPrompt).trim().split(/\s+/).length} 단어)
+   </div>
+   <textarea className="input" rows={8} value={g.draftPrompt}
      onChange={(e) => { const v2 = e.target.value; setProjectData(p => ({ ...p,
        segments: p.segments.map(g2 => (g2.id === g.id ? { ...g2, draftPrompt: v2 } : g2)) })); }}
-     style={{ marginTop: 6, fontSize: 11.5, lineHeight: 1.6, fontFamily: 'inherit', resize: 'vertical' }} />
+     style={{ fontSize: 11.5, lineHeight: 1.6, fontFamily: 'inherit', resize: 'vertical' }} />
    <div className="micro" style={{ marginTop: 5, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
      <span style={{ color: 'var(--text-quaternary)' }}>
-       컷 서술입니다. 고치면 고친 대로 나갑니다. 의상 · 소리 · 카메라 규칙은 뽑을 때 새로 붙습니다.
+       고치면 고친 대로 나갑니다. 위 전체는 만들 때 조립된 것이라, 규칙을 고쳤다면
+       '프롬프트 재생성' 을 눌러 새로 조립하세요.
      </span>
      <button type="button" className="btn btn-ghost btn-sm"
        onClick={() => setProjectData(p => ({ ...p,
          segments: p.segments.map(g2 => (g2.id === g.id ? { ...g2, draftPrompt: '', draftFull: '' } : g2)) }))}
-       title="이 컷 서술을 버립니다. 다음에 뽑을 때 새로 씁니다."
+       title="이 프롬프트를 버립니다. 다음에 뽑을 때 새로 씁니다."
        style={{ height: 22, padding: '0 8px', fontSize: 10 }}>버리기</button>
    </div>
-   {/* v1092: 실제로 나갈 전체 프롬프트 — 읽기 전용. 규칙 블록이 어떻게 실렸는지
-       여기서 확인한다. 고치는 것은 위의 컷 서술뿐이다. */}
-   {g.draftFull && (
-   <details style={{ marginTop: 6 }}>
-     <summary className="micro" style={{ cursor: 'pointer', color: 'var(--text-tertiary)' }}>
-       조립된 전체 프롬프트 보기 ({String(g.draftFull).length.toLocaleString()}자) — 규칙 블록 확인용
-     </summary>
-     <textarea className="input" rows={14} value={g.draftFull} readOnly
-       style={{ marginTop: 6, fontSize: 11, lineHeight: 1.55, fontFamily: 'inherit',
-         resize: 'vertical', color: 'var(--text-secondary)' }} />
-     <div className="micro" style={{ marginTop: 4, color: 'var(--text-quaternary)' }}>
-       만들 때 조립된 것입니다. 실제 생성에는 위의 컷 서술에 규칙이 다시 붙어 나갑니다 —
-       규칙을 고쳤다면 '컷 서술 다시' 를 눌러 새로 조립하세요.
-     </div>
-   </details>
-   )}
- </details>
+ </div>
  )}
  {/* v916: 시간 초과로 끊긴 작업 — 서버에 남아 있으면 결과만 되찾는다 */}
  {!g.clipUrl && g.pendingTaskId && (
