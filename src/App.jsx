@@ -5129,48 +5129,33 @@ const PLACE_RULE = [
  'Hour and light come from this prompt — the same room, lit for the story\'s hour.',
 ].join('\n');
 
+// v1089: 이 조항을 271단어에서 약 110단어로 줄인다.
+//   파리스 · 헤르메스가 캐스팅 유니타드를 그대로 입고 나왔다. 조항이 금지하는
+//   바로 그 옷이다. 원인은 조항 자체에 있었다 — grey 5회, statue · bronze ·
+//   marble · stone · silver · plastic 8회, 그리고 유니타드를 통째로 묘사한
+//   문장. 확산 모델은 부정어를 부정으로 처리하지 못하고 그 낱말에 주의를
+//   붙인다(스우시 때 오디오 조항에서 이미 겪었다).
+//   섞여 있던 두 종류를 가른다.
+//     ㉠ '이렇게 하라' — 마네킹 자리를 피부로 치환 · 속옷 금지 · 투구 뒤 얼굴.
+//        v971 · v1068 · v1077 이 막던 실제 사고들이라 그대로 남긴다.
+//     ㉡ '이렇게 되지 마라' — 회색 · 조각상 · 유니타드 묘사. 전부 뺀다.
+//   'grey' 라는 낱말을 한 번도 부르지 않고 display form 으로만 지칭한다.
+//   지시 내용은 같은데 프롬프트에서 '회색' 이 사라진다.
 const OUTFIT_RULE = [
- 'WARDROBE, per person listed at the end of this block: their wardrobe image is',
- 'the SOLE AUTHORITY on what they wear.',
- // v1038: 172단어 → 약 120. 마네킹 조항은 남긴다 — 열린 앞섶 안의 회색 면을
- //   속옷으로 그려 넣던 실제 결함(v971)을 막는 문장이다.
- 'Match exactly — design, colour, pattern, fabric, fit, closures. Open stays open,',
- 'fastened stays fastened. EVERY layer it shows (shirt under jacket, tie, vest);',
- 'add none it does not.',
- 'Garment only — not its mannequin, pose, framing or background. It defines what',
- 'the garment IS, not whether it is worn now.',
- // v1068: 회색이 인물의 손·팔로 그대로 나오던 결함.
- //   전 문장은 회색을 '옷 안쪽(앞섶·목둘레·진동)' 으로만 한정했다. 그런데
- //   의상 시트의 마네킹은 몸 전체가 회색이라(14215), 소매 끝을 지난 손과
- //   팔뚝 · 목 · 종아리는 '옷 안쪽' 이 아니어서 규칙에 걸리지 않았다.
- //   게다가 문장이 '옷이 아니다' 라는 부정만 하고 그 자리에 무엇을 그릴지를
- //   말하지 않아, 속옷을 안 그리고 회색을 그대로 두는 것이 규칙에 맞는 답이
- //   되어 버렸다. 범위를 옷 바깥까지 넓히고, 치환 대상을 못 박는다.
- // v1077: 아테나가 통째로 회색 조각상으로 나왔다. 투구가 원인이다 —
- //   마네킹임을 알려주는 가장 강한 단서가 '민둥한 회색 머리' 인데, 투구가
- //   그것을 덮어 버린다. 투구의 얼굴 구멍으로 보이는 회색 면은 '머리가 없다'
- //   가 아니라 '얼굴이 회색이다' 로 읽히고, 그리스 배경 + 투구 + 회색 피부는
- //   곧 청동상이다. 한번 조각상으로 읽히면 얼굴에서 팔 · 손 · 다리까지 번진다.
- //   머리가 드러난 헤라 · 아프로디테는 멀쩡했다.
- //   부위 목록에 얼굴 · 머리 · 어깨 · 허벅지가 빠져 있던 것도 함께 고친다.
- 'The wardrobe image is worn by a featureless LIGHT GREY DISPLAY FORM. That grey is',
- 'never skin and never clothing — it does not appear in the video at all.',
- 'WHEREVER the grey shows — inside the garment (open front, neckline, armhole, any',
- 'gap) and ANYWHERE the body reaches past it (face, head, neck, throat, shoulders,',
- 'arms, hands, torso, thighs, calves, ankles, feet) — render THEIR OWN LIVING SKIN,',
- 'in the skin tone from their identity image.',
- '★ THE WEARER IS A LIVING HUMAN, never a statue, mannequin, effigy, or a figure of',
- 'bronze, marble, stone, silver or plastic. A helmet, mask, visor or headdress in the',
- 'wardrobe image sits on the display form\'s blank head — behind and around it is this',
- 'person\'s OWN FACE from their identity image — living skin, not a blank display head.',
- 'Never a grey, silver, metallic or matte face, hand, arm or leg.',
+ 'WARDROBE, per person listed below: their wardrobe image is the SOLE AUTHORITY',
+ 'on what they wear. Match exactly — design, colour, pattern, fabric, fit,',
+ 'closures; every layer it shows, and no layer it does not. Open stays open,',
+ 'fastened stays fastened.',
+ 'Garment only — not its display form, pose, framing or background. It defines',
+ 'what the garment IS, not whether it is worn now.',
+ 'Wherever the display form shows through — inside the garment (open front,',
+ 'neckline, armhole, any gap) and anywhere the body reaches past it (face, head,',
+ 'neck, throat, shoulders, arms, hands, torso, thighs, calves, ankles, feet) —',
+ 'render THEIR OWN LIVING SKIN, in the tone from their identity image.',
+ 'Behind a helmet, mask, visor or headdress is their own face from that image.',
  'Add no top, camisole, undershirt, bodysuit or underwear beneath.',
- // v1067: 얼굴 이미지가 캐스팅 시트라고 단정하지 않는다. 인물 시트·업로드로도
- //   얼굴을 넣을 수 있게 되면서, 평상복을 입은 사진이 신원 이미지가 될 수 있다.
- //   회색 유니타드만 짚으면 그 경우 문장이 헛돈다 — 둘 다 덮게 쓴다.
- 'The IDENTITY image gives face, hair and body proportions only. Whatever it shows',
- 'them wearing — a plain grey-charcoal casting unitard, or ordinary clothes in a',
- 'photo — is never worn in the video. The wardrobe image alone decides that.',
+ 'Clothing comes only from the wardrobe image — nothing worn in the identity',
+ 'image appears here.',
 ].join('\n');
 
 // 앞 클립과 같은 씬일 때만 붙인다. 씬이 바뀌면 장소가 바뀌므로
