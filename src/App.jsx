@@ -31562,7 +31562,12 @@ ${sampleText}`;
  const openSeg = grp.items.find(({ seg }) => seg.id === projectOpenClip);
  const openSegIdx = openSeg ? grp.items.findIndex(({ seg }) => seg.id === openSeg.seg.id) : -1;
  const openUse = openSeg
- ? projectRefsForSegment(openSeg.seg, ref, openSegIdx > 0 ? grp.items[openSegIdx - 1].seg : null)
+ // v1095: priorText 를 넘긴다. 안 넘기면 projectRefsForSegment 가 바로 앞 구간만
+ //   보고(prevText 폴백) 판정해, 몇 구간 전에 등장한 뒤 계속 남아 있는 인물이
+ //   목록에서 빠진다. 생성 경로는 넘기고 있었는데 화면만 안 넘겨서, 화면과
+ //   실제로 붙는 레퍼런스가 서로 달랐다.
+   ? projectRefsForSegment(openSeg.seg, ref, openSegIdx > 0 ? grp.items[openSegIdx - 1].seg : null,
+       grp.items.slice(0, Math.max(0, openSegIdx)).map(it => String(it.seg.text || '')).join('\n'))
  : null;
  return (
  <div key={grp.key} className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -31769,7 +31774,9 @@ ${sampleText}`;
  {/* 이 씬의 클립들 */}
  <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
  {grp.items.map(({ seg: g, at }, gi2) => {
- const use = projectRefsForSegment(g, ref, gi2 > 0 ? grp.items[gi2 - 1].seg : null);
+ // v1095: 화면도 생성 경로와 같은 기준으로 — 씬의 앞 구간 전체를 넘긴다
+ const use = projectRefsForSegment(g, ref, gi2 > 0 ? grp.items[gi2 - 1].seg : null,
+   grp.items.slice(0, gi2).map(it => String(it.seg.text || '')).join('\n'));
  const names = [...use.characters, ...use.places, ...use.objects].map(x => x.name);
  const isOpen = projectOpenClip === g.id;
  return (
