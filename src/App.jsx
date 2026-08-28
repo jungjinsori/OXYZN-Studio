@@ -18386,7 +18386,11 @@ const projectRefLiveSrc = (item) => {
  //   조립한다 — 안 그러면 규칙을 고쳐도 저장본에 닿지 않아 조용히 옛 규칙으로
  //   나간다(실제로 그랬다: 1.0.36 을 깔았는데 저장본이 옛 WARDROBE 를 물고 있었다).
  //   예전 판은 finalPrompt 를 통째로 담았으므로, 규칙 문구가 섞여 있으면 버린다.
- const draftPrompt = /LOCATION:|WARDROBE, per person|FINAL: No BGM/.test(rawDraft) ? '' : rawDraft;
+ // v1097: '프롬프트 재생성' 은 말 그대로 다시 써야 한다. promptOnly 일 때
+ //   저장본을 쓰면 같은 본문을 다시 담을 뿐이라, 규칙이나 검사를 고쳐도
+ //   눌러 봐야 아무것도 안 바뀐다. 그래서 promptOnly 면 저장본을 무시한다.
+ //   (예전 판은 finalPrompt 를 통째로 담았으므로 규칙 문구가 섞여 있으면 버린다.)
+ const draftPrompt = (promptOnly || /LOCATION:|WARDROBE, per person|FINAL: No BGM/.test(rawDraft)) ? '' : rawDraft;
  // v935: 고칠 클립의 주소가 죽었으면 받아둔 파일을 올려서 쓴다.
  let editVideo = isEdit ? seg.clipUrl : '';
  if (isEdit && !arkUrlFresh(seg.clipTs)) {
