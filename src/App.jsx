@@ -18615,19 +18615,39 @@ const projectRefLiveSrc = (item) => {
  } else {
    prompt = await writePrompt('');
  {
+   // v1096: 대본에 이름이 없어 데려온 인물(carried)이 컷에 한 번도 안 세워지는 일.
+   //   지시문에 '적어도 한 컷에서는 보이게 잡으라' 고 적혀 있는데, 둘 이상이면
+   //   하나만 세우고 나머지를 빠뜨린다 — 아프로디테가 레퍼런스로만 붙고 화면에
+   //   한 번도 안 나왔다. 이름이 본문에 있는지로 검사한다(대사 속 영어 이름은
+   //   한국어 이름과 다르므로 섞이지 않는다).
+   const missCarried = (txt) => (use.carried || [])
+     .map(nm => String(nm || '').trim())
+     .filter(nm => nm && !String(txt || '').includes(nm));
    const miss = needsReadable(prompt);
-   if (miss.length) {
-     console.warn(`[프로젝트] 의상이 읽히는 컷이 없어 다시 씁니다 — ${miss.join(' · ')}`);
-     const note = `[다시 쓰십시오]\n${miss.join(' · ')} 는 의상 이미지가 붙어 있는데`
-       + ' 옷이 읽히는 컷이 하나도 없습니다. 빛을 받는 자리에서 한 번은 보이게 하십시오.'
-       + ' 어떻게 채울지는 대본이 정합니다. 대본이 인물을 하나씩 세워 보여 주는'
-       + ' 흐름이면 한 명씩 컷을 주고, 그런 말이 없으면 컷을 새로 지어내지 말고'
-       + ' 이미 있는 컷에서 보이게 하거나 여러 명을 한 컷에 함께 담으십시오.'
-       + ' 역광 · 실루엣 와이드는 그대로 두어도 좋습니다 — 그 컷 말고 다른 컷에서'
-       + ' 한 번 보이면 됩니다. 나머지는 손대지 말고 이 부분만 고쳐 다시 쓰십시오.';
+   const mc = missCarried(prompt);
+   if (miss.length || mc.length) {
+     if (miss.length) console.warn(`[프로젝트] 의상이 읽히는 컷이 없어 다시 씁니다 — ${miss.join(' · ')}`);
+     if (mc.length) console.warn(`[프로젝트] 그 자리에 있는데 컷에 안 나온 인물이 있어 다시 씁니다 — ${mc.join(' · ')}`);
+     const note = ['[다시 쓰십시오]',
+       miss.length
+         ? `${miss.join(' · ')} 는 의상 이미지가 붙어 있는데 옷이 읽히는 컷이 하나도 없습니다.`
+           + ' 빛을 받는 자리에서 한 번은 보이게 하십시오.'
+           + ' 어떻게 채울지는 대본이 정합니다. 대본이 인물을 하나씩 세워 보여 주는'
+           + ' 흐름이면 한 명씩 컷을 주고, 그런 말이 없으면 컷을 새로 지어내지 말고'
+           + ' 이미 있는 컷에서 보이게 하거나 여러 명을 한 컷에 함께 담으십시오.'
+           + ' 역광 · 실루엣 와이드는 그대로 두어도 좋습니다 — 그 컷 말고 다른 컷에서'
+           + ' 한 번 보이면 됩니다.'
+         : '',
+       mc.length
+         ? `${mc.join(' · ')} 는 이 구간에도 그 자리에 있습니다. 대본이 이름을 적지 않았을`
+           + ' 뿐이고 나갔다는 말은 없습니다. 그런데 지금 프롬프트의 어느 컷에도 없습니다.'
+           + ' 한 명도 빠뜨리지 말고 각자 최소 한 컷에는 보이게 적으십시오 —'
+           + ' 와이드나 오버더숄더의 뒤쪽에 함께 서 있는 것으로 충분합니다.'
+           + ' 대사가 없으면 듣고 있는 연기를 적고, 화자의 컷을 빼앗지는 마십시오.'
+         : '',
+       '나머지는 손대지 말고 이 부분만 고쳐 다시 쓰십시오.'].filter(Boolean).join('\n');
      const retry = await writePrompt(note);
-     if (retry && needsReadable(retry).length < miss.length) prompt = retry;
-     else if (retry) prompt = retry;
+     if (retry) prompt = retry;
    }
  }
  }
