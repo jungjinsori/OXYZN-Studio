@@ -5922,6 +5922,29 @@ const PROJECT_REF_KINDS = [
 //   그래서 씬 안에서 한 번 나온 물건은 계속 붙인다. 버리거나 건넨 것만 뺀다.
 const PROJECT_OBJ_GONE_RE = /(버리|버렸|내려놓|내려 놓|놓고 나|놓고 가|두고 나|두고 가|건네|건넨|넘기|넘긴|돌려주|빼앗|떨어뜨|떨어트|잃어|던져 버)/;
 // priorText — 이 씬에서 이 구간보다 앞에 있는 구간들의 대본을 이어 붙인 것
+// v1094: 인물이 언제 무대에 있는지를 '앞 구간 한 곳' 이 아니라 '씬 전체' 로 본다.
+//   전에는 바로 앞 구간 대본에 이름이 있을 때만 데려왔다. 그래서 두 가지가
+//   동시에 틀렸다 —
+//     ㉠ 퇴장한 인물이 계속 따라왔다. 헤라가 '섬광이 되어 사라졌다' 고 대본에
+//        적혀 있는데도 다음 구간에 배우로 붙었다.
+//     ㉡ 남아 있는 인물이 빠졌다. 헤르메스는 쭉 그 자리에 있는데 대본이 몇
+//        구간 동안 이름을 안 적었다고 배우에서 제외됐다.
+//   이제 씬의 앞 구간 전체에서 그 이름이 마지막으로 나온 줄을 찾아,
+//   그 줄이 퇴장이면 빼고 아니면 남긴다. 다시 들어오면 마지막 줄이 이기므로
+//   재등장도 그대로 잡힌다.
+const PROJECT_EXIT_RE = /(사라지|사라졌|사라진|떠나가|떠났|떠나|물러나|물러섰|자취를 감|모습을 감|빠져나|나가버|나갔|퇴장|없어졌|돌아갔|사라져)/;
+// 이름이 마지막으로 나온 줄을 찾아 '아직 무대에 있는가' 를 답한다.
+//   못 찾으면 null — 이 씬에 아직 등장한 적이 없다는 뜻이다.
+const projectOnStage = (name, priorText) => {
+ const nm = String(name || '').trim();
+ if (!nm) return null;
+ const lines = String(priorText || '').split('\n');
+ for (let i = lines.length - 1; i >= 0; i--) {
+ if (!lines[i].includes(nm)) continue;
+ return !PROJECT_EXIT_RE.test(lines[i]);
+ }
+ return null;
+};
 const projectRefsForSegment = (seg, sceneRef, prevSeg, priorText) => {
  const r = sceneRef || {};
  const text = String(seg?.text || '');
@@ -5930,9 +5953,14 @@ const projectRefsForSegment = (seg, sceneRef, prevSeg, priorText) => {
  return name && text.includes(name);
  });
  const prevText = String(prevSeg?.text || '');
- const carriedChars = !named.length || !prevText ? [] : (r.characters || []).filter(c => {
- const name = String(c?.name || '').trim();
- return name && !text.includes(name) && prevText.includes(name);
+ // v1094: 이 씬의 앞 구간 전체를 보고, 퇴장하지 않은 인물은 대본이 이름을
+ //   안 적어도 계속 남긴다. 퇴장했으면 뺀다. (projectOnStage 참고)
+ //   priorText 가 없을 때만 예전처럼 바로 앞 구간으로 대신한다.
+ const stageText = String(priorText || '').trim() || prevText;
+ const carriedChars = !named.length ? [] : (r.characters || []).filter(c => {
+   const name = String(c?.name || '').trim();
+   if (!name || text.includes(name)) return false;
+   return projectOnStage(name, stageText) === true;
  });
  const characters = [...named, ...carriedChars];
  const useChars = characters.length ? characters : (r.characters || []);
@@ -17972,6 +18000,11 @@ const projectRefLiveSrc = (item) => {
   주어졌다면 그 이름으로 부르십시오. 목록에 없는 물건이면 이름을 지어내지 말고
   '무엇인지 확실치 않은 물건' 이라고 적으십시오. 실제로 우산 자루를 '작은 병' 으로
   적어, 다음 클립이 있지도 않은 병을 손에 쥐여 준 일이 있습니다.
+- ★★ 대본이 그 인물이 나갔다고 적었으면 — 사라졌다 · 떠났다 · 물러났다 ·
+  빛이 되어 없어졌다 — '이 씬에서 나갔음' 이라고 적으십시오. 위치를 추정하지
+  마십시오. 화면 밖 어디에 있을 것이라고 쓰면 다음 클립이 그 자리에 세웁니다.
+  실제로 그렇게 됐습니다 — 헤라가 섬광이 되어 사라진 클립에서 '화면 밖 왼쪽에
+  있을 것으로 추정' 이라고 적혔고, 다음 클립에 헤라가 다시 서 있었습니다.
 - ★ 화면에 안 보이는 인물은 '보이지 않음' 이라고 분명히 적으십시오.
   빼고 넘어가면 다음 클립이 그 사람의 자리를 지어냅니다. 실제로 그렇게 됐습니다.
   화면 밖이어도 시선이나 내민 손으로 어느 쪽에 있는지 알 수 있으면 그렇게 적으십시오.
