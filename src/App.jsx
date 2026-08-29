@@ -5092,9 +5092,12 @@ const PROJECT_VIDEO_RULES_REST = [
  //   들고 있는 물건까지 덮지 않는다. 두 조항 사이로 빠진 것이다.
  //   의상 · 신원 이미지가 몸에 걸치거나 손에 쥐여 준 것은 그 사람의 일부다.
  'PROPS: the only objects in frame are the ones this prompt names, plus whatever a',
- 'wardrobe or identity image shows that person wearing or carrying — a staff, bag,',
- 'weapon or instrument in their hand there is part of them and comes with them into',
- 'every cut, even though this prompt never names it.',
+ 'wardrobe or identity image shows as belonging to that person — a staff, bag, weapon,',
+ 'instrument, helmet or piece of jewellery. It belongs to them whether that image shows',
+ 'it held in a hand, worn on the body, or simply laid beside the outfit on its own: the',
+ 'wardrobe image is a kit list, not a photograph of how it is carried. It comes with',
+ 'them into every cut, in the hand or on the body where it plainly goes, even though',
+ 'this prompt never names it.',
  'A word merely spoken in dialogue is not a prop — do not put an object in a hand',
  'because it was mentioned.',
  '',
@@ -5141,17 +5144,34 @@ const PLACE_RULE = [
 //     ㉡ '이렇게 되지 마라' — 회색 · 조각상 · 유니타드 묘사. 전부 뺀다.
 //   'grey' 라는 낱말을 한 번도 부르지 않고 display form 으로만 지칭한다.
 //   지시 내용은 같은데 프롬프트에서 '회색' 이 사라진다.
+// v1098: 의상 시트의 전시용 형체를 회색에서 마젠타로 바꿨다(SHEET_PROMPTS 의
+//   MANNEQUIN 항). 회색은 피부·돌·그늘로 읽힐 여지가 있어 모델이 그대로 몸에
+//   옮겼다 — 이리스의 팔이 회색으로 나온 건이 마지막이다. 마젠타는 살로 읽히지
+//   않으니 이미지만 봐도 옷이 아닌 부분이 어디인지 분명해진다.
+//   이 조항에는 색 이름을 넣지 않는다. v1089 의 이유가 그대로 살아있고,
+//   기존 시트 27장이 아직 회색이라 색을 박으면 그것들이 단서를 잃는다.
+//   대신 색과 무관하게 '전시용 형체는 옷걸이지 몸이 아니다' 로 못을 박는다.
 const OUTFIT_RULE = [
- 'WARDROBE, per person listed below: their wardrobe image is the SOLE AUTHORITY',
- 'on what they wear. Match exactly — design, colour, pattern, fabric, fit,',
- 'closures; every layer it shows, and no layer it does not. Open stays open,',
- 'fastened stays fastened.',
+ 'WARDROBE: each person named below comes as TWO images that together describe ONE',
+ 'person — one is their face and body, the other is the clothes they have on.',
+ 'A person and their outfit are a single thing, not a face plus an optional',
+ 'costume. The pair is who walks into this clip.',
+ 'This holds however the shot happens to catch them — near or far, front or back,',
+ 'standing, seated, moving, still, half out of frame, behind something, out of',
+ 'focus, in shadow. Nothing about the framing makes the clothes optional. There is',
+ 'no shot in which they wear something else; they own no other clothes.',
+ 'The wardrobe image is the SOLE AUTHORITY on what they wear. Match it exactly —',
+ 'design, colour, pattern, fabric, fit, closures; every layer it shows, and no',
+ 'layer it does not. Open stays open, fastened stays fastened.',
  'Garment only — not its display form, pose, framing or background. It defines',
  'what the garment IS, not whether it is worn now.',
- 'Wherever the display form shows through — inside the garment (open front,',
- 'neckline, armhole, any gap) and anywhere the body reaches past it (face, head,',
- 'neck, throat, shoulders, arms, hands, torso, thighs, calves, ankles, feet) —',
+ 'Wherever the display form shows through — or, where the wardrobe image leaves an',
+ 'opening hollow and empty, wherever that emptiness sits — inside the garment (open',
+ 'front, neckline, armhole, any gap) and anywhere the body reaches past it (face,',
+ 'head, neck, throat, shoulders, arms, hands, torso, thighs, calves, ankles, feet) —',
  'render THEIR OWN LIVING SKIN, in the tone from their identity image.',
+ 'No colour, material or surface of the display form reaches this clip — it is',
+ 'a stand the garment was hung on, never a body.',
  'Behind a helmet, mask, visor or headdress is their own face from that image.',
  'Add no top, camisole, undershirt, bodysuit or underwear beneath.',
  'Clothing comes only from the wardrobe image — nothing worn in the identity',
@@ -5822,7 +5842,7 @@ const projectResOf = (d) => (PROJECT_RES_OPTIONS.some(x => x.id === d?.genRes) ?
 const projectCanGenerate = (seg) => (Number(seg?.sec) || 0) <= PROJECT_GEN_MAX_FOR(seg?.kind);
 // v913: 콘티뉴이티 참조를 뽑을 구간 — 앞 클립의 끝 40%.
 //   중간에서 뽑으면 이미 지나간 동작을 물려주게 되어 연기가 되돌아간다.
-const PROJECT_CONT_RANGE = { fromRatio: 0.6, toRatio: 0.98 };
+const PROJECT_CONT_RANGE = { fromRatio: 0.45, toRatio: 0.98 };
 // v1070: 끝 상태를 읽을 프레임의 가로 해상도. 512 였다 — 우산 자루의 은색
 //   금속 링이 주먹에 감싸인 채로 몇 픽셀이 되어 '뚜껑 달린 작은 병' 으로
 //   읽혔고, 그 병이 다음 클립 프롬프트에 연기까지 붙어 실렸다. 원본이 1280 이라
@@ -14182,7 +14202,7 @@ HEIGHT MARKER (front full shot ONLY): to the LEFT of the front (0deg) full-body 
 
 Below the full-body row, add a strip of FOUR TIGHT SHOTS of the SAME character at front / 45deg / left profile / right profile. By DEFAULT (characters with a clear face/head) these are TIGHT BUST SHOTS framed from mid-chest up with the head near the top of the frame so the face is large and clearly readable — tighter than a waist-up medium shot, emphasizing face, expression, and any hair/head features (human results stay standard). If the character has no humanoid face (e.g. a creature/monster), instead make these four tight detail shots of its head or primary defining feature from the same four angles. Keep the same character, proportions, and colors as the full-body views.
 
-BACKGROUND & LIGHTING: plain neutral studio background (light grey or white), flat even reference lighting, no dramatic shadows, no environment or props.
+BACKGROUND & LIGHTING: plain neutral studio background (light grey or white), flat even reference lighting, no dramatic shadows, no environment or props. The casting garment reads plainly as athletic kit — its own edges, seams and straps clear against the skin. Its colour never spills, tints or reflects onto the skin, hair or background; skin tone stays true, exactly as this person really is.
 
 NEGATIVE: no varying outfit, hairstyle, markings, or surface details between views, no changing proportions, no different characters, no dynamic action poses, no busy background. For non-humanoid subjects, do NOT graft on human limbs, hands, feet, or faces. NO rendered text, captions, view names, or angle labels anywhere in the image — do NOT write words like "front", "back", "side", "3/4", "45", or any degree marks. The ONLY text permitted is the height value on the front-view measurement ruler.`,
  },
@@ -14214,7 +14234,7 @@ BOTTOM ROW — FRONT angle (0deg) throughout, four expressions of the same perso
 
 CONSISTENCY: identical person, hairstyle, skin tone, framing, head size, and lighting in every cell; only the head angle (top row) or the expression (bottom row) changes. Expressions must read clearly while still looking like the same face.
 
-BACKGROUND & LIGHTING: plain neutral studio background (light grey), soft even portrait lighting identical across all cells, no dramatic shadows, no props.
+BACKGROUND & LIGHTING: plain neutral studio background (light grey), soft even portrait lighting identical across all cells, no dramatic shadows, no props. The casting garment reads plainly as athletic kit — its own edges, seams and straps clear against the skin. Its colour never spills, tints or reflects onto the skin, hair or background; skin tone stays true, exactly as this person really is.
 
 NEGATIVE: no changing identity or face between cells, no different people, no changing hairstyle / skin tone / age, no varying crop or head size, no full-body or wide framing (this is face-only), no visible full shoulders or torso, no busy background. NO rendered text, captions, view names, angle labels, or expression labels anywhere in the image — do NOT write words like "front", "45", "happy", "sad", "joyful", or degree marks.`,
  },
@@ -14335,17 +14355,17 @@ LAYOUT — one 16:9 landscape frame divided into exactly two zones by a single c
     Four DETAIL SHOTS of the same outfit — close crops of construction and material: fabric weave and texture, seams and stitching, closures (buttons/zippers/ties), collar or cuff construction, and any accessories worn with the outfit (belt, bag, jewellery, footwear).
   The zone widths and the panel divisions inside each zone must be even and consistent. Panels are separated by thin clean margins, no decorative frames.
 
-MANNEQUIN: the outfit is worn by a plain LIGHT GREY MANNEQUIN (matte neutral light-grey surface, smooth featureless head with no face, no hair, no skin tone, no makeup). The mannequin body proportions follow [GENDER] and [BODY TYPE]. The mannequin is a display form only — never render it as a human being, never add facial features.
+PRESENTATION: ghost-mannequin (invisible-mannequin) product photography — the outfit ALONE, holding the exact three-dimensional shape it takes when worn: shoulders, chest, waist and hips filled out, sleeves and skirt hanging with their true weight and drape, collars and closures sitting as they would on a wearer. The wearer is not in the picture. Every opening — neckline, armholes, cuffs, hem, any gap in an open front — is hollow: through it you see the inner lining of the garment itself, or the plain background behind. The worn shape follows [GENDER] and [BODY TYPE]. Footwear is photographed EMPTY — laid on the floor or shot from the side, with nothing inside it: no foot, no ankle, no leg, no form of any kind. Open sandals and straps simply hold their own shape. Other accessories are shown the same way, on their own. Nothing else is in frame: no person, no visible form, no stand, no hanger, no pins, wires or supports.
 
-POSE: give the mannequin a natural, relaxed standing pose that suits this particular garment and lets it hang and read correctly (a costume-fitting stance, not a fashion runway pose or dynamic action). CRITICAL — the front and back full shots must be the SAME pose from opposite sides: identical stance, identical limb positions, identical garment drape and fit. Nothing shifts between the two views.
+WORN SHAPE: the garment holds a natural, relaxed standing shape that suits this particular piece and lets it hang and read correctly (a costume-fitting stance, not a fashion runway pose or dynamic action). CRITICAL — the front and back full shots must be the SAME shape from opposite sides: identical stance, identical limb positions, identical garment drape and fit. Nothing shifts between the two views.
 
 GARMENT ACCURACY (most important): the SAME single outfit appears in every panel with identical color, fabric, pattern, cut, length, layering, hardware, and wear. Render the fabric realistically — true weave and knit structure, correct weight and stiffness, natural drape and fold behaviour, authentic sheen or matte finish, visible texture at detail scale. No invented variations between panels.
 
-BACKGROUND & LIGHTING: clean pure white studio cyclorama (seamless white horizon / infinity cove) with a soft even floor transition and no visible corners. Professional studio lighting — soft key with gentle fill, even exposure across the frame, subtle grounding contact shadow under the mannequin, no dramatic or colored lighting, no environment or props beyond the garment and its own accessories.
+BACKGROUND & LIGHTING: clean pure white studio cyclorama (seamless white horizon / infinity cove) with a soft even floor transition and no visible corners. Professional studio lighting — soft key with gentle fill, even exposure across the frame, subtle grounding contact shadow under the garment, no dramatic or colored lighting, no environment or props beyond the garment and its own accessories.
 
 CAMERA & RENDER: look like a real photograph shot on a professional studio camera — full-frame sensor with a prime lens, natural optical depth of field on the detail crops, accurate color rendition, realistic micro-contrast and fine fabric grain, subtle natural lens falloff. Not an illustration, not a 3D render, not a flat product mockup.
 
-NEGATIVE: no human face or skin, no hair, no facial features on the mannequin, no live model, no changing garment color / fabric / cut between panels, no differing pose between front and back, no uneven or misaligned panel divisions, no extra panels beyond the specified 2 + 4, no colored or textured background, no props or set dressing, no fashion-editorial posing. NO rendered text, captions, labels, view names, measurements, logos, or watermark anywhere in the image — do NOT write words like "front", "back", "detail", or any numbers.`,
+NEGATIVE: no live model, no body, no face, skin or hair anywhere in frame, no changing garment color / fabric / cut between panels, no differing pose between front and back, no uneven or misaligned panel divisions, no extra panels beyond the specified 2 + 4, no colored or textured background, no props or set dressing, no fashion-editorial posing. NO rendered text, captions, labels, view names, measurements, logos, or watermark anywhere in the image — do NOT write words like "front", "back", "detail", or any numbers.`,
  },
 
 };
@@ -14380,13 +14400,27 @@ const CHARACTER_GENDERS = [
 //   붙는데 나이 칸은 자유 입력이라, 넥라인을 내려 두면 미성년 캐릭터 시트에도
 //   그대로 적용된다. 성인으로 확인될 때만 내리고, 확인이 안 되면(빈칸 · 숫자가
 //   아닌 값 포함) 덮는 쪽을 쓴다. 모르면 안전한 쪽이 기본이다.
+// v1099: 캐스팅 의상을 나이로 가른다. 마젠타(v1098)는 실패였다 — 색을 바꿔도
+//   겉옷 아래로 새는 것은 그대로였고, 형광 핑크라 오히려 더 잘 보였다.
+//   색으로 "이건 옷이 아니다" 를 알리려던 접근 자체가 틀렸다. 모델은 인물 시트를
+//   "이 사람 + 이 사람이 입은 것" 으로 통째로 읽고 의상 시트를 그 위에 겹친다.
+//   그래서 새는 것을 막는 대신 새도 보이지 않게 한다 — 본인 피부톤이면 겉옷
+//   아래로 비쳐도 살로 읽힌다. 덮는 면적도 줄어 샐 것 자체가 적다.
+//   ★ 성인으로 확인될 때만이다. 미성년 · 나이 미상은 종전 원피스를 그대로 쓰고
+//     색도 피부톤이 아닌 중간 회색이다 — 모르면 덮는 쪽이 기본이다.
 const CHARACTER_WARDROBE = {
- female: 'a ONE-PIECE sleeveless grey-charcoal dance unitard — one continuous skin-tight garment from the shoulders to a mid-thigh hem, with no waistband and no seam at the waist: athletic outerwear, never an undershirt and never a layer worn under other clothing. Matte compression knit (spandex) clinging to every contour, never cotton or jersey. Plain, no logos. Cut like a dancer\'s leotard, with bust darts and princess seams so the chest contour is defined and the bust-waist-hip line reads as the build stated in [APPEARANCE] (or an ordinary build if it does not say) — never flattened into a straight tube, never compressed away, and never enlarged beyond what she has. Legs bare below the hem so the silhouette and true proportions read clearly, [NECK]',
- male: 'a ONE-PIECE sleeveless grey-charcoal dance unitard — one continuous skin-tight garment from the shoulders to a mid-thigh hem, with no waistband and no seam at the waist: athletic outerwear, never an undershirt and never a layer worn under other clothing. Matte compression knit (spandex) clinging to every contour, never cotton or jersey. Plain, no logos. The knit follows the chest, waist and hip line so the build stated in [APPEARANCE] (or an ordinary build if it does not say) reads — never flattened into a straight tube. Legs bare below the hem so the silhouette and true proportions read clearly, crew neckline with wide shoulder panels',
+ female: {
+  adult: 'plain two-piece athletic swimwear for a casting record — a sports-style top seamed so the chest contour and the true bust line read clearly, and plain mid-rise briefs at the natural waist with a modest full-coverage cut. Matte swim knit, no logos, no ruffles, no lace, no embellishment. Both pieces in plain flat matte CHARCOAL GREY, unmistakably athletic kit and not costume. Torso, shoulders, arms and legs bare so the build stated in [APPEARANCE] (or an ordinary build if it does not say) reads clearly — the bust-waist-hip line is never flattened into a straight tube, never compressed away, and never enlarged beyond what she has. This is athletic swimwear worn for a body-proportion record: never a layer worn beneath other clothing. The top is [NECK]',
+  guarded: 'a ONE-PIECE sleeveless plain MID-GREY dance unitard — one continuous skin-tight garment from the shoulders to a mid-thigh hem, with no waistband and no seam at the waist: athletic outerwear, never an undershirt and never a layer worn under other clothing. Matte compression knit (spandex) clinging to every contour, never cotton or jersey. Plain, no logos. Cut like a leotard, with bust darts and princess seams so the chest contour is defined and the bust-waist-hip line reads as the build stated in [APPEARANCE] (or an ordinary build if it does not say) — never flattened into a straight tube, never compressed away, and never enlarged beyond what she has. Legs bare below the hem so the silhouette and true proportions read clearly, [NECK]',
+ },
+ male: {
+  adult: 'plain athletic swim briefs for a casting record — a brief-cut trunk sitting at the natural waist with a high-cut leg opening, smooth matte swim knit clinging to the hip and thigh line, no logos, no pattern, no drawstring detail, in plain flat matte CHARCOAL GREY, unmistakably athletic kit and not costume. Chest, shoulders, arms, hips and legs bare so the build stated in [APPEARANCE] (or an ordinary build if it does not say) reads clearly — the chest, waist and hip line is never flattened into a straight tube. This is athletic swimwear worn for a body-proportion record: never a layer worn beneath other clothing',
+  guarded: 'a ONE-PIECE sleeveless plain MID-GREY dance unitard — one continuous skin-tight garment from the shoulders to a mid-thigh hem, with no waistband and no seam at the waist: athletic outerwear, never an undershirt and never a layer worn under other clothing. Matte compression knit (spandex) clinging to every contour, never cotton or jersey. Plain, no logos. The knit follows the chest, waist and hip line so the build stated in [APPEARANCE] (or an ordinary build if it does not say) reads — never flattened into a straight tube. Legs bare below the hem so the silhouette and true proportions read clearly, crew neckline with wide shoulder panels',
+ },
 };
 // 여성 넥라인 — 나이가 성인으로 확인될 때만 내린다
 const CHARACTER_NECKLINE = {
- adult: 'a deep scoop / V neckline cut low on the chest so the décolletage and the upper curve of the bust read clearly, with narrower straps. The breasts stay fully covered by the knit — this is a body reference for casting, not lingerie and not a glamour shot',
+ adult: 'a strapless straight-cut bandeau top — no shoulder straps, no halter tie, no back strap crossing the shoulders — its top edge cut low enough that the décolletage and the upper curve of the bust read clearly, the band sitting firm and level across the ribcage. The breasts stay fully covered by the knit. Shoulders, collarbones and upper back are left completely bare so the frame and shoulder line read — this is a body reference for casting, not lingerie and not a glamour shot',
  guarded: 'a scoop neckline with wide straps; chest fully covered, no cleavage — this is a casting record, not a glamour shot',
 };
 // 나이 문자열에서 첫 숫자를 읽는다. '20대' → 20, '십대' · 빈칸 → NaN(덮는 쪽)
@@ -14441,9 +14475,9 @@ function buildCharacterPrompt({ gender, age, name, height, features }) {
  `[SUBJECT] = ${g.en}${age ? `, ${String(age).trim()} years old` : ''}${name ? ` (character name: ${String(name).trim()})` : ''}`,
  `[HEIGHT] = ${heightText}`,
  // v1075: 여성 넥라인은 나이가 성인으로 확인될 때만 내린다
- `[WARDROBE] = ${g.id === 'female'
-   ? CHARACTER_WARDROBE.female.replace('[NECK]', characterIsAdult(age) ? CHARACTER_NECKLINE.adult : CHARACTER_NECKLINE.guarded)
-   : CHARACTER_WARDROBE[g.id]}`,
+   // v1099: 성인 확인 시 수영복, 아니면 종전 원피스(+덮는 넥라인)
+   `[WARDROBE] = ${((w, ad) => (ad ? w.adult : w.guarded)
+     .replace('[NECK]', ad ? CHARACTER_NECKLINE.adult : CHARACTER_NECKLINE.guarded))(CHARACTER_WARDROBE[g.id] || CHARACTER_WARDROBE.female, characterIsAdult(age))}`,
  `[APPEARANCE] = ${String(features || '').trim() || 'ordinary, natural appearance appropriate to the stated age'}`,
  ];
  // v1074: [APPEARANCE] 가 얼굴만이 아니라 체형까지 덮는다는 것을 밝혀 준다.
@@ -17921,13 +17955,13 @@ const projectRefLiveSrc = (item) => {
 
  let frames = [];
  try {
- frames = await extractFramesFromVideo(readSrc, 8, PROJECT_CONT_PX, PROJECT_CONT_RANGE);
+ frames = await extractFramesFromVideo(readSrc, 10, PROJECT_CONT_PX, PROJECT_CONT_RANGE);
  } catch (e1) {
  try {
  const res = await fetch(readSrc);
  const blob = await res.blob();
  const obj = URL.createObjectURL(blob);
- try { frames = await extractFramesFromVideo(obj, 8, PROJECT_CONT_PX, PROJECT_CONT_RANGE); } finally { URL.revokeObjectURL(obj); }
+ try { frames = await extractFramesFromVideo(obj, 10, PROJECT_CONT_PX, PROJECT_CONT_RANGE); } finally { URL.revokeObjectURL(obj); }
  } catch (e2) {
  console.warn('[프로젝트] 앞 클립에서 프레임을 못 뽑았습니다 — 끝 상태 설명 없이 갑니다.', e1?.message, e2?.message);
  return '';
@@ -17988,6 +18022,17 @@ const projectRefLiveSrc = (item) => {
 - 빛의 방향.
 
 [규칙 — 이게 제일 중요합니다]
+- ★★ 위치와 자세는 넓게 잡힌 프레임에서만 읽으십시오. 클로즈업 · 익스트림 클로즈업 ·
+  얼굴이나 눈만 나온 컷으로는 누가 화면 어느 쪽에 있었는지도, 앉아 있었는지 서 있었는지도
+  알 수 없습니다. 그런 컷을 근거로 위치나 자세를 말하지 마십시오.
+  넓은 프레임이 한 장도 없으면 모든 인물의 위치와 자세를 확인 불가로 적고,
+  왜 그런지(전부 클로즈업이었음) 한 줄 덧붙이십시오. 지어내는 것보다 훨씬 낫습니다.
+- ★★ 마지막 프레임이 최종 상태입니다. 앞 프레임과 다르면 마지막 프레임이 이깁니다.
+  앞쪽 컷이 수가 많다고 해서 그쪽으로 기울지 마십시오. 실제로 그렇게 틀렸습니다 —
+  뒤쪽 클로즈업 일곱 장의 인상에 밀려, 두 사람이 나란히 의자에 앉아 있는 마지막
+  와이드를 무시하고 한 사람은 서서 화면 밖에 있다고 적었습니다. 좌우까지 뒤집혔습니다.
+- ★ 프레임 N에서 무엇을 했으므로 지금 어떻다 — 이런 식으로 앞 프레임에서 현재 자세를
+  추론하지 마십시오. 자세와 위치는 그것이 보이는 프레임에서 본 것만 적습니다.
 - ★ 모든 사실을 이름에 묶어 적으십시오. 자세 · 위치 · 거리 · 옷 · 손에 든 것은
   전부 '누구의' 것인지 붙여야 하고, 한 사람의 것을 다른 사람에게 옮겨 적으면
   안 됩니다. 실제로 그렇게 됐습니다 — 서 있던 사람의 자리와 거리가 앉아 있던
@@ -18007,7 +18052,9 @@ const projectRefLiveSrc = (item) => {
   있을 것으로 추정' 이라고 적혔고, 다음 클립에 헤라가 다시 서 있었습니다.
 - ★ 화면에 안 보이는 인물은 '보이지 않음' 이라고 분명히 적으십시오.
   빼고 넘어가면 다음 클립이 그 사람의 자리를 지어냅니다. 실제로 그렇게 됐습니다.
-  화면 밖이어도 시선이나 내민 손으로 어느 쪽에 있는지 알 수 있으면 그렇게 적으십시오.
+  화면 밖이어도 마지막 프레임의 시선이나 내민 손으로 어느 쪽에 있는지 알 수 있으면 방향만 적으십시오.
+  그 사람의 자세는 그래도 확인 불가입니다 — 화면 밖에 있는 사람이 앉았는지 섰는지는
+  적지 마십시오. 앞 클립에서 앉아 있던 사람을 다음 클립이 일으켜 세웁니다.
       민수: 화면에 안 보임. 다만 지수가 오른쪽을 보고 있고 오른쪽에서 손이
       들어오므로 화면 오른쪽(프레임 밖)에 있다.
 - 그것도 알 수 없으면 '어느 쪽인지 알 수 없음' 이라고 적으십시오. 추측 금지.
@@ -18322,7 +18369,7 @@ const projectRefLiveSrc = (item) => {
  // v1067: 인물 이미지가 없어도 의상 줄은 남긴다. 전에는 통째로 버려서,
  //   의상 이미지는 보내면서 그것이 누구의 옷인지 한 마디도 안 했다.
  outfitPairs.push(ci >= 0
- ? `${who} — identity Image ${ci + 1}, wardrobe Image ${i + 1}.`
+ ? `${who} — Image ${ci + 1} is the face and body of ${who}, Image ${i + 1} is what ${who} wears. Both images are ${who}; neither is optional.`
  : `${who} — wardrobe Image ${i + 1}. No identity image for ${who}; take the garment from it and nothing else.`);
  });
  const outfitDirectives = outfitPairs.length ? [OUTFIT_RULE, ...outfitPairs] : [];
