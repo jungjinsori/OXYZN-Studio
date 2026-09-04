@@ -18087,7 +18087,7 @@ const projectRefLiveSrc = (item) => {
  // v970: 자세 항목이 늘었으므로 상한을 올린다. 여기서 잘리면 마지막 인물 줄이
  //   사라지고, 다음 클립이 그 사람의 자리를 지어낸다 — 조용히 틀리는 쪽이라 위험하다.
  // v1047: 소지물 목록이 인물마다 붙으므로 다시 올린다.
- const out = await callClaude(sys, content, { model: 'claude-sonnet-4-5', maxTokens: 1400, workCat: 'video' });
+ const out = await callClaude(sys, content, { model: 'claude-opus-5', maxTokens: 1400, workCat: 'video' });
  const note = String(out || '').trim();
  projectShotRefCache.current.set(key, note);
  return note;
@@ -18657,7 +18657,7 @@ const projectRefLiveSrc = (item) => {
 
  const writePrompt = async (extra) => {
    const raw = await callClaude(PROJECT_VIDEO_PROMPT_SYS, extra ? `${user}\n\n${extra}` : user, {
-     model: 'claude-sonnet-4-5', maxTokens: 900, workCat: 'video',
+     model: 'claude-opus-5', maxTokens: 1600, workCat: 'video',
    });
    return String(raw || '').trim().replace(/^["'`]+|["'`]+$/g, '');
  };
