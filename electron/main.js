@@ -507,6 +507,26 @@ ipcMain.handle('project-save', (event, id, data) => {
   } catch (e) { return { success: false, error: String(e && e.message || e) } }
 })
 
+// v1121: 라이브러리에서 이름 바꾸기. 파일명(id)은 그대로 두고 저장본 안의 name 만 고친다.
+//   파일명을 바꾸면 받아둔 클립 폴더(clipDir)와 열려 있는 프로젝트의 id 가 어긋난다.
+//   수정 시각은 원래대로 되돌린다 — 이름만 고친 것을 '최근 수정' 으로 올릴 이유가 없다.
+ipcMain.handle('project-rename', (event, id, name) => {
+  const full = projectPath(id)
+  if (!full) return { success: false, error: '잘못된 프로젝트 id 입니다.' }
+  const nm = String(name || '').trim().slice(0, 80)
+  if (!nm) return { success: false, error: '이름이 비어 있습니다.' }
+  try {
+    const st0 = fs.statSync(full)
+    const j = JSON.parse(fs.readFileSync(full, 'utf8'))
+    j.name = nm
+    const tmp = full + '.tmp'
+    fs.writeFileSync(tmp, JSON.stringify(j), 'utf8')
+    fs.renameSync(tmp, full)
+    try { fs.utimesSync(full, st0.atime, st0.mtime) } catch { /* 시각 되돌리기는 실패해도 그만 */ }
+    return { success: true, name: nm }
+  } catch (e) { return { success: false, error: String(e && e.message || e) } }
+})
+
 ipcMain.handle('project-load', (event, id) => {
   const full = projectPath(id)
   if (!full) return { success: false, error: '잘못된 프로젝트 id 입니다.' }

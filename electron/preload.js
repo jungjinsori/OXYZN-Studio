@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   projectList: () => ipcRenderer.invoke('project-list'),
   projectSave: (id, data) => ipcRenderer.invoke('project-save', id, data),
   projectLoad: (id) => ipcRenderer.invoke('project-load', id),
+  projectRename: (id, name) => ipcRenderer.invoke('project-rename', id, name),
   projectDelete: (id) => ipcRenderer.invoke('project-delete', id),
   // v934: 생성한 클립을 userData 에 받아 둔다 (결과 URL 은 24시간이면 죽는다)
   clipSave: (payload) => ipcRenderer.invoke('clip-save', payload),

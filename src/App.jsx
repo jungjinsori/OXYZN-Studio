@@ -14826,6 +14826,24 @@ export default function DramaAutomation() {
  const [projectList, setProjectList] = useState([]);          // 라이브러리 목록
  const [projectSaveState, setProjectSaveState] = useState('idle'); // idle | saving | saved | error
  const [libraryOpen, setLibraryOpen] = useState(false);   // 메인화면 라이브러리 펼침
+ const [projectFolders, setProjectFolders] = useState(() => {
+  try { const a = JSON.parse(localStorage.getItem(PROJECT_FOLDERS_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch { return []; }
+ });
+ const persistProjectFolders = (fnOrArr) => setProjectFolders(prev => {
+  const next = typeof fnOrArr === 'function' ? fnOrArr(prev) : fnOrArr;
+  try { localStorage.setItem(PROJECT_FOLDERS_KEY, JSON.stringify(next)); } catch {}
+  return next;
+ });
+ const [projectFolderMap, setProjectFolderMap] = useState(() => {
+  try { const o = JSON.parse(localStorage.getItem(PROJECT_FOLDER_MAP_KEY) || '{}'); return (o && typeof o === 'object') ? o : {}; } catch { return {}; }
+ });
+ const persistProjectFolderMap = (fnOrObj) => setProjectFolderMap(prev => {
+  const next = typeof fnOrObj === 'function' ? fnOrObj(prev) : fnOrObj;
+  try { localStorage.setItem(PROJECT_FOLDER_MAP_KEY, JSON.stringify(next)); } catch {}
+  return next;
+ });
+ const [projFolderSel, setProjFolderSel] = useState('all');   // 'all' | 'none' | 폴더 id
+ const [projFolderMenu, setProjFolderMenu] = useState(null);  // 폴더 목록이 열린 프로젝트 id
  const [projectParsing, setProjectParsing] = useState(false);
  // v891: 정리 진행도. 스트리밍이 아니라 실제 진행률은 알 수 없다 —
  //   글자수로 소요를 추정해 게이지를 돌린다(다른 작업의 JobGauge 와 같은 방식).
@@ -16290,6 +16308,10 @@ export default function DramaAutomation() {
 const CHARACTER_LIBRARY_KEY = 'oxyzn_character_library';
 // v1118: 캐릭터 아카이브 폴더 목록 [{ id, name }] — 캐릭터 쪽에는 folderId 만 단다
 const CHARACTER_FOLDERS_KEY = 'oxyzn_character_folders';
+// v1121: 라이브러리(프로젝트) 폴더. 프로젝트 본체는 userData 의 파일이라 손대지 않고,
+//   폴더 목록 [{ id, name }] 과 '어느 프로젝트가 어느 폴더인지' 만 이쪽에 둔다.
+const PROJECT_FOLDERS_KEY = 'oxyzn_project_folders';
+const PROJECT_FOLDER_MAP_KEY = 'oxyzn_project_folder_map';
 // v924: 배우의 목소리. 배우 자산은 ModelArk 서버 목록이라 보이스를 얹을 자리가
 //   없다 — 그룹 id 를 열쇠로 앱이 따로 보관한다.
 const ACTOR_VOICE_KEY = 'oxyzn_actor_voices';
@@ -17824,6 +17846,62 @@ ${'\n'}[★ 타이틀이 들어갈 자리를 비워 두세요 — 가로형에�
  if (r?.success) setProjectList(r.projects || []);
  } catch { /* 목록 실패는 조용히 — 라이브러리가 비어 보일 뿐이다 */ }
  };
+
+ // v1121: 라이브러리 이름 바꾸기. 저장본 안의 이름만 고치므로 파일도 받아둔 클립도 그대로다.
+ const handleProjectRename = async (it) => {
+  const cur = it.name || '';
+  const v = await askText({ title: '이름 바꾸기', message: '프로젝트의 새 이름을 입력하세요.', initial: cur, placeholder: '예: 식물인간 남편의 이중생활 1화', confirmLabel: '바꾸기' });
+  const name = String(v || '').trim().slice(0, 80);
+  if (!name || name === cur) return;
+  try {
+   const r = await window.electronAPI?.projectRename?.(it.id, name);
+   if (!r?.success) throw new Error(r?.error || '이름을 바꾸지 못했습니다.');
+   // 지금 열려 있는 프로젝트라면 화면의 이름도 함께 — 자동저장이 옛 이름으로 되돌린다
+   setProjectData(p => (p.id === it.id ? { ...p, name } : p));
+   refreshProjectList();
+   try { showToast(`"${name}" 으로 바꿨습니다.`, 'load'); } catch {}
+  } catch (e) {
+   try { showToast(`이름 변경 실패: ${e.message}`, 'save'); } catch {}
+  }
+ };
+
+ // v1121: 라이브러리 폴더. 프로젝트 본체는 파일이라, 폴더 목록과 소속만 이쪽에 둔다.
+ //   폴더를 지워도 프로젝트 파일은 건드리지 않는다 — 미분류로 돌아갈 뿐이다.
+ const moveProjectToFolder = (projId, folderId) => {
+  if (projId) persistProjectFolderMap(prev => {
+   const next = { ...prev };
+   if (folderId) next[projId] = folderId; else delete next[projId];
+   return next;
+  });
+  setProjFolderMenu(null);
+ };
+ const createProjectFolder = async () => {
+  const name = String((await askText({ title: '새 폴더', message: '폴더 이름을 입력하세요.', placeholder: '예: 트로이아', confirmLabel: '만들기' })) || '').trim();
+  if (!name) return;
+  const f = { id: `pf_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, name: name.slice(0, 40) };
+  persistProjectFolders(prev => [...prev, f]);
+  setProjFolderSel(f.id);
+ };
+ const renameProjectFolder = async (f) => {
+  const name = String((await askText({ title: '폴더 이름 바꾸기', message: '새 이름을 입력하세요.', initial: f.name, confirmLabel: '바꾸기' })) || '').trim();
+  if (!name) return;
+  persistProjectFolders(prev => prev.map(x => (x.id === f.id ? { ...x, name: name.slice(0, 40) } : x)));
+ };
+ const deleteProjectFolder = (f) => setConfirmDialog({
+  title: `'${f.name}' 폴더 삭제`,
+  message: '폴더만 지웁니다. 안에 있던 프로젝트는 지워지지 않고 미분류로 옮겨집니다.',
+  confirmLabel: '삭제',
+  onConfirm: () => {
+   setConfirmDialog(null);
+   persistProjectFolders(prev => prev.filter(x => x.id !== f.id));
+   persistProjectFolderMap(prev => {
+    const next = {};
+    Object.entries(prev).forEach(([k, v]) => { if (v !== f.id) next[k] = v; });
+    return next;
+   });
+   setProjFolderSel('all');
+  },
+ });
 
  // 저장 본체. id 가 없으면 새로 만든다.
  const writeProject = async (data, { silent } = {}) => {
@@ -30332,8 +30410,54 @@ ${sampleText}`;
  <ChevronDown size={14} style={{ transform: libraryOpen ? 'rotate(180deg)' : 'none', transition: 'transform .18s' }} />
  </button>
  </div>
- {libraryOpen && (<>
- <div className="meta" style={{ color: 'var(--text-tertiary)', marginBottom: 12 }}>저장한 프로젝트 — 눌러서 이어서 작업</div>
+ {libraryOpen && (() => {
+ // v1121: 폴더로 나눠 본다. 폴더 목록과 소속만 이쪽에 두고 프로젝트 파일은 건드리지 않는다.
+ //   지워진 폴더 id 를 가진 프로젝트는 미분류로 본다.
+ const fIds = new Set(projectFolders.map(f => f.id));
+ const fidOf = (p) => { const v = projectFolderMap[p.id] || ''; return fIds.has(v) ? v : ''; };
+ const inFolder = (p, sel) => (sel === 'all' ? true : sel === 'none' ? !fidOf(p) : fidOf(p) === sel);
+ const sel = (projFolderSel === 'all' || projFolderSel === 'none' || fIds.has(projFolderSel)) ? projFolderSel : 'all';
+ const rows = projectList.filter(p => inFolder(p, sel));
+ const cnt = (s) => projectList.filter(p => inFolder(p, s)).length;
+ const chipStyle = (on) => ({ display: 'inline-flex', alignItems: 'center', gap: 5, height: 26, padding: '0 10px', borderRadius: 999,
+  cursor: 'pointer', fontSize: 11, fontWeight: on ? 800 : 600, whiteSpace: 'nowrap',
+  background: on ? 'rgba(63,175,185,0.14)' : 'transparent',
+  border: `1px solid ${on ? 'var(--green-500)' : 'var(--border)'}`, color: on ? 'var(--green-700)' : 'var(--text-secondary)' });
+ const dropProps = (target) => ({
+  onDragOver: (e) => { e.preventDefault(); e.currentTarget.classList.add('is-dragover'); },
+  onDragLeave: (e) => e.currentTarget.classList.remove('is-dragover'),
+  onDrop: (e) => {
+   e.preventDefault(); e.currentTarget.classList.remove('is-dragover');
+   const id = e.dataTransfer.getData('text/oxyzn-proj');
+   if (id) moveProjectToFolder(id, target === 'none' ? '' : target);
+  },
+ });
+ const COLS = 'minmax(0,1fr) 150px 96px';
+ return (<>
+ <div className="meta" style={{ color: 'var(--text-tertiary)', marginBottom: 10 }}>저장한 프로젝트 — 눌러서 이어서 작업</div>
+ {projectList.length > 0 && (
+ <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+  <button type="button" onClick={() => setProjFolderSel('all')} style={chipStyle(sel === 'all')}>
+   전체 <span style={{ opacity: 0.6 }}>{projectList.length}</span>
+  </button>
+  <button type="button" className="ff-dropbtn" onClick={() => setProjFolderSel('none')} {...dropProps('none')} style={chipStyle(sel === 'none')}>
+   미분류 <span style={{ opacity: 0.6 }}>{cnt('none')}</span>
+  </button>
+  {projectFolders.map(f => (
+   <button key={f.id} type="button" className="ff-dropbtn" onClick={() => setProjFolderSel(f.id)} {...dropProps(f.id)} style={chipStyle(sel === f.id)}>
+    <Folder size={11} />{f.name} <span style={{ opacity: 0.6 }}>{cnt(f.id)}</span>
+    {sel === f.id && (<>
+     <span role="button" title="폴더 이름 바꾸기" onClick={(e) => { e.stopPropagation(); renameProjectFolder(f); }} style={{ marginLeft: 3, opacity: 0.75 }}>✎</span>
+     <span role="button" title="폴더 삭제" onClick={(e) => { e.stopPropagation(); deleteProjectFolder(f); }} style={{ opacity: 0.75, fontSize: 13, lineHeight: 1 }}>×</span>
+    </>)}
+   </button>
+  ))}
+  <button type="button" onClick={createProjectFolder} style={{ ...chipStyle(false), borderStyle: 'dashed', color: 'var(--text-tertiary)' }}>
+   <Plus size={11} />폴더
+  </button>
+  <span className="micro" style={{ marginLeft: 'auto', color: 'var(--text-quaternary)' }}>줄을 폴더 칩으로 끌어다 놓으면 옮겨집니다</span>
+ </div>
+ )}
  {projectList.length === 0 ? (
  <div style={{ minHeight: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-quaternary)', fontSize: 13 }}>
  아직 저장된 프로젝트가 없습니다.
@@ -30341,37 +30465,84 @@ ${sampleText}`;
  ) : (
  <div style={{ borderRadius: 10, border: '1px solid var(--border)', overflow: 'hidden' }}>
  {/* 머리행 — 파일이름 · 최근수정날짜 두 열 */}
- <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 170px 34px', gap: 10, padding: '8px 12px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
+ <div style={{ display: 'grid', gridTemplateColumns: COLS, gap: 10, padding: '8px 12px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
  <span className="micro" style={{ fontWeight: 700, color: 'var(--text-tertiary)' }}>파일 이름</span>
  <span className="micro" style={{ fontWeight: 700, color: 'var(--text-tertiary)' }}>최근 수정</span>
  <span />
  </div>
  <div className="ff-noscroll" style={{ maxHeight: 260, overflowY: 'auto' }}>
- {projectList.map((it, i) => (
+ {rows.length === 0 && (
+ <div className="micro" style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-quaternary)' }}>
+ 이 폴더에 프로젝트가 없습니다 — 줄을 폴더 칩으로 끌어다 놓거나, 줄 끝의 폴더 버튼으로 옮기세요.
+ </div>
+ )}
+ {rows.map((it, i) => (
  <div key={it.id} className="ff-projrow"
- style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 170px 34px', gap: 10, alignItems: 'center',
+ draggable onDragStart={(e) => { e.dataTransfer.setData('text/oxyzn-proj', it.id); e.dataTransfer.effectAllowed = 'move'; }}
+ style={{ position: 'relative', display: 'grid', gridTemplateColumns: COLS, gap: 10, alignItems: 'center',
  padding: '10px 12px', borderTop: i === 0 ? 'none' : '1px solid var(--border)' }}>
  <button type="button" onClick={() => handleProjectOpen(it.id)} title="이어서 작업"
  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', minWidth: 0 }}>
  <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
  {it.name}
  </span>
- <span className="micro" style={{ color: 'var(--text-quaternary)' }}>
+ <span className="micro" style={{ color: 'var(--text-quaternary)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
  STEP {projectStepShown(it.step, it)} · {PROJECT_STEPS.find(x => x.n === projectStepShown(it.step, it))?.label || ''}
+ {fidOf(it) && (
+ <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: 'var(--green-700)' }}>
+ <Folder size={9} />{(projectFolders.find(f => f.id === fidOf(it)) || {}).name}
+ </span>
+ )}
  </span>
  </button>
  <span className="micro mono-font" style={{ color: 'var(--text-tertiary)' }}>{fmtProjectTime(it.updatedAt)}</span>
+ <div style={{ display: 'flex', alignItems: 'center', gap: 2, justifyContent: 'flex-end' }}>
+ <button type="button" onClick={() => handleProjectRename(it)} title="이름 바꾸기"
+ className="btn btn-ghost btn-sm"
+ style={{ width: 26, height: 26, padding: 0, justifyContent: 'center', color: 'var(--text-tertiary)' }}>
+ <Edit3 size={12} />
+ </button>
+ <button type="button" title="폴더로 옮기기"
+ onClick={(e) => { const rc = e.currentTarget.getBoundingClientRect();
+  setProjFolderMenu(m => (m && m.id === it.id ? null : { id: it.id, x: rc.right, y: rc.bottom })); }}
+ className="btn btn-ghost btn-sm"
+ style={{ width: 26, height: 26, padding: 0, justifyContent: 'center', color: fidOf(it) ? 'var(--green-700)' : 'var(--text-tertiary)' }}>
+ <Folder size={12} />
+ </button>
  <button type="button" onClick={() => handleProjectDelete(it)} title="삭제"
  className="btn btn-ghost btn-sm"
- style={{ width: 28, height: 26, padding: 0, justifyContent: 'center', color: 'var(--state-error)' }}>
+ style={{ width: 26, height: 26, padding: 0, justifyContent: 'center', color: 'var(--state-error)' }}>
  <Trash2 size={12} />
  </button>
+ </div>
+ {projFolderMenu?.id === it.id && (
+ <div onMouseLeave={() => setProjFolderMenu(null)}
+ style={{ position: 'fixed', left: Math.max(12, projFolderMenu.x - 160), top: projFolderMenu.y + 4, zIndex: 60, width: 160, maxHeight: 220, overflowY: 'auto',
+ display: 'flex', flexDirection: 'column', gap: 2, padding: 6, borderRadius: 8,
+ border: '1px solid var(--border)', background: 'var(--bg-primary)', boxShadow: '0 8px 20px rgba(0,0,0,0.14)' }}>
+ <div className="micro" style={{ fontWeight: 700, color: 'var(--text-secondary)', padding: '2px 4px' }}>폴더로 옮기기</div>
+ {[{ id: '', name: '미분류' }, ...projectFolders].map(f => {
+ const on = fidOf(it) === f.id;
+ return (
+ <button key={f.id || 'none'} type="button" onClick={() => moveProjectToFolder(it.id, f.id)}
+ style={{ textAlign: 'left', fontSize: 11.5, padding: '5px 6px', borderRadius: 5, border: 'none', cursor: 'pointer',
+ background: on ? 'rgba(63,175,185,0.14)' : 'transparent', color: on ? 'var(--green-700)' : 'var(--text-primary)', fontWeight: on ? 700 : 500 }}>
+ {f.name}
+ </button>
+ );
+ })}
+ {!projectFolders.length && (
+ <div className="micro" style={{ color: 'var(--text-quaternary)', lineHeight: 1.5, padding: '2px 4px' }}>폴더가 없습니다. 위의 <strong>+ 폴더</strong> 로 만드세요.</div>
+ )}
+ </div>
+ )}
  </div>
  ))}
  </div>
  </div>
  )}
- </>)}
+ </>);
+ })()}
  {!libraryOpen && projectList.length > 0 && (
  // v896: 접혀 있어도 최근 것은 바로 열 수 있게 — 펼칠 이유가 없다
  <button type="button" onClick={() => handleProjectOpen(projectList[0].id)}
