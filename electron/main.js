@@ -205,6 +205,9 @@ const ARK_OPENAPI_ACTIONS = new Set([
   'GetAsset',
   'GetAssetGroup',
   'UpdateAssetGroup',
+  // v1115: 캐릭터를 AIGC 자산으로 등록한다. Delete* 는 넣지 않는다 — 지워지면 되돌릴 수 없다.
+  'CreateAssetGroup',
+  'CreateAsset',
 ])
 
 const arkSha256Hex = (s) => crypto.createHash('sha256').update(s, 'utf8').digest('hex')
@@ -532,7 +535,7 @@ function clipDir(projectId) {
 //   금방 채웠고, 6개로 32.6MB 를 먹어 새 캐릭터가 저장되지 않았다.
 //   캐릭터는 오랫동안 두고두고 쓰는 자산이라 용량 한도가 있어선 안 된다.
 // ─────────────────────────────────────────────────────────────
-const ASSET_KINDS = { character: 'characters', voice: 'voices' }
+const ASSET_KINDS = { character: 'characters', voice: 'voices', upload: 'uploads' }
 function assetDir(kind) {
   const sub = ASSET_KINDS[String(kind)] || 'misc'
   const dir = path.join(app.getPath('userData'), 'library', sub)
@@ -542,6 +545,7 @@ function assetDir(kind) {
 const ASSET_EXT = {
   'image/png': 'png', 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/webp': 'webp',
   'audio/mpeg': 'mp3', 'audio/mp3': 'mp3', 'audio/wav': 'wav', 'audio/x-wav': 'wav',
+  'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'webm', 'video/x-matroska': 'mkv',
 }
 // 라이브러리 폴더 밖은 절대 건드리지 않는다 (읽기·삭제 모두 이 검사를 통과해야 한다)
 function assetPathInside(p) {

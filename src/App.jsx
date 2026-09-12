@@ -865,6 +865,185 @@ async function imageUrlToRef(url, name = '레퍼런스') {
 // v1049: 길이를 인자로 받는다. 전에는 "기본 15초"가 본문에 박혀 있어서,
 //   Seedance 2.5(최대 30초)를 골라도 Claude 가 15초짜리 샷 구성을 내놨다.
 //   샷 개수도 길이를 따라간다 — 컷당 약 2초 기준(15초 = 6~8샷, 30초 = 12~16샷).
+// v1100: 부가콘텐츠 룰북 — 비하인드 · 인터뷰.
+//   프로젝트 작업(PROJECT_*)의 조항은 가져오지 않는다. 그쪽은 극중 장면을 만드는
+//   전제로 짜여 있어 '카메라와 스태프는 화면에 없다' 를 깔고 있는데, 비하인드는
+//   정반대로 그것들이 보여야 한다. 컷 분할 · 180도선 · 앞 클립 연결도 여기서는
+//   전부 해당이 없다 — 단일 컷이다.
+//   가져오는 것은 인물 일관성뿐이다(EXTRA_IDENTITY_RULE).
+const EXTRA_IDENTITY_RULE = [
+  'WHO THESE PEOPLE ARE — absolute.',
+  'For each person their identity image is the ONLY source of face and body — face',
+  'shape and its proportions, placement and size of the features, hairline, head',
+  'shape, build. Reproduce; do not beautify, restyle, age, slim, widen, flatten or',
+  'reinterpret. Skin comes from that image too, at every shot size: an extreme',
+  'close-up shows the SAME skin as a wide, larger and not rougher. Add no acne,',
+  'blemishes, enlarged pores, oily sheen or lines the image does not have.',
+  'Where a wardrobe image is given for that person, it is the sole authority on what',
+  'they wear there — match design, colour, pattern, fabric, fit and closures exactly.',
+  'Wherever that garment opens or the wardrobe image leaves a space hollow, and',
+  'anywhere the body reaches past the garment, render THEIR OWN LIVING SKIN in the',
+  'tone from their identity image. Nothing worn in the identity image appears here.',
+].join('\n');
+
+// v1107: 장소가 안 먹던 것. 매니페스트에 번호만 있고 '이 이미지가 그 공간이다' 를
+//   말하는 자리가 없었다. 프로젝트 작업은 LOCATION 블록이 그 일을 한다.
+const EXTRA_LOCATION_RULE = [
+  'LOCATION: the image named below IS this space. Its architecture, layout, surfaces,',
+  'materials, colours, furniture and the things standing in it all come from that image',
+  'and not from words. Build the shot inside that room.',
+  'From it take the space ONLY — not its framing, not its camera height, not its lens,',
+  'not anyone standing in it. It is a floor plan, not a camera position. Where this',
+  'prompt puts the camera is where the camera goes.',
+  'Hour and light come from this prompt: the same room, lit for the moment described.',
+].join('\n');
+
+const EXTRA_LANG_LINE = (label) =>
+  `The spoken lines are in ${label}. Say ONLY what is inside the double quotes, in ${label} — mouth, jaw and lip-sync follow those words exactly. No other language underneath, no dub over a different original. The language changes only the words, never the people: faces, hair, build and wardrobe still come from the reference images. Korean names keep the pronunciation the written form asks for; Korean elsewhere in this prompt is crew direction and is never spoken.`;
+
+const EXTRA_CHALLENGE_CLAUSE = [
+  '',
+  '## 챌린지 레퍼런스가 붙어 있다',
+  '- 첨부된 영상 [Video 1] 은 따라 할 동작의 출처다. 그 영상의 안무 · 동작 순서 · 박자 ·',
+  '  손과 발의 모양을 그대로 가져온다. 사람 · 옷 · 장소 · 화면 크기 · 조명은 가져오지',
+  '  않는다 — 그건 이 프롬프트와 이미지 레퍼런스가 정한다.',
+  '- 동작을 하는 사람은 여기 등록된 인물이다. 레퍼런스 영상에 나온 사람이 아니다.',
+  '- 동작이 이 클립 길이보다 길면 처음부터 자연스럽게 끊기는 데까지만 한다.',
+  '  빨리 감아 욱여넣지 않는다.',
+  '- 카메라와 장소는 이 프롬프트가 정한 그대로다. 레퍼런스 영상의 촬영 방식을 따르지 않는다.',
+].join('\n');
+
+const EXTRA_BEHIND_RULEBOOK = (durationSec = 10, langLabel = 'Korean', hasChallenge = false) => {
+  const sec = Math.max(4, Math.round(Number(durationSec) || 10));
+  return `사용자가 준 상황 묘사를 '촬영장 비하인드 스케치' 영상 프롬프트로 옮긴다.
+결과물은 드라마 본편이 아니라, 그 드라마를 찍고 있는 현장을 누군가 휴대폰으로 찍은 푸티지다.
+
+## 절대 규칙
+- 출력은 영어 산문. 머리말 · 제목 줄 · 코드펜스 금지. 바로 본문으로 시작한다.
+- 길이 ${sec}초. 단일 컷이다 — 컷 전환은 없다. "Cut to" 를 쓰지 않는다.
+  카메라가 움직이고 인물이 움직여서 ${sec}초를 채운다.
+- 사용자가 적지 않은 사건을 지어내지 않는다. 적은 것은 하나도 빠뜨리지 않는다.
+- 대사가 있으면 큰따옴표 안에 그대로 둔다. 없으면 만들지 않는다.
+
+## 이 영상이 무엇인가 — 반드시 프롬프트에 녹여 쓸 것
+- 촬영 현장이 화면에 자연스럽게 드러난다. 세트 가장자리, 조명 스탠드와 디퓨저,
+  삼각대에 얹힌 시네마 카메라, 붐마이크, 모니터를 보는 스태프, 케이블과 테이프 자국,
+  간식 테이블, 접이식 의자, 대본을 든 손. 전부 배경에 자연스럽게 있는 것이지
+  정돈해 늘어놓은 것이 아니다.
+- 스태프는 자기 일을 하고 있다. 카메라를 쳐다보지 않는다.
+- 찍는 사람은 스태프 중 하나다. 휴대폰 세로가 아니라 가로로 들고 찍는다.
+
+## 거리 — 멀리서 찍은 것이다
+- ★ 찍는 사람은 현장 한켠에서, 일하는 사람들 사이에 섞여 멀찍이서 찍는다.
+  배우 앞까지 다가가지 않는다. 클로즈업 · 미디엄 클로즈업 · 얼굴이 화면을 채우는
+  그림은 나오지 않는다.
+- 기본은 풀샷과 와이드다. 사람이 화면 세로의 절반 남짓, 발끝까지 들어오고
+  주변의 세트 · 장비 · 스태프가 함께 잡힌다. 그 배우가 무엇에 둘러싸여 있는지가
+  보여야 비하인드다.
+- 카메라와 배우 사이에 다른 것이 끼어 있는 게 자연스럽다 — 스태프의 등, 조명
+  스탠드, 삼각대 다리, 모니터. 반쯤 가려져도 괜찮다. 비켜 서서 찍지 않는다.
+- 초점이 배우에게 딱 맞아 있지 않아도 된다. 앞의 장비에 걸려도 그대로 둔다.
+
+## 카메라 — 휴대폰 핸드헬드
+- 손으로 든 휴대폰 카메라의 느낌: 미세한 흔들림, 걸으면 생기는 자연스러운 출렁임,
+  급하게 따라가다 살짝 늦는 팬, 자동초점이 한 번 헤매다 잡히는 순간, 자동노출이
+  밝은 창을 향하면 확 어두워졌다 돌아오는 것.
+- 짐벌처럼 매끄럽지 않다. 삼각대처럼 고정돼 있지도 않다.
+- 화면비 안에서 자연스럽게 잡는다. 시네마틱한 얕은 심도가 아니라 휴대폰 특유의
+  전반적으로 또렷한 심도.
+
+## 인물이 어느 쪽인가 — 상황이 정한다
+사용자의 상황 묘사를 읽고 판단한다.
+- 연기 중 · NG · 리허설 · 컷 사인 직후라면 그 사람은 '극중 인물' 상태다.
+  의상과 분장을 갖춘 채로 있고, 대사를 하다 웃거나 멈추거나 다시 시작한다.
+- 출근 · 대기 · 간식 · 스태프와 잡담 · 휴대폰 보기라면 '배우 본인' 상태다.
+  의상을 입고 있을 수도 있고(촬영 사이), 사복일 수도 있다. 상황이 말하는 대로 한다.
+- 상황이 분명하지 않으면 레퍼런스가 준 의상을 입은 쪽으로 둔다.
+
+## 소리 — 현장에서 녹음된 소리다
+- 배경음악 없음. 현장음만 — 목소리, 발소리, 옷 스치는 소리, 장비 소리, 공기.
+- ★ 목소리도 그 자리에서 녹음된 것이다. 부스에서 딴 깨끗한 내레이션이 아니다.
+  말하는 사람과 카메라 사이의 거리가 목소리에 그대로 들린다 — 멀면 작고 울리고,
+  가까우면 크고 또렷하다. 등을 돌리거나 고개를 돌리면 소리도 같이 바뀐다.
+  방의 울림, 천장 높이, 벽의 재질이 목소리에 얹힌다.
+- 목소리가 현장음보다 위에 붕 떠 있으면 안 된다. 같은 공간에서 같은 마이크로
+  들어온 소리처럼 섞인다. 후시녹음 · 스튜디오 믹스 · 광고 내레이션 톤 금지.
+- 말이 겹치고, 웃음이 새고, 문장이 끊기는 것이 자연스럽다. 또박또박 읽지 않는다.
+- 슬레이트 소리 · 컷 사인 · 스태프의 웅성거림은 상황이 그렇다면 넣어도 좋다.
+
+## 레퍼런스
+- 첨부된 이미지는 [Image1] · [Image2] … 로 부른다. 사용자가 @이름 으로 적은 자리에
+  해당 번호가 이미 치환되어 들어온다. 번호를 새로 지어내지 않는다.
+- 인물은 그 사람의 얼굴과 몸이고, 의상 이미지가 함께 있으면 그것이 입는 옷이다.
+- 장소 이미지는 공간이지 카메라 위치가 아니다.
+
+## 언어
+${EXTRA_LANG_LINE(langLabel)}
+
+## 마지막 줄
+프롬프트 맨 끝에 이 한 줄을 그대로 붙인다 —
+FINAL: No BGM, only ambient and on-set sounds. One continuous handheld phone take, no cuts.${hasChallenge ? EXTRA_CHALLENGE_CLAUSE : ''}`;
+};
+
+const EXTRA_INTERVIEW_RULEBOOK = (durationSec = 10, intervieweeLang = 'Korean', hasChallenge = false) => {
+  const sec = Math.max(4, Math.round(Number(durationSec) || 10));
+  return `사용자가 준 인터뷰 대본을 '제작 인터뷰' 영상 프롬프트로 옮긴다.
+정돈된 자리에서 준비된 인터뷰를 찍은 푸티지다.
+
+## 절대 규칙
+- 출력은 영어 산문. 머리말 · 제목 줄 · 코드펜스 금지. 바로 본문으로 시작한다.
+- 길이 ${sec}초. 단일 컷이다 — 컷 전환은 없다. "Cut to" 를 쓰지 않는다.
+- 사용자가 적지 않은 말을 지어내지 않는다. 대사는 큰따옴표 안에 그대로 둔다.
+
+## 화면에 누가 있는가 — 가장 자주 틀리는 지점
+- ★ 인터뷰이 한 사람만 화면에 있다. 인터뷰어는 절대 화면에 나오지 않는다.
+  어깨도, 뒤통수도, 손도, 그림자도 나오지 않는다. 오버더숄더가 아니다.
+- 인터뷰이는 카메라를 정면으로 보지 않는다. 렌즈에서 살짝 벗어난 곳 —
+  화면 밖에 앉은 인터뷰어 쪽 — 을 보고 말한다.
+- 인터뷰어의 질문이 대본에 있으면 화면 밖 목소리로만 들린다.
+
+## 카메라 — 완전 고정
+- 삼각대에 얹은 고정 카메라. 팬 · 틸트 · 달리 · 줌 · 핸드헬드 흔들림 전부 없다.
+  프레임은 ${sec}초 동안 1픽셀도 움직이지 않는다.
+- 인터뷰 표준 화면: 가슴 위가 들어오는 미디엄 클로즈업, 인물이 화면 중앙에서
+  살짝 비켜 앉고 시선이 향하는 쪽에 여백이 남는다.
+- 얕은 심도로 배경이 부드럽게 풀린다. 이건 휴대폰이 아니라 제대로 된 카메라다.
+
+## 장소
+- 촬영 현장 한켠이나 대기실처럼 자연스러운 곳. 스튜디오 무대가 아니다.
+- 배경에 그 공간의 물건이 보이되 어수선하지 않다 — 의자, 옷걸이에 걸린 의상,
+  장비 케이스, 거울, 화분. 초점 밖에서 조용히 있는다.
+- 조명은 부드럽게 한쪽에서 들어온다.
+
+## 인물
+- 인터뷰이는 배우 본인으로 앉아 있다. 상황이 극중 의상을 말하면 그대로,
+  아니면 레퍼런스가 준 옷을 입는다.
+- 말하는 동안의 자연스러운 움직임만 있다 — 고개 끄덕임, 손짓, 자세 고쳐 앉기,
+  생각하느라 잠깐 시선을 내리는 것.
+
+## 소리 — 현장에서 녹음된 소리다
+- 배경음악 없음. 목소리와 조용한 실내 공기음만.
+- ★ 목소리는 그 방에서 녹음된 것이다. 부스 녹음이 아니다. 방의 울림이 살짝 얹히고,
+  카메라와의 거리가 목소리에 들린다. 에어컨 · 복도 · 먼 발소리 같은 것이 아주 낮게 깔린다.
+- 목소리가 배경 위에 붕 떠 있으면 안 된다. 같은 마이크로 같이 들어온 소리처럼 섞인다.
+  후시녹음 · 스튜디오 믹스 · 광고 내레이션 톤 금지.
+- 말하다 멈추고, 생각하고, 다시 시작하는 것이 자연스럽다. 대본을 읽는 소리가 아니다.
+
+## 레퍼런스
+- 첨부된 이미지는 [Image1] · [Image2] … 로 부른다. 사용자가 @이름 으로 적은 자리에
+  해당 번호가 이미 치환되어 들어온다. 번호를 새로 지어내지 않는다.
+
+## 언어
+- 인터뷰어(화면 밖 목소리)는 한국어로 묻는다.
+- 인터뷰이는 ${intervieweeLang} 로 답한다.
+${EXTRA_LANG_LINE(intervieweeLang)}
+- 두 언어가 한 클립에 같이 있어도 된다. 질문은 한국어, 답은 ${intervieweeLang} 다.
+
+## 마지막 줄
+프롬프트 맨 끝에 이 한 줄을 그대로 붙인다 —
+FINAL: No BGM, only ambient room tone. Locked-off tripod shot, one continuous take, no cuts. The interviewer is never visible.${hasChallenge ? EXTRA_CHALLENGE_CLAUSE : ''}`;
+};
+
 const seedanceNarrativeRulebook = (durationSec = 15) => {
  const sec = Math.max(4, Math.round(Number(durationSec) || 15));
  const shotMin = Math.max(2, Math.round(sec / 2.5));
@@ -1879,6 +2058,10 @@ const APP_CSS = `
  .ff-refimg { position: relative; }
  .ff-refimg:hover .ff-genimg-ov { opacity: 1; }
  .ff-refadd { transition: border-color 0.15s, background 0.15s, color 0.15s; }
+ /* v1121: 끌어다 놓기를 받는 칸 — 타일이 이미 차 있어도 어디에 놓아도 된다는 걸 보여준다 */
+ .ff-dropzone { border-radius: 10px; transition: outline-color 0.15s, background 0.15s; outline: 2px dashed transparent; outline-offset: 4px; }
+ .ff-dropzone.is-dragover { outline-color: var(--green-500); background: rgba(63,175,185,0.05); }
+ .ff-dropzone.is-dragover .ff-refadd { border-color: var(--green-500) !important; color: var(--green-700) !important; }
  /* 인라인 스타일(border/background/color)보다 우선하도록 !important
  — 마우스 호버와 파일 드래그오버(is-dragover) 동일 효과 */
  .ff-refadd:hover:not(:disabled),
@@ -5174,8 +5357,9 @@ const OUTFIT_RULE = [
  'a stand the garment was hung on, never a body.',
  'Behind a helmet, mask, visor or headdress is their own face from that image.',
  'Add no top, camisole, undershirt, bodysuit or underwear beneath.',
- 'Clothing comes only from the wardrobe image — nothing worn in the identity',
- 'image appears here.',
+ 'For the people listed below, clothing comes only from their wardrobe image —',
+ 'nothing worn in their identity image appears on them. Anyone not listed below',
+ 'wears exactly what their own image shows.',
 ].join('\n');
 
 // 앞 클립과 같은 씬일 때만 붙인다. 씬이 바뀌면 장소가 바뀌므로
@@ -5762,6 +5946,20 @@ const PROJECT_RATIO_OPTIONS = [
 ];
 const PROJECT_GEN_RATIO = '16:9';
 const projectRatioOf = (d) => (PROJECT_RATIO_OPTIONS.some(x => x.id === d?.genRatio) ? d.genRatio : PROJECT_GEN_RATIO);
+// v1113: 업로드본을 라이브러리 파일로 옮겨 담는다. data: 인라인으로 들고 있으면
+//   세션 저장에서 sessionSanitize 가 통째로 걷어내(용량 때문에 그렇게 만들었다)
+//   앱을 껐다 켜면 사라진다. 툴에서 만든 자산만 살아남고 업로드만 날아갔다.
+const storeUploadBytes = async (dataUrl, tag = 'up') => {
+ const m = /^data:([^;]+);base64,([\s\S]+)$/.exec(String(dataUrl || ''));
+ if (!m) return String(dataUrl || '');
+ try {
+  const id = `${tag}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  const r = await window.electronAPI?.assetSave?.({ kind: 'upload', id, base64: m[2], mime: m[1] });
+  if (r?.success && r.path) return ffsUrl(r.path);
+ } catch (e) { console.warn('[업로드 저장] 실패 — 인라인으로 둡니다.', e?.message); }
+ return String(dataUrl || '');
+};
+
 // v934: 받아둔 파일을 화면에서 열 주소로. 윈도우 경로(C:\\...)도 함께 다룬다.
 const localFileUrl = (fp) => {
  const raw = String(fp || '').replace(/\\/g, '/');
@@ -5901,7 +6099,7 @@ const ProjectTimeIcon = ({ time, size = 13 }) => {
 const PROJECT_REF_SOURCES = {
  characters: [
  { id: 'character', label: '캐릭터' },
- { id: 'sheet', label: '인물 시트', sheetTypes: ['character', 'character_closeup'] },
+ { id: 'sheet', label: '인물 시트', sheetTypes: ['character', 'character_closeup', 'character_costume'] },
  { id: 'actor', label: '배우' },
  { id: 'upload', label: '업로드' },
  ],
@@ -8457,7 +8655,9 @@ const ARK_TRUST_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const arkAssetAge = (c) => Date.now() - Number(c?.savedAt || 0);
 const arkUrlAlive = (c) => !!c?.url && arkAssetAge(c) < ARK_URL_TTL_MS;
 const arkTrustLeftDays = (c) => Math.ceil((ARK_TRUST_TTL_MS - arkAssetAge(c)) / 86400000);
-const arkTrustExpired = (c) => arkAssetAge(c) >= ARK_TRUST_TTL_MS;
+// v1115: 자산으로 등록했으면 만료가 없다. 레퍼런스를 붙여 만든 이미지(derived)는
+//   '이차 편집' 이라 날짜와 무관하게 처음부터 신뢰 대상이 아니다.
+const arkTrustExpired = (c) => !c?.assetId && (!!c?.derived || arkAssetAge(c) >= ARK_TRUST_TTL_MS);
 // v974: 캐릭터 원본 바이트는 userData/library/characters 에 있다(thumbFile).
 //   전에는 thumbBase64 로 localStorage 에 넣었다 — 한 개 3~8MB 라 한도(약 50MB)를
 //   금방 채워 새 캐릭터가 저장되지 않았다. 옛 레코드도 계속 읽어야 하므로
@@ -8497,6 +8697,9 @@ const characterRefSrc = (c) => {
  if (c?.thumbBase64) return `data:${c.thumbMime || 'image/png'};base64,${c.thumbBase64}`;
  return c?.url || null; // 원본 바이트가 없으면 만료된 URL이라도 시도
 };
+// v1115: 모델에 보낼 주소. 자산으로 등록했으면 asset:// 가 최우선이다 — 만료가 없다.
+//   characterRefSrc 는 다운로드 · 표시에도 쓰이므로 건드리지 않는다(asset:// 는 img 가 못 그린다).
+const characterModelSrc = (c) => (c?.assetId ? `asset://${c.assetId}` : characterRefSrc(c));
 // 화면 표시용 — 만료된 주소보다 보관해 둔 원본을 먼저 쓴다
 const characterImgSrc = (c) => {
  if (c?.thumbFile) return localFileUrl(c.thumbFile);
@@ -14138,6 +14341,7 @@ const SINGLE_TASK_CATALOG = [
  { id: 'video-custom', label: '커스텀', desc: '프롬프트 · 화면비 · 품질 · 레퍼런스(이미지/비디오)', status: 'new' },
  { id: 'video-narrative', label: '내러티브', desc: '상황묘사 → 룰북 자동 프롬프트 → 영상 (최대 30초)', status: 'new' },
  { id: 'video-vfx', label: 'AI VFX', desc: '배경교체 · 리터치(군중 추가·오브제 변경) · 특수효과 통합 · 프롬프트 추후', status: 'new' },
+ { id: 'video-extra', label: '부가콘텐츠', desc: '비하인드 · 인터뷰 — 단일 컷 · 레퍼런스 첨부', status: 'new' },
  { id: 'video-upscale', label: 'Upscale', desc: '영상 화질 향상 · Topaz (업스케일 · 노이즈 제거 · 프레임 보간)', status: 'new' },
  ]},
  { cat: '사운드', items: [
@@ -14366,6 +14570,46 @@ BACKGROUND & LIGHTING: clean pure white studio cyclorama (seamless white horizon
 CAMERA & RENDER: look like a real photograph shot on a professional studio camera — full-frame sensor with a prime lens, natural optical depth of field on the detail crops, accurate color rendition, realistic micro-contrast and fine fabric grain, subtle natural lens falloff. Not an illustration, not a 3D render, not a flat product mockup.
 
 NEGATIVE: no live model, no body, no face, skin or hair anywhere in frame, no changing garment color / fabric / cut between panels, no differing pose between front and back, no uneven or misaligned panel divisions, no extra panels beyond the specified 2 + 4, no colored or textured background, no props or set dressing, no fashion-editorial posing. NO rendered text, captions, labels, view names, measurements, logos, or watermark anywhere in the image — do NOT write words like "front", "back", "detail", or any numbers.`,
+ },
+ character_costume: {
+ // v1116: 인물 시트 + 의상 시트 → 그 옷을 입은 인물의 시트 (Seedream).
+ //   영상에 인물 이미지와 의상 이미지를 따로 보내면, 이름표 없는 이미지들 사이에서 짝이
+ //   어긋나고(이리스가 헬레네 옷을 입었다) 캐스팅 의상 · 전시용 형체가 새어 나왔다.
+ //   미리 입혀 한 장으로 만들면 짝짓기가 이미지 안에서 끝나 있다.
+ label: '인물+의상', hint: '인물 시트 + 의상 시트 → 그 옷을 입은 인물 · 좌 정면/후면 풀샷 + 우 얼굴 4컷 · Seedream',
+ sizeField: null,
+ composite: true, // 묘사 대신 인물 · 의상 두 칸을 받는다
+ body: `Two reference images are attached.
+
+IMAGE 1 is the PERSON. Take ONLY their identity from it: the face, its features and proportions, hairline and hair, skin tone, body build and height. What they wear in Image 1 is a plain garment worn only so the body can be measured for casting — it belongs to nobody in this sheet and is never shown.
+
+IMAGE 2 is the OUTFIT. Take ONLY the garment from it: design, colour, pattern, fabric, cut, length, layering, trims, closures, and every accessory, headwear and footwear it shows. It is a wardrobe record — take nothing else from it: not its display form, not its pose, not its framing, not its background.
+
+Create ONE photorealistic COSTUME FITTING SHEET: the person from Image 1 actually wearing the outfit from Image 2.
+
+LAYOUT — one 16:9 landscape frame, exactly SIX panels. A single straight vertical edge splits the frame in half.
+  LEFT HALF — two equal tall panels side by side:
+    Panel 1: FRONT FULL SHOT — the person in the complete outfit seen from the front, head to feet, the whole figure inside the panel with a margin above the hair and below the soles.
+    Panel 2: BACK FULL SHOT — the same person in the same outfit seen from directly behind, same scale, same distance, the same pose from the opposite side.
+  RIGHT HALF — a 2x2 grid of four equal cells, the same person in the same outfit:
+    TOP-LEFT: FACE CLOSE-UP, front (0deg), from just above the hair to just below the collarbones, the neckline or collar of the outfit visible.
+    TOP-RIGHT: FACE CLOSE-UP, side profile (90deg), same crop scale.
+    BOTTOM-LEFT and BOTTOM-RIGHT: BUST SHOTS turned 45deg to the person's left and right, from just above the hair to mid-chest, the upper part of the outfit clearly visible.
+  Panels meet along clean hairline edges — no gutters, no borders, no frames.
+
+WEARING: the outfit sits on this person's own body with its true weight, drape and fit. Wherever the garment opens or ends — neckline, armholes, sleeves, hem, any gap in the front — their own living skin shows, in the skin tone from Image 1. Headwear sits on their own head with their own face beneath it. Footwear is on their own feet.
+
+IDENTITY: one individual in all six panels, identical to Image 1 — the same face, the same features, the same hair, the same build. Reproduce; do not beautify, restyle, age, slim or reshape.
+
+OUTFIT: identical in all six panels and exactly as Image 2 — the same colours, pattern, fabric and every layer it shows, and no layer it does not. Invent nothing.
+
+POSE & EXPRESSION: a relaxed natural standing stance, weight even, arms hanging loosely at the sides. The front and back full shots are the same pose from opposite sides. Calm neutral expression, eyes open, mouth closed.
+
+BACKGROUND & LIGHTING: plain seamless white to light-grey studio background, soft even lighting identical in all panels, a subtle contact shadow under the feet. No environment and no props beyond the outfit's own accessories.
+
+CAMERA & RENDER: a real photograph from a professional studio camera — natural skin texture, true fabric grain and sheen, accurate colour. Not an illustration, not a 3D render.
+
+NEGATIVE: no rendered text, labels, captions, view names, numbers or watermark anywhere; no extra people; no misaligned or uneven panels; no panels beyond the six specified.`,
  },
 
 };
@@ -15480,8 +15724,9 @@ export default function DramaAutomation() {
 
  const isFeedback = !!feedbackText.trim();
  // v767: 피드백 재생성은 기존 이름 뒤에 버전을 붙인다 (김서준 → 김서준_v002 → _v003 …)
- //   레퍼런스 이미지는 넣지 않는다 — Seedream은 text-to-image 출력만 신뢰 자산이 되므로
- //   이미지를 레퍼런스로 넣으면 결과가 신뢰 밖으로 나가 Seedance 레퍼런스로 못 쓰게 된다.
+ //   v1117: 레퍼런스 이미지를 받는다. Seedream 은 text-to-image 출력만 신뢰 출력이라,
+ //   레퍼런스를 붙이면 결과는 파생(이차 편집)이 된다 — derived 로 표시해 두고,
+ //   영상에 쓰려면 아카이브에서 AIGC 자산으로 등록한다(v1115).
  const baseName = String(d.name || '').trim();
  const nextVersionName = (nm) => {
  if (!nm) return nm;
@@ -15494,6 +15739,12 @@ export default function DramaAutomation() {
  const prompt = isFeedback
  ? `${basePrompt}\n\n[REVISION — apply this change while keeping everything else identical]\n${feedbackText.trim()}`
  : basePrompt;
+ // v1117: 레퍼런스 이미지 (선택). 얼굴 · 인상만 가져오게 한다 — 안 그러면 레퍼런스의
+ //   옷 · 배경 · 구도까지 따라가 캐스팅 시트 규격(캐스팅 의상 · 흰 배경 · 5칸)이 무너진다.
+ const refList = (d.refs || []).filter(r => r && r.assetUrl).slice(0, 3);
+ const promptFinal = refList.length
+  ? `${prompt}\n\nREFERENCE IMAGES are attached. Use them ONLY for the performer's face, likeness and any detail [APPEARANCE] points to. Everything else — the five-panel layout, the casting garment, the background, the lighting and the framing — comes from this brief and not from the reference images. Nothing worn or held in the reference images appears here.`
+  : prompt;
 
  const jobNum = d.numOutputs;
  characterJobSeq.current += 1;
@@ -15503,13 +15754,27 @@ export default function DramaAutomation() {
  height: String(d.height || '').trim(), features: d.features.trim(),
  numOutputs: jobNum, feedback: feedbackText.trim() || null,
  voice: d.voice || null, // v773: 보이스는 이미지 생성에는 영향 없고, 캐릭터 저장 시 함께 보관된다
+ derived: refList.length > 0, refCount: refList.length, // v1117: 레퍼런스로 만들면 파생
  };
  // v767: 비차단 생성 — 입력을 잠그지 않고 생성기록에 로딩 항목만 추가 (다른 작업과 동일)
  up(p => ({ ...p, error: '', feedback: '', feedbackOpen: false,
  generations: [{ id: jobId, loading: true, params, ts: Date.now(), estSec: estSecFor(durKeyArkImage(ARK_MODELS.image, CHARACTER_SHEET_SIZE, jobNum), estImageGenSeconds('medium', jobNum)) }, ...p.generations] }));
 
  try {
- const raw = await callArkImage(prompt, { size: CHARACTER_SHEET_SIZE, model: ARK_MODELS.image, numOutputs: jobNum });
+ // v1117: 레퍼런스를 base64 로 싣는다. 사진이 크면 요청이 413 으로 거절되므로 긴 변 2048 로 줄인다.
+ //   출력은 어차피 파생(이차 편집)이라 입력을 줄여도 신뢰 판정에는 영향이 없다.
+ const refImages = [];
+ for (const r of refList) {
+  let u = String(r.assetUrl || '');
+  if (/^(file|ffs):\/\//i.test(u)) u = (await assetSrcForModel(u)) || '';
+  let b = null;
+  if (/^https?:\/\//i.test(u)) { try { b = await imageUrlToRef(u, 'character_ref'); } catch { b = null; } }
+  else { const m = /^data:([^;]+);base64,([\s\S]+)$/.exec(u); if (m) b = { base64: m[2], mimeType: m[1] }; }
+  if (!b?.base64) throw new Error(`레퍼런스 이미지를 읽지 못했습니다 — ${r.name || '이미지'}`);
+  const c = await compressBase64Image(b.base64, b.mimeType, 2048, 0.9);
+  refImages.push({ base64: c.base64, mimeType: c.mimeType });
+ }
+ const raw = await callArkImage(promptFinal, { size: CHARACTER_SHEET_SIZE, model: ARK_MODELS.image, numOutputs: jobNum, refImages });
  const urls = (raw || []).map(x => (x && typeof x === 'object' && x.url) ? x.url : x).filter(Boolean);
  if (!urls.length) throw new Error('생성 결과가 비어있습니다.');
  // v976: 앱 데이터 폴더에 받아 둔다
@@ -15581,6 +15846,7 @@ export default function DramaAutomation() {
  thumbMime: thumb?.mimeType || null,
  // v773: 보이스 레퍼런스 — 영상 생성 시 Seedance 2.0 reference_audio로 함께 전달된다
  voice: params?.voice || null,
+ derived: !!params?.derived, // v1117
  savedAt: Date.now(),
  };
  // 같은 이름이 이미 있으면 최신으로 교체
@@ -16022,6 +16288,8 @@ export default function DramaAutomation() {
  const VOICE_LIBRARY_KEY = 'oxyzn_cloned_voices';
 // v759: 저장된 캐릭터(실사 프로필 시트) — 추후 Seedance 레퍼런스로 사용
 const CHARACTER_LIBRARY_KEY = 'oxyzn_character_library';
+// v1118: 캐릭터 아카이브 폴더 목록 [{ id, name }] — 캐릭터 쪽에는 folderId 만 단다
+const CHARACTER_FOLDERS_KEY = 'oxyzn_character_folders';
 // v924: 배우의 목소리. 배우 자산은 ModelArk 서버 목록이라 보이스를 얹을 자리가
 //   없다 — 그룹 id 를 열쇠로 앱이 따로 보관한다.
 const ACTOR_VOICE_KEY = 'oxyzn_actor_voices';
@@ -16320,6 +16588,7 @@ const ACTOR_VOICE_KEY = 'oxyzn_actor_voices';
  age: '',
  height: '',
  features: '', // 외적 특징 (생김새·헤어스타일 등)
+ refs: [], // v1117: 레퍼런스 이미지 [{ name, assetUrl, source }] · 최대 3장
  // v773: 보이스 레퍼런스 — { base64, mimeType, name, durationSec, srcUrl? }
  //   Seedance 2.0의 reference_audio로 넘겨 캐릭터의 음색을 고정한다.
  voice: null,
@@ -16354,6 +16623,28 @@ const ACTOR_VOICE_KEY = 'oxyzn_actor_voices';
  //     3) 그래도 모자라면 오래된 삭제표시 레코드 자체
  //   바이트를 버려도 레코드는 남으므로 목록에서 사라지지 않는다. 원본 주소가
  //   살아 있으면 그대로 보이고, 죽었으면 썸네일만 빈다.
+ // v1115: 자산 등록은 몇 분 걸린다. 그 사이 다른 캐릭터를 저장 · 삭제하면, 시작할 때
+ //   잡아 둔 배열로 저장하는 순간 그 변경이 사라진다. 최신본은 ref 로 읽는다.
+ const characterLibraryRef = useRef(characterLibrary);
+ useEffect(() => { characterLibraryRef.current = characterLibrary; }, [characterLibrary]);
+ // v1119: 레퍼런스에 캐릭터 id 가 있으면 보내는 순간 자산 등록 여부를 다시 본다.
+ //   붙인 뒤에 등록해도 asset:// 로 나가게 — 붙이는 순간의 주소를 그대로 쓰면 옛 주소가 나간다.
+ const liveCharSrc = (r) => {
+  const lc = r?.charId ? characterLibraryRef.current.find(q => q.id === r.charId) : null;
+  return lc?.assetId ? `asset://${lc.assetId}` : '';
+ };
+ const [charAssetJob, setCharAssetJob] = useState(null);   // { id, phase, t0 } — 동시 1건
+ const [characterFolders, setCharacterFolders] = useState(() => {
+  try { const a = JSON.parse(localStorage.getItem(CHARACTER_FOLDERS_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch { return []; }
+ });
+ const persistCharacterFolders = (fnOrArr) => setCharacterFolders(prev => {
+  const next = typeof fnOrArr === 'function' ? fnOrArr(prev) : fnOrArr;
+  try { localStorage.setItem(CHARACTER_FOLDERS_KEY, JSON.stringify(next)); } catch {}
+  return next;
+ });
+ const [charFolderSel, setCharFolderSel] = useState('all');   // 'all' | 'none' | 폴더 id
+ const [charFolderMenu, setCharFolderMenu] = useState(null);  // 폴더 목록이 열린 캐릭터 id
+ const [pickerCharFolder, setPickerCharFolder] = useState('all');   // v1119: 고르기 창의 캐릭터 폴더
  const persistCharacterLibrary = (lib) => {
  const KEY = CHARACTER_LIBRARY_KEY;
  const mb = (n) => `${(n / 1048576).toFixed(1)}MB`;
@@ -16510,14 +16801,21 @@ const ACTOR_VOICE_KEY = 'oxyzn_actor_voices';
  const handleSaveSheetCharacter = async (url, params) => {
  if (!url) return;
  const styleKind = params?.style === 'anime2d' ? '2d' : params?.style === 'disney3d' ? '3d' : null;
- if (!styleKind) {
+ // v1120: 인물+의상 시트도 받는다. 레퍼런스로 만든 파생 이미지라 영상에 바로 못 쓰고,
+ //   캐릭터로 저장한 뒤 AIGC 자산으로 등록해야 한다 — 저장하면서 등록까지 잇는다.
+ const isDressed = params?.sheetType === 'character_costume';
+ if (!styleKind && !isDressed) {
  showNotice('캐릭터로 저장할 수 없습니다', '2D 애니메이션 · 3D 애니메이션 스타일의 캐릭터 시트만 캐릭터로 저장할 수 있습니다.\n실사 캐릭터는 이미지 → 캐릭터 디자인(R)에서 만들어주세요.');
  return;
  }
- const suggested = String(params?.description || '').trim().split(/[\n,·]/)[0].slice(0, 20).trim();
+ const suggested = isDressed
+ ? [params?.ccPersonName, params?.ccCostumeName].filter(Boolean).join(' · ').slice(0, 30)
+ : String(params?.description || '').trim().split(/[\n,·]/)[0].slice(0, 20).trim();
  const nameRaw = await askText({
  title: '캐릭터로 저장',
- message: '아카이브 > 캐릭터에 저장됩니다. 저장한 뒤 보이스를 지정하면 영상 작업에서 함께 적용됩니다.',
+ message: isDressed
+ ? '아카이브 > 캐릭터에 저장하고 곧바로 AIGC 자산으로 등록합니다. 등록이 끝나면 영상에 레퍼런스로 쓸 수 있습니다.'
+ : '아카이브 > 캐릭터에 저장됩니다. 저장한 뒤 보이스를 지정하면 영상 작업에서 함께 적용됩니다.',
  placeholder: '캐릭터 이름',
  confirmLabel: '저장',
  initial: suggested,
@@ -16543,7 +16841,7 @@ const ACTOR_VOICE_KEY = 'oxyzn_actor_voices';
  const entry = {
  id: charId,
  name: saveName,
- gender: params?.gender || '',
+ gender: params?.gender || params?.ccGender || '',
  age: '', height: params?.sizeValue || '',
  features: String(params?.description || '').trim(),
  url,
@@ -16551,14 +16849,25 @@ const ACTOR_VOICE_KEY = 'oxyzn_actor_voices';
  thumbBase64: thumbFile ? null : (thumb?.base64 || null),
  thumbMime: thumb?.mimeType || null,
  voice: dup?.voice || null,
- styleKind, // '2d' | '3d'
+ styleKind, // '2d' | '3d' | null(인물+의상 — 실사)
  noCostume: true, // 시트에 의상이 이미 포함 — 영상에서 의상 첨부 UI를 숨긴다
+ ...(isDressed ? { derived: true } : {}),   // v1120: 레퍼런스로 만든 파생 — 자산 등록 필요
+ // 같은 이름으로 갱신하면 옛 자산 정보는 새 이미지와 맞지 않으므로 버린다
+ folderId: dup?.folderId || '',
+ assetGroupId: dup?.assetGroupId || '',   // 같은 캐릭터면 같은 그룹에 새 자산을 넣는다
  savedAt: Date.now(),
  };
- persistCharacterLibrary(dup
+ const nextLib = dup
  ? characterLibrary.map(c => (c.id === dup.id ? entry : c))
- : [entry, ...characterLibrary]);
+ : [entry, ...characterLibrary];
+ persistCharacterLibrary(nextLib);
+ // 등록이 곧바로 이 레코드를 고치므로 ref 를 먼저 맞춘다 — effect 는 다음 렌더에야 돈다
+ characterLibraryRef.current = nextLib;
  try { showToast(dup ? '캐릭터를 갱신했습니다.' : '캐릭터를 저장했습니다.', 'load'); } catch {}
+ if (isDressed) {
+  if (charAssetJob) { showNotice('자산 등록 대기', '다른 캐릭터를 등록하는 중입니다. 끝난 뒤 아카이브의 캐릭터 타일에서 자산 등록을 눌러주세요.'); return; }
+  registerCharacterAsset(entry);
+ }
  } catch (e) {
  setSheetWsData(p => ({ ...p, error: `캐릭터 저장 실패: ${e.message}` }));
  }
@@ -16623,6 +16932,7 @@ const ACTOR_VOICE_KEY = 'oxyzn_actor_voices';
 
 
  const [sheetWsData, setSheetWsData] = useState({
+ ccPerson: null, ccCostume: null, // v1116: 인물+의상 시트의 두 칸
  sheetType: 'character', // character | character_closeup | location_ext | location_int | costume | object_small | object_large
  style: 'photoreal', // photoreal | anime2d | disney3d
  description: '',
@@ -16661,9 +16971,66 @@ const ACTOR_VOICE_KEY = 'oxyzn_actor_voices';
  };
 
  // 턴어라운드 시트 생성 — 룰북 프롬프트 조립 → callFalImage (16:9, 2K 고정)
+ // v1116: 인물+의상 시트 — Seedream(ModelArk 이미지)으로 만든다. 다른 시트는 fal 을 쓴다.
+ //   두 장을 공개 주소로 올려 보낸다. data URI 로 싣으면 요청 본문이 커져 413 이 난다(v1000).
+ const handleGenerateCompositeSheet = async (feedbackText = '', fbEntry = null) => {
+  const s = sheetWsData;
+  const isFeedback = !!String(feedbackText || '').trim();
+  if (!isFeedback && (!s.ccPerson?.assetUrl || !s.ccCostume?.assetUrl)) {
+   setSheetWsData(p => ({ ...p, error: '인물 시트와 의상 시트를 모두 넣어주세요.' }));
+   return;
+  }
+  const tpl = TURNAROUND_TEMPLATES.character_costume;
+  const src = isFeedback ? (fbEntry?.params || {}) : {};
+  const personName = isFeedback ? (src.ccPersonName || '') : (s.ccPerson?.name || '');
+  const costumeName = isFeedback ? (src.ccCostumeName || '') : (s.ccCostume?.name || '');
+  const prompt = isFeedback
+   ? `Reference image attached: the previously generated costume fitting sheet. Keep the EXACT same person, the same outfit, the same six-panel layout and camera views. Apply ONLY this change:\n${String(feedbackText).trim()}\n\nNEGATIVE: no rendered text, labels, numbers or watermark; no extra people; no change to the face or the outfit beyond the requested change.`
+   : tpl.body;
+  const params = { sheetType: 'character_costume', style: 'photoreal',
+   description: [personName, costumeName].filter(Boolean).join(' + '),
+   ccPersonName: personName, ccCostumeName: costumeName,
+   ccGender: isFeedback ? (src.ccGender || '') : (s.ccPerson?.gender || ''),
+   genModel: ARK_MODELS.image, numOutputs: s.numOutputs,
+   // 레퍼런스를 붙여 만든 이미지 — ModelArk 기준 '이차 편집' 이라 신뢰 출력이 아니다
+   derived: true, feedback: isFeedback ? String(feedbackText).trim() : null };
+  const jobNum = s.numOutputs;
+  sheetJobSeq.current += 1;
+  const jobId = `sh_${Date.now()}_${sheetJobSeq.current}`;
+  const genVersion = sheetJobSeq.current;
+  setSheetWsData(p => ({ ...p, error: '', feedback: '', feedbackOpen: false,
+   history: [{ id: jobId, version: genVersion, loading: true, count: jobNum, params, ts: Date.now(), estSec: 60 * jobNum }, ...p.history] }));
+  // 화면 표시용 주소(file:// · ffs:// · data: · https) → 모델이 내려받을 수 있는 공개 주소
+  const toPublic = async (x, what) => {
+   let u = String(x?.assetUrl || x || '');
+   if (/^(file|ffs):\/\//i.test(u)) u = (await assetSrcForModel(u)) || '';
+   if (!u) throw new Error(`${what} 이미지를 읽지 못했습니다. 다시 골라주세요.`);
+   return /^https?:\/\//i.test(u) ? u : await falPublicUrl(u, what);
+  };
+  try {
+   const refs = isFeedback
+    ? [{ url: await toPublic(s.selectedUrl, '이전 시트') }]
+    : [{ url: await toPublic(s.ccPerson, '인물 시트') }, { url: await toPublic(s.ccCostume, '의상 시트') }];
+   const raw = await callArkImage(prompt, { size: CHARACTER_SHEET_SIZE, model: ARK_MODELS.image, numOutputs: jobNum, refImages: refs });
+   const urls = (raw || []).map(x => (x && typeof x === 'object' && x.url) ? x.url : x).filter(Boolean);
+   if (!urls.length) throw new Error('생성 결과가 비어 있습니다.');
+   const gens = await genKeepAll('sheet',
+    urls.map((url, i) => ({ id: `${jobId}_${i}`, version: genVersion, url, params, ts: Date.now() + i })));
+   setSheetWsData(p => ({ ...p, history: p.history.flatMap(h => h.id === jobId ? gens : [h]), selectedUrl: p.selectedUrl || gens[0]?.url }));
+  } catch (e) {
+   setSheetWsData(p => ({ ...p, error: `생성 실패: ${e.message}`, history: p.history.filter(h => h.id !== jobId) }));
+  }
+ };
+
  const handleGenerateSheetWs = async (feedbackText = '') => {
  const s = sheetWsData;
  const isFeedback = !!feedbackText.trim();
+ // v1116: 인물+의상 시트는 Seedream 경로로 — 피드백도 그 시트를 만든 경로를 따른다
+ {
+ const fbE = isFeedback ? (s.history || []).find(h => !h.loading && h.url === s.selectedUrl) : null;
+ const t = fbE?.params?.sheetType || s.sheetType;
+ if (TURNAROUND_TEMPLATES[t]?.composite) return handleGenerateCompositeSheet(feedbackText, fbE);
+ }
  const isRefOnly = !!(TURNAROUND_TEMPLATES[s.sheetType]?.refOnly);
  // 피드백 재생성은 선택 이미지를 기반으로 피드백만 반영 → 묘사가 없어도 진행
  if (!isFeedback) {
@@ -16766,6 +17133,54 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
  }
  };
 
+ // v1121: 캐릭터 디자인 레퍼런스를 끌어다 놓기. 세 갈래로 들어온다 —
+ //   ① 바깥에서 끌어온 이미지 파일 ② 아카이브의 캐릭터 타일(text/oxyzn-char)
+ //   ③ 앱 안의 이미지(끌면 브라우저가 주소를 실어 준다 — 다운로드 패널 포함)
+ const characterRefAdd = (items) => setCharacterWsData(p => {
+  const room = 3 - (p.refs || []).length;
+  return room <= 0 ? p : { ...p, refs: [...(p.refs || []), ...items.slice(0, room)] };
+ });
+
+ const handleCharacterRefDrop = async (dt) => {
+  if (!dt) return;
+  const get = (t) => { try { return dt.getData(t) || ''; } catch { return ''; } };
+  if ((characterWsData.refs || []).length >= 3) { try { showToast('레퍼런스는 최대 3장입니다.', 'save'); } catch {} return; }
+
+  const charId = get('text/oxyzn-char');
+  if (charId) {
+   const c = characterLibraryRef.current.find(x => x.id === charId && !x.deletedAt);
+   // 자산 주소(asset://)는 화면에도 못 띄우고 base64 로도 못 읽는다 — 보이는 이미지를 건다
+   const src = c ? characterRefSrc(c) : '';
+   if (src) characterRefAdd([{ name: c.name || '캐릭터', assetUrl: src, source: 'character' }]);
+   return;
+  }
+
+  const files = Array.from(dt.files || []).filter(f => /^image\//.test(f.type));
+  if (files.length) {
+   for (const f of files.slice(0, 3)) {
+    const dataUrl = await new Promise(res => {
+     const fr = new FileReader();
+     fr.onload = () => res(String(fr.result || ''));
+     fr.onerror = () => res('');
+     fr.readAsDataURL(f);
+    });
+    if (!dataUrl) continue;
+    // 세션 저장에서 data: 는 지워진다 — 파일로 받아 두고 그 주소를 건다
+    const url = await storeUploadBytes(dataUrl, 'cref');
+    characterRefAdd([{ name: (f.name || '레퍼런스').replace(/\.[^.]+$/, '').slice(0, 24), assetUrl: url, source: 'upload' }]);
+   }
+   return;
+  }
+
+  const uri = ['text/uri-list', 'text/plain']
+   .map(t => get(t).split(/[\r\n]+/).find(x => x && !x.startsWith('#')) || '')
+   .find(Boolean) || '';
+  if (/^(ffs|file|https?|data|blob):/i.test(uri)) {
+   characterRefAdd([{ name: '레퍼런스', assetUrl: uri, source: 'upload' }]);
+   return;
+  }
+  try { showToast('이미지 파일이나 캐릭터 타일을 끌어다 놓아주세요.', 'save'); } catch {}
+ };
  const handleSheetRefUpload = (files) => {
  const list = Array.from(files || []).filter(f => f.type.startsWith('image/'));
  if (!list.length) return;
@@ -16781,7 +17196,7 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
 
  const handleDownloadSheetImage = async (url) => {
  // v837: 파일명·아카이브에 붙는 짧은 이름. 라벨 변경(실외→건물 / 실내→전경)에 맞춰 갱신.
- const SHEET_TYPE_KO = { character: '캐릭터', character_closeup: '인물', location_ext: '건물', location_int: '전경', costume: '의상', object_small: '소형', object_large: '대형' };
+ const SHEET_TYPE_KO = { character: '캐릭터', character_closeup: '인물', character_costume: '인물의상', location_ext: '건물', location_int: '전경', costume: '의상', object_small: '소형', object_large: '대형' };
  // v852: 생성 당시의 시트 종류·묘사로 이름을 만든다 (선택기를 바꿔도 이름이 어긋나지 않게)
  const _g = (sheetWsData?.history || []).find(g => g.url === url);
  const sub = SHEET_TYPE_KO[_g?.params?.sheetType ?? sheetWsData?.sheetType] || '';
@@ -16901,6 +17316,24 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
  const [videoRefSuggest, setVideoRefSuggest] = useState(null); // @자동완성 (커스텀 영상)
  const videoPromptTaRef = useRef(null); // v636: 자동완성 적용 후 캐럿 위치 지정용
  // v633: 비디오 내러티브(15s) 워크스페이스 — 상황묘사 → 룰북 프롬프트 → Seedance
+ // v1100: 부가콘텐츠 — 비하인드 · 인터뷰. 단일 컷, 앞 클립 연결 없음, 프로젝트와 무관.
+ const [extraData, setExtraData] = useState({
+  mode: 'behind',            // 'behind' | 'interview'
+  situation: '',             // 비하인드=상황묘사 / 인터뷰=인터뷰 대본
+  lang: 'ko',                // 비하인드 대사 · 인터뷰이 언어 (인터뷰어는 한국어 고정)
+  duration: 10, aspect: '9:16', resolution: '720p',
+ dlgTr: null, trLoading: false,
+ step: 'write', extracting: false, preview: null,
+  refs: { character: [], space: [], object: [], challenge: [] },
+  refSource: 'upload',
+  jobs: [], selectedUrl: null,
+  feedbackOpen: false, feedback: '',
+  error: '',
+ });
+ const extraJobSeq = useRef(0);
+ const [extraRefSuggest, setExtraRefSuggest] = useState(null);
+ const extraTaRef = useRef(null);
+ 
  const [videoNarrativeData, setVideoNarrativeData] = useState({
  situation: '', // 상황 묘사(시나리오 원문 등)
  tier: 'video25', // v1061: 2.0 을 걷어냈다 — 영상은 Seedance 2.5 하나로 간다
@@ -17897,6 +18330,11 @@ const projectRefLiveSrc = (item) => {
  && (!x.status || String(x.status) === 'Active'));
  if (a?.id) return `asset://${a.id}`;
  }
+ }
+ // v1115: 자산으로 등록한 캐릭터도 asset:// 로 — 걸어 둔 뒤에 등록해도 따라온다
+ if (item?.source === 'character') {
+ const c = projectRefCharOf(item);
+ if (c?.assetId) return `asset://${c.assetId}`;
  }
  return projectRefLiveSrc(item);
  };
@@ -19159,6 +19597,10 @@ const projectRefLiveSrc = (item) => {
  if (!file || !/^image\//.test(file.type)) return;
  const fr = new FileReader();
  fr.onload = () => {
+ if (projectRefPicker && projectRefPicker.onPick) {
+ projectRefPicker.onPick({ name: (file.name || '업로드').replace(/\.[^.]+$/, '').slice(0, 24), assetUrl: fr.result, source: 'upload' });
+ setProjectRefPicker(null); return;
+ }
  if (targetId) projectRefSetAsset(sceneKey, kind, targetId, fr.result, 'upload', slot);
  else projectRefPut(sceneKey, kind, {
  name: (file.name || '업로드').replace(/\.[^.]+$/, '').slice(0, 24),
@@ -19762,13 +20204,13 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  sheetWsData: setSheetWsData, standaloneCloneData: setStandaloneCloneData, titleDesignData: setTitleDesignData,
  translateToolData: setTranslateToolData, ttsToolData: setTtsToolData, upscaleData: setUpscaleData,
  vfxData: setVfxData, videoAnalyzeData: setVideoAnalyzeData, videoCustomData: setVideoCustomData,
- videoNarrativeData: setVideoNarrativeData,
+ videoNarrativeData: setVideoNarrativeData, extraData: setExtraData,
  };
  const sessionValues = {
  actorAuthData, adaptToolData, adaptFeedback, bookletWsData, characterWsData, customImageData,
  musicToolData, posterComposeData, posterToolData, posterWsData, promptVideoData, scenarioAnalyzeData,
  scenarioToolData, scenarioTransData, sheetToolData, sheetWsData, standaloneCloneData, titleDesignData,
- translateToolData, ttsToolData, upscaleData, vfxData, videoAnalyzeData, videoCustomData, videoNarrativeData,
+ translateToolData, ttsToolData, upscaleData, vfxData, videoAnalyzeData, videoCustomData, videoNarrativeData, extraData,
  };
  const sessionRestored = useRef(false);
  const sessionTimer = useRef(null);
@@ -19842,7 +20284,7 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  musicToolData, posterComposeData, posterToolData, posterWsData, promptVideoData,
  scenarioAnalyzeData, scenarioToolData, scenarioTransData, sheetToolData, sheetWsData,
  standaloneCloneData, titleDesignData, translateToolData, ttsToolData, upscaleData, vfxData,
- videoAnalyzeData, videoCustomData, videoNarrativeData]);
+ videoAnalyzeData, videoCustomData, videoNarrativeData, extraData]);
 
  // ─────────────────────────────────────────────────────────────
  // v734: 단일작업 워크스페이스별 초기화 — 사이드바 각 행의 초기화 버튼에서 호출.
@@ -19900,13 +20342,14 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  break;
  case 'image-character':
  setCharacterWsData({
- name: '', gender: 'male', age: '', height: '', features: '',
+ name: '', gender: 'male', age: '', height: '', features: '', refs: [],
  numOutputs: 1, isGenerating: false, error: '', feedback: '',
  feedbackOpen: false, generations: [], selectedUrl: null,
  });
  break;
  case 'image-sheet':
  setSheetWsData({
+ ccPerson: null, ccCostume: null,
  sheetType: 'character', gender: 'female', bodyType: 'average', style: 'photoreal', description: '', sizeValue: '',
  refSource: 'upload', refs: [], numOutputs: 1, isGenerating: false, error: '',
  feedback: '', feedbackOpen: false, history: [], selectedUrl: null,
@@ -19960,6 +20403,17 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  });
  setNarrRefSuggest(null);
  break;
+ case 'video-extra':
+  setExtraData({
+   mode: 'behind', situation: '', lang: 'ko',
+   duration: 10, aspect: '9:16', resolution: '720p',
+ dlgTr: null, trLoading: false,
+ step: 'write', extracting: false, preview: null,
+   refs: { character: [], space: [], object: [], challenge: [] }, refSource: 'upload',
+   jobs: [], selectedUrl: null, feedbackOpen: false, feedback: '', error: '',
+  });
+  setExtraRefSuggest(null);
+  break;
  case 'video-upscale':
  setUpscaleData({
  source: null, model: 'Nyx', upscaleFactor: 2,
@@ -21939,8 +22393,10 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  // 프롬프트 재작성 폭을 줄여 레이아웃 일관성을 높인다 (지원 모델에만 전달)
  if (ARK_SUPPORTS_FAST_OPTIMIZE(model)) input.optimize_prompt_options = { mode: 'fast' };
  // 레퍼런스 이미지(선택) — data URI 또는 공개 URL. 단일/다중 모두 지원
- const refs = (refImages || []).filter(r => r && r.base64 && r.mimeType)
- .map(r => `data:${r.mimeType};base64,${r.base64}`);
+ // v1116: { url } 도 받는다 — 큰 시트 두 장을 data URI 로 싣으면 413 이 난다
+ const refs = (refImages || [])
+ .map(r => (r && r.url) ? r.url : (r && r.base64 && r.mimeType ? `data:${r.mimeType};base64,${r.base64}` : null))
+ .filter(Boolean);
  if (refs.length === 1) input.image = refs[0];
  else if (refs.length > 1) input.image = refs;
 
@@ -22165,6 +22621,135 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  //   data URL 의 앞부분은 'data:image/png;base64,' + PNG 헤더라, 같은 규격으로 뽑은
  //   시트끼리 앞 96자가 그대로 같다(실측: 12장 중 5장이 동일). 길이까지 겹치면
  //   캐시가 다른 인물의 이미지를 돌려주고, 그건 조용한 콘티뉴이티 붕괴다.
+ // ─────────────────────────────────────────────────────────────
+ // v1115: 캐릭터를 AIGC 자산으로 등록한다 (CHARACTER_ASSET_REGISTRATION.md).
+ //   ModelArk 가 만든 얼굴 이미지는 30일 뒤 영상 레퍼런스로 거부된다. 자산으로 등록하면
+ //   만료가 사라지고, 이후 asset://<AssetId> 로 넘긴다.
+ //   흐름: 원본 바이트 → 공개 URL → CreateAssetGroup(AIGC) → CreateAsset → GetAsset 폴링
+ //   ★ 원본을 재인코딩하지 않는다. ModelArk 는 자기 결과물인지를 눈에 보이지 않는
+ //     표시로 판정하고, 다시 인코딩하면 그 표시가 지워져 심의에서 거부된다.
+ // ─────────────────────────────────────────────────────────────
+ const patchCharacter = (id, patch) => {
+  persistCharacterLibrary(characterLibraryRef.current.map(c => (c.id === id ? { ...c, ...patch } : c)));
+ };
+
+ // v1118: 캐릭터 아카이브 폴더. 폴더 목록은 따로 두고, 캐릭터에는 folderId 만 단다.
+ //   폴더를 지워도 캐릭터는 지우지 않는다 — 미분류로 옮긴다.
+ const moveCharacterToFolder = (charId, folderId) => {
+  if (charId) patchCharacter(charId, { folderId: folderId || '' });
+  setCharFolderMenu(null);
+ };
+ const createCharacterFolder = async () => {
+  const name = String((await askText({ title: '새 폴더', message: '폴더 이름을 입력하세요.', placeholder: '예: 파리스의 심판', confirmLabel: '만들기' })) || '').trim();
+  if (!name) return;
+  const f = { id: `fd_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, name: name.slice(0, 40) };
+  persistCharacterFolders(prev => [...prev, f]);
+  setCharFolderSel(f.id);
+ };
+ const renameCharacterFolder = async (f) => {
+  const name = String((await askText({ title: '폴더 이름 바꾸기', message: '새 이름을 입력하세요.', initial: f.name, confirmLabel: '바꾸기' })) || '').trim();
+  if (!name) return;
+  persistCharacterFolders(prev => prev.map(x => (x.id === f.id ? { ...x, name: name.slice(0, 40) } : x)));
+ };
+ const deleteCharacterFolder = (f) => setConfirmDialog({
+  title: `'${f.name}' 폴더 삭제`,
+  message: '폴더만 지웁니다. 안에 있던 캐릭터는 지워지지 않고 미분류로 옮겨집니다.',
+  confirmLabel: '삭제',
+  onConfirm: () => {
+   setConfirmDialog(null);
+   persistCharacterFolders(prev => prev.filter(x => x.id !== f.id));
+   persistCharacterLibrary(characterLibraryRef.current.map(c => (c.folderId === f.id ? { ...c, folderId: '' } : c)));
+   setCharFolderSel('all');
+  },
+ });
+ const pollCharacterAsset = async (c, assetId, t0) => {
+  for (let i = 0; i < 60; i++) {   // 5초 × 60 = 5분
+   await new Promise(r => setTimeout(r, 5000));
+   setCharAssetJob(j => (j && j.id === c.id ? { ...j, phase: `처리 기다리는 중 (${Math.round((Date.now() - t0) / 1000)}초)` } : j));
+   const g = await arkOpenapiCall('GetAsset', { Id: assetId });
+   const st = String(g?.Status || '');
+   if (st === 'Active') return 'active';
+   if (st === 'Failed') {
+    const e = new Error(arkAssetErrText(g?.Error?.Code, g?.Error?.Message));
+    e.failed = true; throw e;
+   }
+  }
+  return 'pending';
+ };
+ const registerCharacterAsset = async (c) => {
+  if (!c || charAssetJob || c.assetId) return;
+  const t0 = Date.now();
+  const phase = (p) => setCharAssetJob({ id: c.id, phase: p, t0 });
+  try {
+   // ① 원본 바이트 — 저장해 둔 파일을 그대로 읽는다 (리사이즈 · 압축 · 변환 금지)
+   phase('원본 읽는 중');
+   let src = '';
+   if (c.thumbFile) src = await assetSrcForModel(localFileUrl(c.thumbFile));
+   if (!src && c.thumbBase64) src = `data:${c.thumbMime || 'image/png'};base64,${c.thumbBase64}`;
+   if (!src) throw new Error('이 캐릭터는 원본 이미지가 남아 있지 않아 등록할 수 없습니다. 캐릭터를 다시 생성해 저장한 뒤 등록해 주세요.');
+   // ② 공개 URL — CreateAsset 은 base64 를 받지 않는다
+   phase('공개 주소 만드는 중');
+   const url = await falPublicUrl(src, `${c.name} 캐릭터 자산`);
+   if (!/^https?:\/\//i.test(String(url || ''))) throw new Error('공개 주소를 만들지 못했습니다. fal 키를 확인해 주세요.');
+   // ③ 그룹 — 캐릭터 1명 = 그룹 1개. 앞서 만들다 멈춘 그룹이 있으면 그걸 쓴다
+   let groupId = c.assetGroupId || '';
+   if (!groupId) {
+    phase('자산 그룹 만드는 중');
+    const desc = ['OXYZN Studio 캐릭터 시트', CHARACTER_GENDER_LABEL[c.gender] || c.gender,
+     c.age && `${c.age}세`, c.height && `${c.height}cm`].filter(Boolean).join(' · ');
+    const g = await arkOpenapiCall('CreateAssetGroup', {
+     Name: String(c.name || '캐릭터').slice(0, 64), Description: desc.slice(0, 300), GroupType: 'AIGC' });
+    groupId = String(g?.Id || g?.GroupId || '');
+    if (!groupId) throw new Error(`자산 그룹 id 를 받지 못했습니다. 응답: ${JSON.stringify(g).slice(0, 200)}`);
+    patchCharacter(c.id, { assetGroupId: groupId });
+   }
+   // ④ 자산 올리기 — 심의는 Default. Skip 은 켤 이유가 없고 계정 리스크만 는다
+   phase('자산 올리는 중');
+   const a = await arkOpenapiCall('CreateAsset', {
+    GroupId: groupId, URL: url, Name: String(c.name || '캐릭터').slice(0, 64),
+    AssetType: 'Image', Moderation: { Strategy: 'Default' } });
+   const assetId = String(a?.Id || a?.AssetId || '');
+   if (!assetId) throw new Error(`자산 id 를 받지 못했습니다. 응답: ${JSON.stringify(a).slice(0, 200)}`);
+   // 여기부터 자산은 이미 존재한다 — id 를 먼저 남긴다. 버리면 유령 자산이 되고 두 번 등록하게 된다
+   patchCharacter(c.id, { assetGroupId: groupId, assetPendingId: assetId, assetAt: Date.now() });
+   // ⑤ 폴링 — Active 가 되기 전에는 쓸 수 없다. 5분 넘겨도 실패로 처리하지 않는다
+   const r = await pollCharacterAsset(c, assetId, t0);
+   if (r === 'active') {
+    patchCharacter(c.id, { assetId, assetPendingId: '', assetAt: Date.now() });
+    try { showToast(`${c.name} — 자산 등록 완료 · 만료 없음`, 'load'); } catch {}
+   } else {
+    try { showToast(`${c.name} — 아직 처리 중입니다. 잠시 뒤 '확인' 을 눌러주세요.`, 'load'); } catch {}
+   }
+  } catch (e) {
+   // 처리 실패면 대기 중 id 를 지운다 — 같은 자산을 다시 확인할 이유가 없다
+   if (e?.failed) patchCharacter(c.id, { assetPendingId: '' });
+   setConfirmDialog({ title: `${c.name} — 자산 등록 실패`, message: String(e?.message || e), confirmLabel: '확인',
+    onConfirm: () => setConfirmDialog(null) });
+  } finally {
+   setCharAssetJob(null);
+  }
+ };
+ const recheckCharacterAsset = async (c) => {
+  if (!c?.assetPendingId || charAssetJob) return;
+  setCharAssetJob({ id: c.id, phase: '확인 중', t0: Date.now() });
+  try {
+   const g = await arkOpenapiCall('GetAsset', { Id: c.assetPendingId });
+   const st = String(g?.Status || '');
+   if (st === 'Active') {
+    patchCharacter(c.id, { assetId: c.assetPendingId, assetPendingId: '', assetAt: Date.now() });
+    try { showToast(`${c.name} — 자산 등록 완료 · 만료 없음`, 'load'); } catch {}
+   } else if (st === 'Failed') {
+    patchCharacter(c.id, { assetPendingId: '' });
+    setConfirmDialog({ title: `${c.name} — 자산 처리 실패`, message: arkAssetErrText(g?.Error?.Code, g?.Error?.Message),
+     confirmLabel: '확인', onConfirm: () => setConfirmDialog(null) });
+   } else {
+    try { showToast(`${c.name} — 아직 처리 중입니다 (${st || '상태 미확인'})`, 'load'); } catch {}
+   }
+  } catch (e) {
+   setConfirmDialog({ title: '자산 확인 실패', message: String(e?.message || e), confirmLabel: '확인', onConfirm: () => setConfirmDialog(null) });
+  } finally { setCharAssetJob(null); }
+ };
+
  const falPublicUrl = async (src, what) => {
  const u = String(src || '');
  if (!u || /^https?:\/\//i.test(u) || /^asset:\/\//i.test(u)) return u;
@@ -28826,6 +29411,7 @@ ${sampleText}`;
     pushJobs('video-custom', videoCustomData, '영상 생성 중');
     pushJobs('video-narrative', videoNarrativeData, '영상 생성 중');
     pushJobs('video-vfx', vfxData, 'VFX 처리 중');
+    pushJobs('video-extra', extraData, '영상 생성 중');
     pushJobs('video-upscale', upscaleData, '업스케일 중');
 
     // ── 사운드 ──
@@ -30042,8 +30628,13 @@ ${sampleText}`;
  );
  })() : archiveCat === 'character' ? (() => {
  // v759: 캐릭터는 파일 아카이브가 아니라 저장된 라이브러리에서 표시 (Seedance 레퍼런스용)
- const live = characterLibrary.filter(c => !c.deletedAt);
- if (live.length === 0) {
+ const allLive = characterLibrary.filter(c => !c.deletedAt);
+ // v1118: 폴더로 거른다. 지워진 폴더 id 를 가진 캐릭터는 미분류로 본다
+ const fIds = new Set(characterFolders.map(f => f.id));
+ const inFolder = (c, sel) => (sel === 'all' ? true : sel === 'none' ? !(c.folderId && fIds.has(c.folderId)) : c.folderId === sel);
+ const curSel = (charFolderSel === 'all' || charFolderSel === 'none' || fIds.has(charFolderSel)) ? charFolderSel : 'all';
+ const live = allLive.filter(c => inFolder(c, curSel));
+ if (allLive.length === 0) {
  return (
  <div style={{ minHeight: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-quaternary)', fontSize: 13, textAlign: 'center', lineHeight: 1.7 }}>
  저장된 캐릭터가 없습니다.<br />
@@ -30051,12 +30642,58 @@ ${sampleText}`;
  </div>
  );
  }
+ // v1118: 폴더 막대 — 타일을 칩에 끌어다 놓으면 옮겨진다
+ const cnt = (sel) => allLive.filter(c => inFolder(c, sel)).length;
+ const chipStyle = (on) => ({ display: 'inline-flex', alignItems: 'center', gap: 5, height: 26, padding: '0 10px', borderRadius: 999,
+  cursor: 'pointer', fontSize: 11, fontWeight: on ? 800 : 600, whiteSpace: 'nowrap',
+  background: on ? 'rgba(63,175,185,0.14)' : 'transparent',
+  border: `1px solid ${on ? 'var(--green-500)' : 'var(--border)'}`, color: on ? 'var(--green-700)' : 'var(--text-secondary)' });
+ const dropProps = (target) => ({
+  onDragOver: (e) => { e.preventDefault(); e.currentTarget.classList.add('is-dragover'); },
+  onDragLeave: (e) => e.currentTarget.classList.remove('is-dragover'),
+  onDrop: (e) => {
+   e.preventDefault(); e.currentTarget.classList.remove('is-dragover');
+   const id = e.dataTransfer.getData('text/oxyzn-char');
+   if (id) moveCharacterToFolder(id, target === 'none' ? '' : target);
+  },
+ });
+ const folderBar = (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+   <button type="button" onClick={() => setCharFolderSel('all')} style={chipStyle(curSel === 'all')}>
+    전체 <span style={{ opacity: 0.6 }}>{allLive.length}</span>
+   </button>
+   <button type="button" className="ff-dropbtn" onClick={() => setCharFolderSel('none')} {...dropProps('none')} style={chipStyle(curSel === 'none')}>
+    미분류 <span style={{ opacity: 0.6 }}>{cnt('none')}</span>
+   </button>
+   {characterFolders.map(f => (
+    <button key={f.id} type="button" className="ff-dropbtn" onClick={() => setCharFolderSel(f.id)} {...dropProps(f.id)} style={chipStyle(curSel === f.id)}>
+     <Folder size={11} />{f.name} <span style={{ opacity: 0.6 }}>{cnt(f.id)}</span>
+     {curSel === f.id && (<>
+      <span role="button" title="이름 바꾸기" onClick={(e) => { e.stopPropagation(); renameCharacterFolder(f); }} style={{ marginLeft: 3, opacity: 0.75 }}>✎</span>
+      <span role="button" title="폴더 삭제" onClick={(e) => { e.stopPropagation(); deleteCharacterFolder(f); }} style={{ opacity: 0.75, fontSize: 13, lineHeight: 1 }}>×</span>
+     </>)}
+    </button>
+   ))}
+   <button type="button" onClick={createCharacterFolder} style={{ ...chipStyle(false), borderStyle: 'dashed', color: 'var(--text-tertiary)' }}>
+    <Plus size={11} />폴더
+   </button>
+   <span className="micro" style={{ marginLeft: 'auto', color: 'var(--text-quaternary)' }}>타일을 폴더 칩으로 끌어다 놓으면 옮겨집니다</span>
+  </div>
+ );
  // v767: 파일 아카이브와 동일한 높이 트랜지션 적용 (archiveGridRef 측정 대상에 포함)
  return (
+ <>
+ {folderBar}
  <div style={{ height: archiveBoxH ? `${archiveBoxH}px` : 'auto', overflow: 'hidden', transition: 'height 0.35s cubic-bezier(0.4,0,0.2,1)' }}>
  <div ref={archiveGridRef} className="ff-noscroll" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))', gap: ARCHIVE_GAP, maxHeight: 'calc(100vh - 300px)', overflowY: 'auto', overscrollBehavior: 'contain' }}>
+ {live.length === 0 && (
+ <div className="micro" style={{ gridColumn: '1 / -1', padding: '28px 0', textAlign: 'center', color: 'var(--text-quaternary)' }}>
+ 이 폴더에 캐릭터가 없습니다 — 타일을 폴더 칩으로 끌어다 놓거나, 타일 우하단의 폴더 버튼으로 옮기세요.
+ </div>
+ )}
  {live.map((c) => (
  <div key={c.id} className="ff-genimg" onClick={() => setCharacterPreview(c)} title="클릭하면 상세 정보를 볼 수 있어요"
+ draggable onDragStart={(e) => { e.dataTransfer.setData('text/oxyzn-char', c.id); e.dataTransfer.effectAllowed = 'move'; }}
  style={{ position: 'relative', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', background: 'var(--bg-secondary)', cursor: 'pointer' }}>
  <img src={characterImgSrc(c)} alt={c.name}
  style={{ width: '100%', aspectRatio: '16 / 9', objectFit: 'cover', display: 'block' }} />
@@ -30073,6 +30710,27 @@ ${sampleText}`;
  {c.voice && <span title={`보이스: ${c.voice.name}`} style={{ marginLeft: 6, color: 'var(--green-700)' }}>· 🎙 보이스</span>}
  </div>
  );
+ // v1115: 판정 순서가 중요하다 — 자산 → 처리 중 → 파생 → 남은 일수.
+ //   파생 이미지에 'D-30' 을 띄우면 쓸 수 있다고 오해하게 만든다.
+ if (c.assetId) return (
+ <div className="micro" style={{ marginTop: 3, fontSize: 9, fontWeight: 700, color: 'var(--green-700)' }}
+ title="AIGC 자산으로 등록됐습니다. 영상 레퍼런스로 asset:// 주소가 나가며 만료가 없습니다.">
+ ✓ 자산 등록 · 만료 없음
+ {c.voice && <span title={`보이스: ${c.voice.name}`} style={{ marginLeft: 6 }}>· 🎙 보이스</span>}
+ </div>
+ );
+ if (c.assetPendingId) return (
+ <div className="micro" style={{ marginTop: 3, fontSize: 9, fontWeight: 700, color: 'var(--state-warning)' }}
+ title="자산을 만들었지만 처리가 아직 끝나지 않았습니다. 좌측 상단 '확인' 을 눌러 상태를 다시 받습니다.">
+ ⏳ 자산 처리 중 · 눌러 확인
+ </div>
+ );
+ if (c.derived) return (
+ <div className="micro" style={{ marginTop: 3, fontSize: 9, fontWeight: 700, color: 'var(--state-error)' }}
+ title="레퍼런스를 붙여 만든 이미지는 '이차 편집' 이라 처음부터 신뢰 대상이 아닙니다. 자산으로 등록해야 영상에 쓸 수 있습니다.">
+ ⚠ 파생 이미지 · 자산 등록 필요
+ </div>
+ );
  const left = arkTrustLeftDays(c);
  const dead = arkTrustExpired(c);
  return (
@@ -30086,6 +30744,58 @@ ${sampleText}`;
  );
  })()}
  </div>
+ {/* v1118: 폴더로 옮기기 — 우하단 작은 버튼, 누르면 타일 위에 목록이 뜬다 */}
+ {(() => {
+ const fname = (characterFolders.find(f => f.id === c.folderId) || {}).name || '';
+ return (
+ <button type="button" title={fname ? `폴더: ${fname} — 눌러서 옮기기` : '폴더로 옮기기'}
+ onClick={(e) => { e.stopPropagation(); setCharFolderMenu(m => (m === c.id ? null : c.id)); }}
+ style={{ position: 'absolute', right: 5, bottom: 5, maxWidth: '55%', height: 20, padding: '0 6px', borderRadius: 5,
+ border: '1px solid var(--border)', background: 'var(--bg-primary)', cursor: 'pointer', fontSize: 9.5,
+ color: fname ? 'var(--green-700)' : 'var(--text-quaternary)', display: 'flex', alignItems: 'center', gap: 3,
+ overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+ <Folder size={10} style={{ flexShrink: 0 }} />{fname}
+ </button>
+ );
+ })()}
+ {charFolderMenu === c.id && (
+ <div onClick={(e) => e.stopPropagation()} onMouseLeave={() => setCharFolderMenu(null)}
+ style={{ position: 'absolute', inset: 0, zIndex: 5, background: 'var(--bg-primary)', padding: 8, overflowY: 'auto',
+ display: 'flex', flexDirection: 'column', gap: 3 }}>
+ <div className="micro" style={{ fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 2 }}>폴더로 옮기기</div>
+ {[{ id: '', name: '미분류' }, ...characterFolders].map(f => {
+ const on = (c.folderId || '') === f.id;
+ return (
+ <button key={f.id || 'none'} type="button" onClick={() => moveCharacterToFolder(c.id, f.id)}
+ style={{ textAlign: 'left', fontSize: 11, padding: '4px 6px', borderRadius: 5, border: 'none', cursor: 'pointer',
+ background: on ? 'rgba(63,175,185,0.14)' : 'transparent', color: on ? 'var(--green-700)' : 'var(--text-primary)', fontWeight: on ? 700 : 500 }}>
+ {f.name}
+ </button>
+ );
+ })}
+ {!characterFolders.length && (
+ <div className="micro" style={{ color: 'var(--text-quaternary)', lineHeight: 1.5 }}>폴더가 없습니다. 위의 <strong>+ 폴더</strong> 로 만드세요.</div>
+ )}
+ </div>
+ )}
+ {/* v1115: 30일 만료를 없애는 유일한 길이라, 캐릭터가 보이는 자리에서 바로 누르게 한다 */}
+ {!c.styleKind && !c.assetId && (() => {
+ const mine = charAssetJob && charAssetJob.id === c.id;
+ const busy = !!charAssetJob && !mine;
+ const pending = !!c.assetPendingId;
+ return (
+ <button type="button" disabled={busy || mine}
+ onClick={(e) => { e.stopPropagation(); if (pending) recheckCharacterAsset(c); else registerCharacterAsset(c); }}
+ title={pending ? '처리 상태를 다시 확인합니다' : 'AIGC 자산으로 등록합니다 — 등록하면 30일 만료가 사라집니다. 수십 초 ~ 몇 분 걸립니다.'}
+ style={{ position: 'absolute', top: 4, left: 4, maxWidth: 'calc(100% - 36px)', height: 22, padding: '0 8px', borderRadius: 6,
+ border: 'none', cursor: (busy || mine) ? 'default' : 'pointer', fontSize: 10, fontWeight: 800, whiteSpace: 'nowrap',
+ overflow: 'hidden', textOverflow: 'ellipsis',
+ background: mine ? 'rgba(15,23,42,0.88)' : pending ? 'rgba(234,88,12,0.92)' : 'rgba(15,23,42,0.72)',
+ color: '#fff', opacity: busy ? 0.35 : 1 }}>
+ {mine ? charAssetJob.phase : pending ? '⏳ 확인' : '자산 등록'}
+ </button>
+ );
+ })()}
  <button className="ff-archive-del" onClick={(e) => { e.stopPropagation(); handleTrashCharacter(c.id); }} title="휴지통으로 이동"
  style={{ position: 'absolute', top: 4, right: 4, width: 22, height: 22, borderRadius: 6, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
  <Trash2 size={12} />
@@ -30094,6 +30804,7 @@ ${sampleText}`;
  ))}
  </div>
  </div>
+ </>
  );
  })() : (() => {
  const isTrash = archiveCat === 'trash';
@@ -30246,6 +30957,7 @@ ${sampleText}`;
  const close = () => setProjectRefPicker(null);
  // 붙이기 모드면 이름은 그대로 두고 그림만 건다
  const pick = (item) => {
+ if (projectRefPicker.onPick) { projectRefPicker.onPick(item); close(); return; }
  if (targetId) projectRefSetAsset(sceneKey, kind, targetId, item.assetUrl || '', item.source, slot, item);
  else projectRefPut(sceneKey, kind, item);
  close();
@@ -30271,13 +30983,19 @@ ${sampleText}`;
  voiceUrl: voiceRefSrc(actorVoices[g.id]) || '', voiceName: actorVoices[g.id]?.name || '' });
  }));
  } else if (source === 'character') {
- (characterLibrary || []).filter(c => !c.deletedAt).forEach(c => {
+ // v1119: 아카이브와 같은 폴더로 거른다. 지워진 폴더 id 를 가진 캐릭터는 미분류로 본다
+ const pfIds = new Set(characterFolders.map(f => f.id));
+ const pSel = (pickerCharFolder === 'all' || pickerCharFolder === 'none' || pfIds.has(pickerCharFolder)) ? pickerCharFolder : 'all';
+ (characterLibrary || []).filter(c => !c.deletedAt)
+ .filter(c => (pSel === 'all' ? true : pSel === 'none' ? !(c.folderId && pfIds.has(c.folderId)) : c.folderId === pSel))
+ .forEach(c => {
  // v923: 캐릭터는 얼굴·의상·보이스가 한 묶음이다. 보이스도 함께 물고 온다.
  // v933: 만료된 URL 을 담으면 다음 날 미리보기가 깨지고 생성도 막힌다.
  //   URL 이 살아 있으면 URL, 죽었으면 원본 바이트를 담는다.
  // v983: id 를 함께 담는다. 배역명(카일런)과 캐릭터명(브라함)이 다를 수 있어
  //   이름으로는 다시 찾을 수 없고, 보이스를 나중에 붙였을 때도 못 물어온다.
  items.push({ name: c.name, assetUrl: characterRefSrc(c) || '', source: 'character',
+ assetUri: c.assetId ? `asset://${c.assetId}` : '',   // v1115
  assetId: c.id || '',
  gender: c.gender || '',   // v1028
  voiceUrl: voiceRefSrc(c.voice) || '', voiceName: c.voice?.name || '' });
@@ -30353,6 +31071,27 @@ ${sampleText}`;
  </div>
 
  <div className="ff-noscroll" style={{ flex: 1, overflowY: 'auto', padding: '0 18px 18px' }}>
+ {/* v1119: 캐릭터 폴더 — 아카이브에서 만든 폴더를 그대로 쓴다 */}
+ {source === 'character' && characterFolders.length > 0 && (() => {
+ const pfIds = new Set(characterFolders.map(f => f.id));
+ const pSel = (pickerCharFolder === 'all' || pickerCharFolder === 'none' || pfIds.has(pickerCharFolder)) ? pickerCharFolder : 'all';
+ const all = (characterLibrary || []).filter(c => !c.deletedAt);
+ const n = (id) => all.filter(c => (id === 'all' ? true : id === 'none' ? !(c.folderId && pfIds.has(c.folderId)) : c.folderId === id)).length;
+ const chip = (id, label) => (
+ <button key={id} type="button" onClick={() => setPickerCharFolder(id)}
+ style={{ display: 'inline-flex', alignItems: 'center', gap: 5, height: 26, padding: '0 10px', borderRadius: 999, cursor: 'pointer',
+ fontSize: 11, fontWeight: pSel === id ? 800 : 600, whiteSpace: 'nowrap',
+ background: pSel === id ? 'rgba(63,175,185,0.14)' : 'transparent',
+ border: `1px solid ${pSel === id ? 'var(--green-500)' : 'var(--border)'}`, color: pSel === id ? 'var(--green-700)' : 'var(--text-secondary)' }}>
+ {id !== 'all' && id !== 'none' && <Folder size={11} />}{label} <span style={{ opacity: 0.6 }}>{n(id)}</span>
+ </button>
+ );
+ return (
+ <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+ {chip('all', '전체')}{chip('none', '미분류')}{characterFolders.map(f => chip(f.id, f.name))}
+ </div>
+ );
+ })()}
  {source === 'upload' ? (
  <>
  <input ref={projectRefUploadRef} type="file" accept="image/*" style={{ display: 'none' }}
@@ -30374,7 +31113,7 @@ ${sampleText}`;
  <div className="meta" style={{ color: 'var(--text-quaternary)', lineHeight: 1.8 }}>
  {source === 'actor' && actorAssetLib.loading ? '배우 자산을 불러오는 중…'
  : source === 'actor' ? '인증된 배우 자산이 없습니다.'
- : source === 'character' ? '캐릭터 라이브러리가 비어 있습니다.'
+ : source === 'character' ? ((characterLibrary || []).some(c => !c.deletedAt) ? '이 폴더에 캐릭터가 없습니다.' : '캐릭터 라이브러리가 비어 있습니다.')
  : '해당하는 시트가 없습니다.'}
  </div>
  </div>
@@ -30396,6 +31135,11 @@ ${sampleText}`;
  {it.assetUrl
  ? <img src={it.assetUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
  : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-quaternary)', fontSize: 11 }}>이미지 없음</div>}
+ {/* v1119: 자산으로 등록된 캐릭터 — asset:// 로 나가며 만료가 없다 */}
+ {it.source === 'character' && /^asset:\/\//.test(it.assetUri || '') && (
+ <span title="자산 등록됨 · 만료 없음" style={{ position: 'absolute', left: 6, bottom: 6, padding: '1px 6px', borderRadius: 5,
+ fontSize: 9.5, fontWeight: 800, background: 'rgba(22,101,52,0.88)', color: '#fff' }}>✓ 자산</span>
+ )}
  {picked && (
  <span style={{ position: 'absolute', top: 6, right: 6, width: 18, height: 18, borderRadius: 999,
  background: 'var(--green-500)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -34388,7 +35132,7 @@ ${sampleText}`;
  // v785: 실제 전송될 프롬프트의 단어 수 — 사용자 묘사가 길어지면 즉시 보인다
  const promptWords = countPromptWords(buildCharacterPrompt({ ...d, name: d.name }));
  const wordsOver = promptWords > SEEDREAM_PROMPT_WORD_LIMIT;
- const { usd, krw } = formatCostDisplay(estimateArkImageCost(CHARACTER_SHEET_SIZE, d.numOutputs, ARK_MODELS.image));
+ const { usd, krw } = formatCostDisplay(estimateArkImageCost(CHARACTER_SHEET_SIZE, d.numOutputs, ARK_MODELS.image, (d.refs || []).length));
  const fmtTs = (ts) => { const dt = new Date(ts); return `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`; };
  const savedNames = new Set(characterLibrary.filter(c => !c.deletedAt).map(c => c.name));
 
@@ -34560,6 +35304,48 @@ ${sampleText}`;
  </div>
  </div>
 
+ {/* v1117: 레퍼런스 이미지 (선택) — 얼굴 · 인상의 출처 */}
+ <div>
+ <div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>레퍼런스 이미지 <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}>· 선택 · 최대 3장 · 끌어다 놓아도 됩니다</span></div>
+ <div className="ff-dropzone"
+ onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('is-dragover'); }}
+ onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.classList.remove('is-dragover'); }}
+ onDrop={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('is-dragover'); handleCharacterRefDrop(e.dataTransfer); }}
+ style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+ {(d.refs || []).map((r, i) => (
+ <div key={i} style={{ position: 'relative' }}>
+ <RefZoom src={r.assetUrl} label={r.name}>
+ <img src={r.assetUrl} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)', display: 'block', cursor: 'zoom-in' }} />
+ </RefZoom>
+ <button type="button" title="빼기" onClick={() => up(p => ({ ...p, refs: (p.refs || []).filter((_, j) => j !== i) }))}
+ style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', border: 'none', cursor: 'pointer',
+ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--text-primary)', color: 'var(--bg-primary)' }}>
+ <X size={10} />
+ </button>
+ </div>
+ ))}
+ {(d.refs || []).length < 3 && (
+ <button type="button" className="ff-refadd"
+ onClick={() => {
+  setProjectRefPicker({ kind: 'characters', source: 'upload',
+   onPick: (item) => up(p => ({ ...p, refs: [...(p.refs || []), { name: item.name || '레퍼런스', assetUrl: item.assetUrl || '', source: item.source || 'upload' }].slice(0, 3) })) });
+  setSingleDownloadsOpen(true);
+  if (!actorAssetLib.loadedAt && !actorAssetLib.loading) loadActorAssets();
+ }}
+ style={{ width: 64, height: 64, borderRadius: 8, border: '1px dashed var(--border-strong)', background: 'transparent', cursor: 'pointer',
+ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, fontSize: 10.5, color: 'var(--text-tertiary)' }}>
+ <Plus size={14} />이미지
+ </button>
+ )}
+ </div>
+ {(d.refs || []).length > 0 && (
+ <div className="micro" style={{ marginTop: 8, lineHeight: 1.6, color: 'var(--state-warning)' }}>
+ 레퍼런스로 만든 캐릭터는 ModelArk 기준 <strong>파생 이미지</strong>라 영상 레퍼런스로 바로 쓸 수 없습니다.
+ 저장한 뒤 아카이브의 캐릭터 타일에서 <strong>자산 등록</strong>을 해야 영상에 붙습니다.
+ </div>
+ )}
+ </div>
+
  <div>
  <div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>보이스 <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}>· 선택 · 영상에서 이 캐릭터의 음색이 됩니다</span></div>
  {d.voice ? (
@@ -34677,13 +35463,16 @@ ${sampleText}`;
  };
  const tpl = TURNAROUND_TEMPLATES[s.sheetType];
  const isRefOnly = !!tpl.refOnly; // 인물 클로즈업 등: 묘사·스타일·크기 없이 레퍼런스 사진만
+ const isComposite = !!tpl.composite; // v1116: 인물+의상 — 묘사 대신 두 칸
  const sheetHasRef = (s.refs || []).some(r => r && r.base64);
- const sheetCanGen = isRefOnly ? sheetHasRef : !!s.description.trim();
+ const sheetCanGen = isComposite ? (!!s.ccPerson?.assetUrl && !!s.ccCostume?.assetUrl) : isRefOnly ? sheetHasRef : !!s.description.trim();
  // v604: '인물(클로즈업)'만 Nano Banana 2 확정. '캐릭터+실사+레퍼런스'는 생성 시 레퍼런스가
  //        진짜 실사 인물인지 비전 판별 후 결정되므로, 여기서는 조건부로만 안내(비용은 GPT 기준 추정 유지).
  const sheetGenModel = isRefOnly ? 'google/nano-banana-2' : imageModel;
  const sheetMaybeNano = !isRefOnly && s.sheetType === 'character' && s.style === 'photoreal' && sheetHasRef;
- const { usd, krw } = formatCostDisplay(estimateImageCost(sheetGenModel, 'medium', s.numOutputs, SHEET_SIZE_16_9));
+ const { usd, krw } = formatCostDisplay(isComposite
+ ? estimateArkImageCost(CHARACTER_SHEET_SIZE, s.numOutputs, ARK_MODELS.image, 2)
+ : estimateImageCost(sheetGenModel, 'medium', s.numOutputs, SHEET_SIZE_16_9));
  const fmtTs = (ts) => { const dt = new Date(ts); return `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`; };
  const sheetAnyLoading = s.history.some(g => g.loading);
  const sheetSelected = s.history.find(g => !g.loading && g.url === s.selectedUrl);
@@ -34733,13 +35522,28 @@ ${sampleText}`;
  const p = g?.params || {};
  const isChar = p.sheetType === 'character' || p.sheetType === 'character_closeup';
  const is2d3d = p.style === 'anime2d' || p.style === 'disney3d';
- if (!isChar || !is2d3d) return null;
- const saved = characterLibrary.some(c => !c.deletedAt && c.url === s.selectedUrl);
+ const isCC = p.sheetType === 'character_costume';   // v1120
+ if (!(isChar && is2d3d) && !isCC) return null;
+ const savedC = characterLibrary.find(c => !c.deletedAt && c.url === s.selectedUrl);
+ const saved = !!savedC;
+ if (isCC && savedC) {
+  const mine = charAssetJob && charAssetJob.id === savedC.id;
+  const busy = !!charAssetJob && !mine;
+  const label = savedC.assetId ? '✓ 자산 등록됨' : mine ? charAssetJob.phase : savedC.assetPendingId ? '⏳ 등록 확인' : '자산 등록';
+  return (
+  <button className="btn btn-secondary btn-sm" style={{ position: 'absolute', top: 26, right: 138 }}
+  disabled={!!savedC.assetId || busy || mine}
+  title={savedC.assetId ? `"${savedC.name}" 로 저장 · AIGC 자산 등록 완료 — 영상에 asset:// 로 나갑니다` : `"${savedC.name}" 로 저장됨 · 자산 등록이 필요합니다`}
+  onClick={() => { if (savedC.assetPendingId) recheckCharacterAsset(savedC); else registerCharacterAsset(savedC); }}>
+  <Save size={12} /> {label}
+  </button>
+  );
+ }
  return (
  <button className="btn btn-secondary btn-sm" style={{ position: 'absolute', top: 26, right: 138 }}
- title="아카이브 > 캐릭터에 저장 · 보이스를 지정할 수 있습니다"
+ title={isCC ? '아카이브 > 캐릭터에 저장하고 AIGC 자산으로 등록합니다 · 등록하면 영상 레퍼런스로 쓸 수 있습니다' : '아카이브 > 캐릭터에 저장 · 보이스를 지정할 수 있습니다'}
  onClick={() => handleSaveSheetCharacter(s.selectedUrl, p)}>
- <Save size={12} /> {saved ? '캐릭터 갱신' : '캐릭터로 저장'}
+ <Save size={12} /> {isCC ? '캐릭터로 저장 · 자산 등록' : (saved ? '캐릭터 갱신' : '캐릭터로 저장')}
  </button>
  );
  })()}
@@ -34831,7 +35635,7 @@ ${sampleText}`;
  </div>
 
  {/* 스타일 — refOnly(실사 고정)에서는 숨김 */}
- {!isRefOnly && (
+ {!isRefOnly && !isComposite && (
  <div>
  <div className="meta" style={{ fontWeight: 600, marginBottom: 8 }}>스타일</div>
  <div style={{ display: 'flex', gap: 6 }}>
@@ -34847,8 +35651,53 @@ ${sampleText}`;
  </div>
  )}
 
- {/* 묘사 — refOnly(레퍼런스 전용)에서는 숨김 */}
- {isRefOnly ? (
+ {/* 묘사 — refOnly(레퍼런스 전용)에서는 숨김 · v1116: 인물+의상은 두 칸 */}
+ {isComposite ? (
+ <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+ <div className="meta" style={{ color: 'var(--text-tertiary)', fontSize: 11.5, lineHeight: 1.6, background: 'var(--bg-secondary)', borderRadius: 8, padding: '10px 12px' }}>
+ <strong>인물 시트</strong>에서는 얼굴 · 체형만, <strong>의상 시트</strong>에서는 옷만 가져와 그 인물이 옷을 입은 시트를 만듭니다.
+ 좌측은 정면 · 후면 풀샷, 우측은 얼굴 4컷입니다. <strong>Seedream</strong> 으로 생성합니다.
+ </div>
+ {[
+  { key: 'ccPerson', label: '인물 시트', open: () => {
+   setProjectRefPicker({ kind: 'characters', source: (PROJECT_REF_SOURCES.characters || [])[0]?.id || 'upload',
+    onPick: (item) => updateS({ ccPerson: { name: item.name || '인물', assetUrl: item.assetUrl || '', source: item.source || 'upload', gender: item.gender || '' }, error: '' }) });
+   setSingleDownloadsOpen(true);
+   if (!actorAssetLib.loadedAt && !actorAssetLib.loading) loadActorAssets();
+  } },
+  { key: 'ccCostume', label: '의상 시트', open: () => {
+   setProjectRefPicker({ kind: 'characters', slot: 'costume', source: (PROJECT_REF_SOURCES.costume || [])[0]?.id || 'upload',
+    onPick: (item) => updateS({ ccCostume: { name: item.name || '의상', assetUrl: item.assetUrl || '', source: item.source || 'upload' }, error: '' }) });
+   setSingleDownloadsOpen(true);
+  } },
+ ].map(slot => {
+  const cur = s[slot.key];
+  return (
+   <div key={slot.key} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: 8, borderRadius: 8,
+    border: `1px solid ${cur ? 'var(--green-500)' : 'var(--border)'}`, background: 'var(--bg-secondary)' }}>
+    {cur?.assetUrl
+     ? <RefZoom src={cur.assetUrl} label={`${slot.label} · ${cur.name}`}>
+        <img src={cur.assetUrl} alt="" style={{ width: 96, height: 54, objectFit: 'cover', borderRadius: 6, display: 'block', cursor: 'zoom-in' }} />
+       </RefZoom>
+     : <div style={{ width: 96, height: 54, borderRadius: 6, background: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 10.5, color: 'var(--text-quaternary)' }}>비어 있음</div>}
+    <div style={{ flex: 1, minWidth: 0 }}>
+     <div className="meta" style={{ fontWeight: 700 }}>{slot.label} <span style={{ color: 'var(--state-error)' }}>*</span></div>
+     <div className="micro" style={{ color: 'var(--text-quaternary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      {cur ? cur.name : '고르기를 눌러 넣어주세요'}
+     </div>
+    </div>
+    <button type="button" className="btn btn-secondary btn-sm" onClick={slot.open} disabled={s.isGenerating}>{cur ? '바꾸기' : '고르기'}</button>
+    {cur && (
+     <button type="button" className="btn btn-ghost btn-sm" onClick={() => updateS({ [slot.key]: null })} disabled={s.isGenerating} title="비우기">
+      <X size={11} />
+     </button>
+    )}
+   </div>
+  );
+ })}
+ </div>
+ ) : isRefOnly ? (
  <div className="meta" style={{ color: 'var(--text-tertiary)', fontSize: 11.5, lineHeight: 1.6, background: 'var(--bg-secondary)', borderRadius: 8, padding: '10px 12px' }}>
  실사 인물 얼굴 표정 시트입니다. 별도 묘사 없이 <strong>레퍼런스 인물 사진</strong>만 등록하면, 같은 인물의 4각도 + 4표정(2×4)을 생성합니다.
  </div>
@@ -34891,8 +35740,8 @@ ${sampleText}`;
  </div>
  )}
 
- {/* 레퍼런스 (선택) */}
- <div>
+ {/* 레퍼런스 (선택) — 인물+의상은 두 칸이 대신한다 */}
+ <div style={{ display: isComposite ? 'none' : undefined }}>
  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 8 }}>
  <div className="meta" style={{ fontWeight: 600 }}>{isRefOnly ? <>레퍼런스 인물 사진 <span style={{ color: 'var(--state-error)' }}>*</span> <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}>(필수 · 최대 6장)</span></> : <>레퍼런스 이미지 <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}>(선택 · 최대 6장)</span></>}</div>
  <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
@@ -36156,7 +37005,7 @@ ${sampleText}`;
  const _b = await characterRefBytes(c);
  up(p => (p.refs.filter(x => x.kind === 'image').length >= 9 ? p : { ...p, refs: [...p.refs, {
  kind: 'image', refName: (c.name || nextName('image', p.refs)).replace(/\s+/g, ''),
- srcUrl: characterRefSrc(c), base64: _b?.base64 || null, mimeType: _b?.mimeType || c.thumbMime || 'image/png', isCharacter: true,
+ srcUrl: characterModelSrc(c), charId: c.id, base64: _b?.base64 || null, mimeType: _b?.mimeType || c.thumbMime || 'image/png', isCharacter: true,
  voice: c.voice || null, // v773: 저장된 보이스가 있으면 영상 생성 시 reference_audio로 함께 간다
  noCostume: !!c.noCostume, // v786: 2D/3D 시트 캐릭터는 의상이 이미 포함 — 의상 첨부 UI 숨김
  }] }));
@@ -36185,7 +37034,7 @@ ${sampleText}`;
  const voiceDirectives = [], audios = [];
  v.refs.forEach(r => {
  if (r.kind === 'image') {
- images.push(r.srcUrl || `data:${r.mimeType};base64,${r.base64}`);
+ images.push(liveCharSrc(r) || r.srcUrl || `data:${r.mimeType};base64,${r.base64}`);
  const tok = `[Image${images.length}]`;
  if (r.refName) tokenMap[r.refName] = tok;
  const charManifestIdx = manifest.push(`${tok} = "${r.refName}"`) - 1;
@@ -36671,7 +37520,7 @@ ${sampleText}`;
  const _b = await characterRefBytes(c);
  up(p => (cntImgs(p.refs) >= 9 ? p : { ...p, refs: { ...p.refs, [key]: [...(p.refs[key] || []), {
  kind: 'image', refName: (c.name || nextName(key, p.refs[key])).replace(/\s+/g, ''),
- srcUrl: characterRefSrc(c), base64: _b?.base64 || null, mimeType: _b?.mimeType || c.thumbMime || 'image/png', isCharacter: true,
+ srcUrl: characterModelSrc(c), charId: c.id, base64: _b?.base64 || null, mimeType: _b?.mimeType || c.thumbMime || 'image/png', isCharacter: true,
  voice: c.voice || null, // v773: 저장된 보이스가 있으면 영상 생성 시 reference_audio로 함께 간다
  noCostume: !!c.noCostume, // v786: 2D/3D 시트 캐릭터는 의상이 이미 포함 — 의상 첨부 UI 숨김
  }] } }));
@@ -36717,7 +37566,7 @@ ${sampleText}`;
  const outfitDirectives = [];
  const voiceDirectives = [], audioList = [];
  GROUPS.forEach(g => (v.refs[g.key] || []).forEach(r => {
- if (r.kind === 'image' && imgN < 9) { imgN++; imgList.push(r.srcUrl || `data:${r.mimeType};base64,${r.base64}`); const tok = `[Image${imgN}]`; if (r.refName) tokenMap[r.refName] = tok; const charIdx = manifest.push(`${tok} = "${r.refName}" (${g.label})`) - 1;
+ if (r.kind === 'image' && imgN < 9) { imgN++; imgList.push(liveCharSrc(r) || r.srcUrl || `data:${r.mimeType};base64,${r.base64}`); const tok = `[Image${imgN}]`; if (r.refName) tokenMap[r.refName] = tok; const charIdx = manifest.push(`${tok} = "${r.refName}" (${g.label})`) - 1;
  // v770: 캐릭터에 묶인 의상은 사용자 프롬프트 없이 뒷단에서 자동 적용
  if (r.costume && r.costume.base64 && imgN < 9) { imgN++; imgList.push(`data:${r.costume.mimeType};base64,${r.costume.base64}`); const ctok = `[Image${imgN}]`;
  // v781: 캐릭터는 신원 전용 — 시트의 기본 무채색 의상이 섞여 나오지 않게 명시
@@ -37751,6 +38600,645 @@ AUDIO:
  })()}
 
  {/* ═══ Upscale 워크스페이스 — Topaz 영상 화질 향상 (v782) ═══ */}
+{appScreen === 'single' && singleTaskId === 'video-extra' && (() => {
+ const v = extraData;
+ const up = (patch) => setExtraData(p => typeof patch === 'function' ? patch(p) : ({ ...p, ...patch }));
+ const jobs = v.jobs || [];
+ const isInterview = v.mode === 'interview';
+ const GROUPS = [{ key: 'character', label: '인물' }, { key: 'space', label: '공간' }, { key: 'object', label: '오브제' }];
+ const NAME_PREFIX = { character: '인물', space: '공간', object: '오브제' };
+ const LANGS = [
+  { id: 'ko', label: '한국어', en: 'Korean' },
+  { id: 'en', label: '영어', en: 'natural conversational English' },
+  { id: 'ja', label: '일본어', en: 'Japanese' },
+  { id: 'zh', label: '중국어', en: 'Mandarin Chinese' },
+  { id: 'es', label: '스페인어', en: 'Spanish' },
+  { id: 'de', label: '독일어', en: 'German' },
+  { id: 'fr', label: '프랑스어', en: 'French' },
+ ];
+ const langCur = LANGS.find(x => x.id === v.lang) || LANGS[0];
+ const langEn = langCur.en;
+ const needTr = v.lang !== 'ko';
+ // v1103: 한국어가 아니면 뽑기 전에 대사 번역을 눈으로 확인한다.
+ //   영상이 나온 뒤에 대사가 틀린 걸 알면 클립 하나가 통째로 날아간다.
+ const runTranslate = async () => {
+  const situation = String(v.situation || '').trim();
+  if (!situation) { up({ error: '먼저 내용을 입력하세요.' }); return; }
+  up({ trLoading: true, error: '' });
+  try {
+   const sys = [
+    '아래 글에서 큰따옴표 안의 대사만 골라 ' + langCur.label + ' 로 옮긴다.',
+    isInterview
+     ? '★ 인터뷰다. 인터뷰어(묻는 쪽)의 말은 한국어 그대로 두고 tr 에도 원문을 그대로 적는다. 답하는 사람의 말만 옮긴다.'
+     : '모든 대사를 옮긴다.',
+    '대사가 아닌 지문 · 상황 묘사는 건드리지 않는다.',
+    '연기로 말하는 문장이다 — 문어체가 아니라 실제로 입에서 나오는 말로 옮긴다.',
+    '',
+    '출력은 JSON 배열 하나뿐이다. 설명 · 머리말 · 코드펜스 금지.',
+    '[{"who":"화자 이름 또는 빈 문자열","ko":"원문 그대로","tr":"옮긴 문장"}]',
+    '큰따옴표 안에 아무것도 없으면 빈 배열 [] 만 출력한다.',
+   ].join('\n');
+   const out = String(await callClaude(sys, situation, { model: 'claude-opus-5', maxTokens: 1500, workCat: 'video' }) || '');
+   const m = /\[[\s\S]*\]/.exec(out);
+   if (!m) throw new Error('대사를 찾지 못했습니다.');
+   const arr = JSON.parse(m[0]);
+   up({ trLoading: false, dlgTr: Array.isArray(arr) ? arr : [] });
+  } catch (e) { up({ trLoading: false, error: `번역 실패: ${e.message}` }); }
+ };
+ const vMaxSec = ARK_VIDEO_MAX_SEC.video25;
+ const vDur = Math.min(Number(v.duration) || 10, vMaxSec);
+ const vRes = arkClampRes('video25', v.resolution);
+ const chSec = ((v.refs.challenge || [])[0] || {}).sec || 0;
+ const cf = formatCostDisplay(estimateSeedance2Cost(vDur, vRes, v.aspect, { tier: 'video25', hasVideoInput: chSec > 0, inputSec: chSec }));
+ const cntImgs = (refs) => GROUPS.reduce((n, g) => n + (refs[g.key] || []).length, 0);
+ const nextName = (key, arr) => {
+  const prefix = NAME_PREFIX[key] || 'Ref';
+  const re = new RegExp('^' + prefix + '(\\d+)$');
+  const mx = (arr || []).reduce((m, r) => { const mm = re.exec(r.refName || ''); return mm ? Math.max(m, Number(mm[1])) : m; }, 0);
+  return prefix + (mx + 1);
+ };
+ // v1102: 프로젝트 작업과 같은 고르기 창을 쓴다 — 툴 안의 이미지 · 배우 자산 · 캐릭터 자산 · 업로드
+ const KIND_OF = { character: 'characters', space: 'places', object: 'objects' };
+ const openPicker = (key, idx) => {
+  const pk = KIND_OF[key];
+  const srcs = PROJECT_REF_SOURCES[pk] || [];
+  setProjectRefPicker({ kind: pk, source: srcs[0]?.id || 'upload',
+   onPick: async (item) => {
+    const url = item.source === 'upload' ? await storeUploadBytes(item.assetUrl, 'ref') : (item.assetUrl || '');
+    up(p => ({ ...p, refs: { ...p.refs, [key]: (p.refs[key] || []).map((x, i) => i === idx
+     ? { ...x, assetUrl: url, assetUri: item.assetUri || '', source: item.source || 'upload',
+        charId: item.source === 'character' ? (item.assetId || '') : '',
+         voiceUrl: item.voiceUrl || '', voiceName: item.voiceName || '' } : x) } }));
+   } });
+  setSingleDownloadsOpen(true);
+  if (pk === 'characters' && !actorAssetLib.loadedAt && !actorAssetLib.loading) loadActorAssets();
+ };
+ const openCostumePicker = (idx) => {
+  const srcs = PROJECT_REF_SOURCES.costume || [];
+  setProjectRefPicker({ kind: 'characters', slot: 'costume', source: srcs[0]?.id || 'upload',
+   onPick: async (item) => {
+    const url = item.source === 'upload' ? await storeUploadBytes(item.assetUrl, 'cos') : (item.assetUrl || '');
+    up(p => ({ ...p, refs: { ...p.refs, character: (p.refs.character || []).map((x, i) => i === idx
+     ? { ...x, costume: { assetUrl: url, assetUri: item.assetUri || '', label: item.name || '의상' } } : x) } }));
+   } });
+  setSingleDownloadsOpen(true);
+ };
+ // v1105: 프로젝트 작업과 같은 순서 — 먼저 상황을 적고 승인하면, 그 상황에 필요한
+ //   인물 · 공간 · 오브제 자리를 뽑아 준다. 자산은 그 자리에 하나씩 건다.
+ const approve = async () => {
+  const situation = String(v.situation || '').trim();
+  if (!situation) { up({ error: isInterview ? '인터뷰 대본을 입력하세요.' : '상황 묘사를 입력하세요.' }); return; }
+  up({ extracting: true, error: '' });
+  try {
+   const out = await callClaude(PROJECT_REF_EXTRACT_SYS, `[씬 key=x]\n${situation}`,
+    { model: 'claude-opus-5', maxTokens: 1200, workCat: 'video' });
+   const parsed = parseJsonFromResponse(out);
+   const sc = (Array.isArray(parsed?.scenes) ? parsed.scenes : [])[0] || {};
+   const mk = (names, key) => [...new Set((names || []).map(x => String(x || '').trim()).filter(Boolean))]
+    .slice(0, 12).map((nm, i) => ({ id: `xr_${key}_${i}_${nm}`, name: nm, assetUrl: '', assetUri: '', source: 'auto' }));
+   up(p => {
+    // v1110: 이번 글에서 뽑힌 이름만 남긴다. 전에는 자산이 걸린 자리를 무조건
+    //   이어 붙여, 앞 영상의 인물이 새 영상에 그대로 따라왔다.
+    const keep = (key, made) => {
+     const byName = new Map((p.refs[key] || []).filter(x => x.assetUrl || x.assetUri).map(x => [x.name, x]));
+     return made.map(x => byName.get(x.name) || x);
+    };
+    return { ...p, extracting: false, step: 'refs',
+     refs: { ...p.refs,
+      character: keep('character', mk(sc.characters, 'ch')),
+      space: keep('space', mk([sc.place].filter(Boolean), 'sp')),
+      object: keep('object', mk(sc.objects, 'ob')) } };
+   });
+  } catch (e) {
+   // 뽑기에 실패해도 다음 단계로는 넘긴다 — 손으로 걸 수 있다
+   up({ extracting: false, step: 'refs', error: `레퍼런스 자동 추출 실패: ${e.message} (직접 걸 수 있습니다)` });
+  }
+ };
+ const addSlot = (key, name) => up(p => ({ ...p, refs: { ...p.refs, [key]: [...(p.refs[key] || []),
+  { id: `xr_${key}_${Date.now()}`, name: name || '이름 없음', assetUrl: '', assetUri: '', source: 'manual' }] } }));
+ const removeRef = (key, idx) => up(p => ({ ...p, refs: { ...p.refs, [key]: (p.refs[key] || []).filter((_, i) => i !== idx) } }));
+ // v1101: 챌린지 레퍼런스 — 따라 할 동작의 출처. 영상 입력이라 단가와 과금 초가 달라진다.
+ const addChallenge = (files) => {
+  const f = Array.from(files || []).find(x => x.type.startsWith('video/'));
+  if (!f) { up({ error: '챌린지 레퍼런스는 영상 파일만 첨부할 수 있습니다.' }); return; }
+  const rd = new FileReader();
+  rd.onload = () => {
+   const dataUrl = String(rd.result);
+   const nm = f.name.replace(/\.[^.]+$/, '');
+   const el = document.createElement('video');
+   el.preload = 'metadata';
+   el.onloadedmetadata = async () => {
+    const sec = Number.isFinite(el.duration) && el.duration > 0 ? el.duration : 5;
+    const small = (el.videoHeight && el.videoHeight < 300) || (el.videoWidth * el.videoHeight < 407696);
+    const stored = await storeUploadBytes(dataUrl, 'chl');
+    up(p => ({ ...p, error: small ? '이 영상은 해상도가 낮아 거절될 수 있습니다 — 짧은 변 300px 이상이 필요합니다.' : '',
+     refs: { ...p.refs, challenge: [{ kind: 'video', refName: '챌린지', name: nm, dataUrl: stored, sec, w: el.videoWidth, h: el.videoHeight }] } }));
+   };
+   el.onerror = async () => {
+    const stored = await storeUploadBytes(dataUrl, 'chl');
+    up(p => ({ ...p, refs: { ...p.refs, challenge: [{ kind: 'video', refName: '챌린지', name: nm, dataUrl: stored, sec: 5 }] } }));
+   };
+   el.src = dataUrl;
+  };
+  rd.readAsDataURL(f);
+ };
+ const challengeRef = (v.refs.challenge || [])[0] || null;
+
+ // v1108: snap 을 주면 그 기록의 설정으로 돈다 — 재생성이 화면 값에 끌려가지 않게.
+ const runGen = async (snap) => {
+  const src = snap || { mode: v.mode, situation: v.situation, lang: v.lang,
+   duration: vDur, resolution: vRes, aspect: v.aspect, refs: v.refs, dlgTr: v.dlgTr };
+  const sInt = src.mode === 'interview';
+  const sLangEn = (LANGS.find(x => x.id === src.lang) || LANGS[0]).en;
+  const sDur = Math.min(Number(src.duration) || 10, vMaxSec);
+  const sRes = arkClampRes('video25', src.resolution);
+  const sAsp = src.aspect || '9:16';
+  const sRefs = src.refs || { character: [], space: [], object: [], challenge: [] };
+  const sChallenge = (sRefs.challenge || [])[0] || null;
+  const situation = String(src.situation || '').trim();
+  if (!situation) { up({ error: sInt ? '인터뷰 대본을 입력하세요.' : '상황 묘사를 입력하세요.' }); return; }
+  const imgList = [], vidList = [], manifest = [], tokenMap = {}, outfitPairs = [], placePairs = [];
+  let hasPerson = false;
+  let n = 0;
+  // v1102: 자산은 asset:// 를 우선한다 — 실인물 얼굴은 그 주소여야 심의를 통과한다.
+  const srcOf = async (x) => {
+   // v1115: 걸어 둔 뒤에 자산 등록한 캐릭터도 asset:// 로 나가게 한다
+   if (x.charId) { const lc = characterLibraryRef.current.find(q => q.id === x.charId); if (lc?.assetId) return `asset://${lc.assetId}`; }
+   const raw = x.assetUri || x.assetUrl || '';
+   if (/^asset:\/\//.test(raw)) return raw;
+   try { const out = await assetSrcForModel(raw); if (out) return out; } catch {}
+   return raw;
+  };
+  for (const g of GROUPS) {
+   for (const r of (sRefs[g.key] || [])) {
+    if (n >= 12) break;
+    if (!r.assetUrl && !r.assetUri) continue;   // 자산 없이 이름만 걸린 자리는 글로만 쓴다
+    const src = await srcOf(r);
+    if (!src) { up({ error: `레퍼런스를 읽지 못했습니다 — ${r.name}` }); return; }
+    n++; imgList.push(src);
+    const tok = `Image ${n}`;
+    manifest.push(`${tok} = ${r.name} (${g.label})`);
+    if (g.key === 'space') placePairs.push(`${r.name} — Image ${n}.`);
+    if (g.key === 'character') {
+     hasPerson = true;
+     if (r.costume && (r.costume.assetUri || r.costume.assetUrl) && n < 12) {
+      const csrc = await srcOf(r.costume);
+      if (csrc) {
+       n++; imgList.push(csrc);
+       manifest.push(`Image ${n} = ${r.name} 의 의상`);
+       outfitPairs.push(`${r.name} — Image ${n - 1} is their face and body, Image ${n} is what they wear. Both images are that person; neither is optional.`);
+      }
+     }
+    }
+   }
+  }
+  if (sChallenge && sChallenge.dataUrl) {
+   let cv = sChallenge.dataUrl;
+   if (!/^data:/.test(cv)) { try { cv = await assetSrcForModel(cv) || cv; } catch {} }
+   vidList.push(cv);
+   manifest.push('Video 1 = ' + (sChallenge.name || '챌린지') + ' (따라 할 동작의 출처)');
+  }
+  // v1104: 인물에 붙은 목소리를 음색 레퍼런스로 함께 보낸다.
+  //   2.5 는 오디오 10개까지 받지만 길이 합이 30.2초라 그쪽이 먼저 걸린다.
+  const audioList = [], voiceLines = [];
+  let voiceSec = 0;
+  for (const r of (sRefs.character || [])) {
+   if (!r.voiceUrl || audioList.length >= 3) continue;
+   let sec = null;
+   try { sec = await audioDurationOf(r.voiceUrl); } catch { sec = null; }
+   const take = Number.isFinite(sec) && sec > 0 ? sec : 10;
+   if (voiceSec + take > 30) continue;
+   try {
+    const pub = await falPublicUrl(r.voiceUrl, `${r.name} 보이스`);
+    audioList.push(pub); voiceSec += take;
+    voiceLines.push(`${r.name} speaks with the voice timbre of Audio ${audioList.length}. Keep that timbre for ${r.name} throughout.`);
+   } catch (e) { console.warn('[부가콘텐츠] 보이스를 올리지 못했습니다 —', r.name, e?.message); }
+  }
+  if (voiceLines.length) voiceLines.push('Nobody else uses these voices.');
+  let text = situation;
+  Object.keys(tokenMap).sort((a, b) => b.length - a.length).forEach(nm => { text = text.split(`@${nm}`).join(tokenMap[nm]); });
+  const jobId = `xt_${Date.now()}_${(extraJobSeq.current += 1)}`;
+  const params = { mode: src.mode, situation, lang: src.lang, duration: sDur, resolution: sRes, aspect: sAsp,
+   dlgTr: src.dlgTr || null, refsSnapshot: JSON.parse(JSON.stringify(sRefs || {})) };
+  const estSec = estSecFor(durKeyVideo(sRes, sDur, false), estVideoGenSeconds(sRes, sDur) + 12);
+  up(p => ({ ...p, error: '', jobs: [{ id: jobId, version: extraJobSeq.current, loading: true, phase: '프롬프트 만드는 중', ts: Date.now(), estSec, params }, ...p.jobs] }));
+  try {
+   const hasCh = vidList.length > 0;
+   const rulebook = sInt ? EXTRA_INTERVIEW_RULEBOOK(sDur, sLangEn, hasCh) : EXTRA_BEHIND_RULEBOOK(sDur, sLangEn, hasCh);
+   const mfs = manifest.length ? `\n\n[붙는 레퍼런스 — 프롬프트에서 이 번호로 부르십시오]\n${manifest.join('\n')}` : '\n\n(레퍼런스 없음)';
+   const head = sInt ? '[인터뷰 대본]' : '[상황 묘사]';
+   const trBlock = (src.dlgTr && src.dlgTr.length)
+    ? '\n\n[확정된 대사 — 큰따옴표 안은 이 문장을 글자 그대로 쓰십시오. 다시 옮기지 마십시오]\n'
+      + src.dlgTr.map(x => (x.who ? x.who + ': ' : '') + '"' + (x.tr || '') + '"').join('\n')
+    : '';
+   const body = String(await callClaude(rulebook, `${head}\n${text}${mfs}${trBlock}`,
+    { model: 'claude-opus-5', maxTokens: 1600, workCat: 'video' }) || '').replace(/```/g, '').trim();
+   if (!body) throw new Error('프롬프트 생성 결과가 비었습니다.');
+   let finalPrompt = body;
+   if (outfitPairs.length) finalPrompt = `${EXTRA_IDENTITY_RULE}\n${outfitPairs.join('\n')}\n\n${finalPrompt}`;
+   else if (hasPerson) finalPrompt = `${EXTRA_IDENTITY_RULE}\n\n${finalPrompt}`;
+   if (placePairs.length) finalPrompt = `${EXTRA_LOCATION_RULE}\n${placePairs.join('\n')}\n\n${finalPrompt}`;
+   if (voiceLines.length) finalPrompt += `\n\n[Voice]\n${voiceLines.join('\n')}`;
+   up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, phase: '영상 생성 중', generatedPrompt: finalPrompt } : j) }));
+   const url = await callSeedanceVideo({ prompt: finalPrompt, duration: sDur, resolution: sRes, aspectRatio: sAsp,
+    generateAudio: true, tier: 'video25', images: imgList, videos: vidList, audios: audioList });
+   up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, phase: '', resultUrl: url } : j), selectedUrl: p.selectedUrl || url }));
+  } catch (e) {
+   up(p => ({ ...p, error: `생성 실패: ${e.message}`, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, phase: '', error: e.message } : j) }));
+  }
+ };
+
+ // v1112: 불러오기가 레퍼런스를 못 살리던 것. 기록마다 refs 모양이 달라질 수 있어
+ //   (초기 판은 base64·mimeType, 지금은 assetUrl·assetUri) 여기서 한 모양으로 맞춘다.
+ //   키가 하나라도 없으면 그 분류가 통째로 사라져 빈 화면처럼 보였다.
+ const normRefs = (snap0) => {
+  const snap = snap0 || {};
+  const one = (r) => {
+   if (!r) return null;
+   const url = r.assetUrl || (r.base64 ? `data:${r.mimeType || 'image/png'};base64,${r.base64}` : '');
+   const cos = r.costume
+    ? { assetUrl: r.costume.assetUrl || (r.costume.base64 ? `data:${r.costume.mimeType || 'image/png'};base64,${r.costume.base64}` : ''),
+        assetUri: r.costume.assetUri || '', label: r.costume.label || '의상' }
+    : null;
+   return { ...r, id: r.id || `xr_${Math.random().toString(36).slice(2)}`,
+    name: r.name || r.refName || '이름 없음', assetUrl: url, assetUri: r.assetUri || '',
+    costume: cos && cos.assetUrl ? cos : null };
+  };
+  const pick = (k) => (Array.isArray(snap[k]) ? snap[k] : []).map(one).filter(Boolean);
+  return { character: pick('character'), space: pick('space'), object: pick('object'), challenge: pick('challenge') };
+ };
+ const loadJob = (j) => {
+  const refs = normRefs(j?.params?.refsSnapshot);
+  const n = refs.character.length + refs.space.length + refs.object.length + refs.challenge.length;
+  const withAsset = [...refs.character, ...refs.space, ...refs.object].filter(x => x.assetUrl).length;
+  up({ mode: j?.params?.mode || 'behind', situation: j?.params?.situation || '',
+   lang: j?.params?.lang || 'ko', duration: j?.params?.duration || 10,
+   resolution: j?.params?.resolution || '720p', aspect: j?.params?.aspect || '9:16',
+   dlgTr: j?.params?.dlgTr || null, refs, step: 'refs', error: '', preview: null });
+  try { showToast(n ? `레퍼런스 ${n}개를 불러왔습니다 (자산 ${withAsset}개)` : '레퍼런스 기록이 없습니다.', 'load'); } catch {}
+ };
+
+ const dlVideo = (url) => setConfirmDialog({ title: '영상 저장', message: '이 영상을 다운로드 폴더에 저장할까요?', confirmLabel: '저장',
+  onConfirm: async () => {
+   setConfirmDialog(null);
+   const j = (extraData?.jobs || []).find(x => x.resultUrl === url);
+   const kw = await ffsKeyword(j?.params?.situation ?? extraData?.situation);
+   const type = (j?.params?.mode === 'interview') ? '인터뷰' : '비하인드';
+   const fname = (await ffsBuildName({ type, parts: [kw, j?.params?.resolution || '720p'], version: j?.version })) + '.mp4';
+   try {
+    const res = await fetch(url); const blob = await res.blob();
+    const objUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = objUrl; a.download = fname;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(objUrl), 4000);
+    try { showToast('영상을 저장했습니다.', 'load'); } catch {}
+   } catch (err) {
+    try {
+     const a = document.createElement('a'); a.href = url; a.download = fname; a.target = '_blank';
+     document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    } catch (e2) { up({ error: `저장 실패: ${e2.message}` }); }
+   }
+  } });
+
+ return (
+  <div className="fade-in" style={{ maxWidth: 1240, margin: '0 auto', padding: '0 8px' }}>
+   <div style={{ marginBottom: 22, textAlign: 'center' }}>
+    <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-0.01em' }}>부가콘텐츠</h2>
+    <p className="meta" style={{ color: 'var(--text-tertiary)', marginTop: 5 }}>촬영 현장 비하인드와 제작 인터뷰를 만듭니다. 컷 전환 없는 단일 컷입니다.</p>
+    <div style={{ height: 3, marginTop: 16, borderRadius: 3, background: 'linear-gradient(to right, transparent, var(--green-500), transparent)' }} />
+   </div>
+
+   {/* v1111: 만든 것을 왼쪽에 세워 둔다. 아래에 쌓으면 스크롤을 내려야 보였다. */}
+   <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+    <div style={{ width: 340, flexShrink: 0, position: 'sticky', top: 8 }}>
+     <div className="card" style={{ padding: 14 }}>
+      <div className="meta" style={{ fontWeight: 700, marginBottom: 10 }}>
+       만든 것 <span style={{ color: 'var(--text-quaternary)', fontWeight: 500 }}>{jobs.length ? `· ${jobs.length}` : ''}</span>
+      </div>
+      {!jobs.length && (
+       <div className="meta" style={{ fontSize: 11, color: 'var(--text-quaternary)', padding: '18px 0', textAlign: 'center' }}>아직 없습니다</div>
+      )}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(145px, 1fr))', gap: 10 }}>
+       {jobs.map(j => (
+        <div key={j.id} style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
+         {j.resultUrl
+          ? <video src={j.resultUrl} controls style={{ width: '100%', display: 'block', background: '#000' }} />
+          : <div style={{ width: '100%', height: 86, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'var(--bg-subtle)', fontSize: 10.5, textAlign: 'center', padding: 6,
+              color: j.error ? 'var(--red-600)' : 'var(--text-quaternary)' }}>
+             {j.error ? '실패' : (j.phase || '대기 중')}
+            </div>}
+         <div style={{ padding: '6px 7px', fontSize: 10 }}>
+          <div style={{ fontWeight: 700, color: 'var(--text-secondary)' }}>
+           v{j.version} · {j.params?.mode === 'interview' ? '인터뷰' : '비하인드'}
+          </div>
+          <div style={{ color: 'var(--text-quaternary)' }}>{j.params?.duration}초 · {j.params?.resolution}</div>
+          <div style={{ color: 'var(--text-quaternary)', marginTop: 2, maxHeight: 26, overflow: 'hidden', lineHeight: 1.35 }}>{j.params?.situation}</div>
+          {j.error && <div style={{ color: 'var(--red-600)', marginTop: 3, lineHeight: 1.35 }}>{j.error}</div>}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+           {j.resultUrl && (
+            <button type="button" onClick={() => dlVideo(j.resultUrl)}
+             style={{ fontSize: 10, fontWeight: 700, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--green-600)' }}>
+             <Download size={10} style={{ verticalAlign: '-1px', marginRight: 2 }} />저장</button>
+           )}
+           {!j.loading && (
+            <button type="button" title="이 기록의 설정 그대로 다시 뽑습니다"
+             onClick={() => runGen({ mode: j.params?.mode, situation: j.params?.situation, lang: j.params?.lang,
+              duration: j.params?.duration, resolution: j.params?.resolution, aspect: j.params?.aspect,
+              dlgTr: j.params?.dlgTr || null, refs: normRefs(j.params?.refsSnapshot) })}
+             style={{ fontSize: 10, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--text-tertiary)' }}>재생성</button>
+           )}
+           {!j.loading && (
+            <button type="button" title="이 기록의 설정과 레퍼런스를 입력으로 되돌립니다"
+             onClick={() => loadJob(j)}
+             style={{ fontSize: 10, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--text-tertiary)' }}>불러오기</button>
+           )}
+           {j.generatedPrompt && (
+            <button type="button" onClick={() => up({ feedbackOpen: v.feedbackOpen === j.id ? false : j.id })}
+             style={{ fontSize: 10, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--text-tertiary)' }}>
+             {v.feedbackOpen === j.id ? '프롬프트 닫기' : '프롬프트'}</button>
+           )}
+          </div>
+          {v.feedbackOpen === j.id && j.generatedPrompt && (
+           <pre style={{ marginTop: 6, padding: 8, borderRadius: 6, background: 'var(--bg-subtle)', fontSize: 9.5,
+            whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 220, overflow: 'auto' }}>{j.generatedPrompt}</pre>
+          )}
+         </div>
+        </div>
+       ))}
+      </div>
+     </div>
+    </div>
+
+    <div style={{ flex: 1, minWidth: 0 }}>
+
+   <div className="card" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div style={{ display: 'flex', gap: 8 }}>
+     {[{ id: 'behind', label: '비하인드', desc: '촬영장 스케치 · 폰카 핸드헬드' }, { id: 'interview', label: '인터뷰', desc: '준비된 인터뷰 · 카메라 고정' }].map(m => (
+      <button key={m.id} type="button" onClick={() => up({ mode: m.id })}
+       style={{ flex: 1, padding: '12px 14px', borderRadius: 10, cursor: 'pointer', textAlign: 'left',
+        background: v.mode === m.id ? 'rgba(34,197,94,0.12)' : 'transparent',
+        border: `1px solid ${v.mode === m.id ? 'var(--green-500)' : 'var(--border-strong)'}`,
+        color: v.mode === m.id ? 'var(--green-600)' : 'var(--text-secondary)' }}>
+       <div style={{ fontWeight: 800, fontSize: 13 }}>{m.label}</div>
+       <div style={{ fontSize: 11, marginTop: 3, opacity: 0.8 }}>{m.desc}</div>
+      </button>
+     ))}
+    </div>
+
+    <div>
+     <label className="meta" style={{ display: 'block', marginBottom: 6, fontWeight: 700 }}>
+      {isInterview ? '인터뷰 대본' : '상황 묘사'}
+     </label>
+     <textarea ref={extraTaRef} value={v.situation} onChange={e => up({ situation: e.target.value, dlgTr: null })}
+      placeholder={isInterview
+       ? '예) 대기실 의자에 앉은 @인물1 에게 인터뷰어가 묻는다.\n인터뷰어: "이번 작품에서 가장 어려웠던 장면은 뭐였나요?"\n@인물1 이 잠시 생각하다 답한다. "성벽 위에서 찍은 장면이요."'
+       : '예) @인물1 이 @공간1 세트에서 대사를 하다 웃음이 터져 NG를 낸다. 스태프들이 따라 웃고, 슬레이트를 든 스태프가 다시 준비한다.'}
+      style={{ width: '100%', minHeight: 130, padding: '10px 12px', borderRadius: 8, resize: 'vertical',
+       border: '1px solid var(--border-strong)', background: 'var(--bg-input)', color: 'var(--text-primary)',
+       fontSize: 13, lineHeight: 1.7 }} />
+     <div className="meta" style={{ marginTop: 5, color: 'var(--text-quaternary)', fontSize: 11 }}>
+      레퍼런스를 붙이면 <b>@인물1</b> 처럼 이름으로 부를 수 있습니다.
+     </div>
+    </div>
+
+    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+     <div style={{ minWidth: 150 }}>
+      <label className="meta" style={{ display: 'block', marginBottom: 5, fontWeight: 700 }}>
+       {isInterview ? '인터뷰이 언어' : '대사 언어'}
+      </label>
+      <FFSelect value={v.lang} onChange={x => up({ lang: x, dlgTr: null })} options={LANGS.map(l => ({ id: l.id, label: l.label }))} />
+     </div>
+     <div style={{ minWidth: 110 }}>
+      <label className="meta" style={{ display: 'block', marginBottom: 5, fontWeight: 700 }}>길이</label>
+      <FFSelect value={String(vDur)} onChange={x => up({ duration: Number(x) })}
+       options={[5, 8, 10, 12, 15, 20, 25, 30].filter(x => x <= vMaxSec).map(x => ({ id: String(x), label: `${x}초` }))} />
+     </div>
+     <div style={{ minWidth: 110 }}>
+      <label className="meta" style={{ display: 'block', marginBottom: 5, fontWeight: 700 }}>해상도</label>
+      <FFSelect value={vRes} onChange={x => up({ resolution: x })} options={arkResOptions('video25').map(r => ({ id: r, label: r }))} />
+     </div>
+     <div style={{ minWidth: 110 }}>
+      <label className="meta" style={{ display: 'block', marginBottom: 5, fontWeight: 700 }}>화면비</label>
+      <FFSelect value={v.aspect} onChange={x => up({ aspect: x })}
+       options={[{ id: '9:16', label: '9:16 (세로)' }, { id: '16:9', label: '16:9 (가로)' }, { id: '1:1', label: '1:1 (정사각)' }]} />
+     </div>
+     {isInterview && (
+      <div className="meta" style={{ fontSize: 11, color: 'var(--text-quaternary)', paddingBottom: 9 }}>
+       인터뷰어는 한국어 · 화면에 나오지 않습니다
+      </div>
+     )}
+    </div>
+   </div>
+
+   {v.step === 'write' && (
+    <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
+     <button type="button" onClick={approve} disabled={v.extracting} className="btn-primary"
+      style={{ padding: '11px 26px', borderRadius: 10, fontWeight: 800, fontSize: 13, cursor: v.extracting ? 'default' : 'pointer' }}>
+      {v.extracting ? '읽는 중…' : '승인하고 레퍼런스 걸기'}
+     </button>
+    </div>
+   )}
+
+   {v.step === 'refs' && (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+     <button type="button" title="이 영상의 내용 · 레퍼런스를 모두 비우고 새로 시작합니다"
+      onClick={() => setConfirmDialog({ title: '새로 만들기', message: '지금 적어둔 내용과 걸어둔 레퍼런스를 모두 비웁니다. 생성 기록은 그대로 남습니다.', confirmLabel: '비우기',
+       onConfirm: () => { setConfirmDialog(null); up({ step: 'write', situation: '', dlgTr: null, error: '',
+        refs: { character: [], space: [], object: [], challenge: [] } }); } })}
+      style={{ fontSize: 11, padding: '4px 12px', borderRadius: 999, cursor: 'pointer', background: 'transparent',
+       border: '1px solid var(--border-strong)', color: 'var(--text-tertiary)' }}>+ 새로 만들기</button>
+     <button type="button" onClick={() => up({ step: 'write' })}
+      style={{ fontSize: 11, padding: '4px 12px', borderRadius: 999, cursor: 'pointer', background: 'transparent',
+       border: '1px solid var(--border-strong)', color: 'var(--text-tertiary)' }}>← 내용 고치기</button>
+     <button type="button" onClick={approve} disabled={v.extracting}
+      style={{ fontSize: 11, padding: '4px 12px', borderRadius: 999, cursor: 'pointer', background: 'transparent',
+       border: '1px solid var(--border-strong)', color: 'var(--text-tertiary)' }}>
+      {v.extracting ? '읽는 중…' : '레퍼런스 다시 뽑기'}
+     </button>
+     <span className="meta" style={{ fontSize: 11, color: 'var(--text-quaternary)' }}>자산을 안 건 자리는 글로만 들어갑니다</span>
+    </div>
+   )}
+
+   {v.step === 'refs' && needTr && (
+    <div className="card" style={{ padding: '18px 20px', marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+      <span className="meta" style={{ fontWeight: 700 }}>대사 번역 확인</span>
+      <span className="meta" style={{ fontSize: 11, color: 'var(--text-quaternary)' }}>
+       {isInterview ? `인터뷰어는 한국어 그대로 · 답하는 말만 ${langCur.label} 로` : `대사를 ${langCur.label} 로 옮겨 미리 봅니다`}
+      </span>
+      <button type="button" onClick={runTranslate} disabled={v.trLoading}
+       style={{ marginLeft: 'auto', fontSize: 11, padding: '4px 12px', borderRadius: 999, cursor: v.trLoading ? 'default' : 'pointer',
+        background: 'transparent', border: '1px solid var(--border-strong)', color: 'var(--text-tertiary)' }}>
+       {v.trLoading ? '옮기는 중…' : (v.dlgTr ? '다시 옮기기' : '번역 보기')}
+      </button>
+     </div>
+     {!v.dlgTr && !v.trLoading && (
+      <div className="meta" style={{ fontSize: 11.5, color: 'var(--text-quaternary)' }}>
+       아직 확인하지 않았습니다. 이대로 뽑으면 번역을 모델이 알아서 합니다.
+      </div>
+     )}
+     {v.dlgTr && v.dlgTr.length === 0 && (
+      <div className="meta" style={{ fontSize: 11.5, color: 'var(--text-quaternary)' }}>큰따옴표 안의 대사가 없습니다.</div>
+     )}
+     {v.dlgTr && v.dlgTr.length > 0 && (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+       {v.dlgTr.map((x, i) => (
+        <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+         <div style={{ flex: 1, minWidth: 0 }}>
+          {x.who && <div className="meta" style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-tertiary)' }}>{x.who}</div>}
+          <div style={{ fontSize: 11.5, color: 'var(--text-quaternary)', lineHeight: 1.6 }}>{x.ko}</div>
+         </div>
+         <div style={{ flex: 1, minWidth: 0 }}>
+          <textarea value={x.tr || ''}
+           onChange={e => { const val = e.target.value; up(p => ({ ...p, dlgTr: (p.dlgTr || []).map((y, j) => j === i ? { ...y, tr: val } : y) })); }}
+           style={{ width: '100%', minHeight: 44, padding: '6px 8px', borderRadius: 6, resize: 'vertical',
+            border: '1px solid var(--border-strong)', background: 'var(--bg-input)', color: 'var(--text-primary)',
+            fontSize: 11.5, lineHeight: 1.6 }} />
+         </div>
+        </div>
+       ))}
+       <div className="meta" style={{ fontSize: 10.5, color: 'var(--text-quaternary)' }}>
+        고친 문장이 그대로 영상에 들어갑니다. 모델이 다시 옮기지 않습니다.
+       </div>
+      </div>
+     )}
+    </div>
+   )}
+
+   {/* v1109: 칩 안에서 키우면 overflow 에 갇혀 잘리기만 한다. 시트는 여러 칸짜리
+       가로 이미지라 그렇게는 무슨 옷인지 볼 수가 없다 — 화면 위로 띄운다. */}
+   {v.preview && (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 4000, pointerEvents: 'none',
+     display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+     <div style={{ borderRadius: 10, padding: 6, background: 'var(--bg-primary)',
+      border: '1px solid var(--border-strong)', boxShadow: '0 18px 50px rgba(0,0,0,0.40)' }}>
+      <img src={v.preview.url} alt=""
+       style={{ display: 'block', width: 'auto', height: 'auto',
+        maxWidth: 'min(880px, 62vw)', maxHeight: '58vh', borderRadius: 6 }} />
+      <div style={{ padding: '6px 4px 2px', fontSize: 11.5, fontWeight: 700, color: 'var(--text-secondary)' }}>{v.preview.label}</div>
+     </div>
+    </div>
+   )}
+
+   {v.step === 'refs' && (
+   <div className="card" style={{ padding: '18px 20px', marginTop: 14, display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div className="meta" style={{ fontWeight: 700 }}>레퍼런스 <span style={{ color: 'var(--text-quaternary)', fontWeight: 500 }}>· 이미지 최대 12장</span></div>
+    {GROUPS.map(g => (
+     <div key={g.key}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
+       <span className="meta" style={{ fontWeight: 700, fontSize: 12 }}>{g.label}</span>
+       <button type="button" onClick={() => addSlot(g.key, '')}
+        style={{ fontSize: 11, padding: '3px 9px', borderRadius: 999, cursor: 'pointer', background: 'transparent',
+         border: '1px solid var(--border-strong)', color: 'var(--text-tertiary)' }}>+ 자리 추가</button>
+      </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+       {(v.refs[g.key] || []).length === 0 && (
+        <div className="meta" style={{ fontSize: 11, color: 'var(--text-quaternary)' }}>없음</div>
+       )}
+       {(v.refs[g.key] || []).map((r, i) => (
+        <div key={r.id || i} style={{ width: 116, borderRadius: 8, overflow: 'hidden',
+          border: `1px solid ${r.assetUrl ? 'var(--border-strong)' : 'var(--border-subtle)'}` }}>
+         {r.assetUrl
+          ? <img src={r.assetUrl} alt="" style={{ width: '100%', height: 74, objectFit: 'cover', display: 'block', cursor: 'zoom-in' }}
+             onMouseEnter={() => up({ preview: { url: r.assetUrl, label: r.name } })}
+             onMouseLeave={() => up({ preview: null })} />
+          : <button type="button" onClick={() => openPicker(g.key, i)}
+             style={{ width: '100%', height: 74, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'var(--bg-subtle)', border: 'none', cursor: 'pointer', fontSize: 10.5, color: 'var(--text-quaternary)' }}>
+             자산 걸기
+            </button>}
+         <div style={{ padding: '5px 6px', fontSize: 10.5 }}>
+          <div style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
+          {r.assetUrl && (
+           <button type="button" onClick={() => openPicker(g.key, i)}
+            style={{ fontSize: 10, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--text-tertiary)' }}>바꾸기</button>
+          )}
+          {r.voiceUrl && <div style={{ color: 'var(--green-600)', fontSize: 10 }}>목소리 O</div>}
+          {g.key === 'character' && (r.costume && r.costume.assetUrl ? (
+           <div style={{ marginTop: 4 }}>
+            {/* v1106: 어떤 옷을 걸었는지 눈으로 확인한다. 의상 시트는 여러 칸짜리라
+                이름만으로는 무엇인지 알 수가 없다 — 실제로 헬레네와 라오디케의
+                시트가 거의 같은 옷이어서 뒤바뀐 채로 여러 클립이 나갔다. */}
+            <button type="button" onClick={() => openCostumePicker(i)} title="의상 바꾸기"
+             style={{ display: 'block', width: '100%', padding: 0, lineHeight: 0, cursor: 'pointer',
+              background: 'none', border: '1px solid var(--green-500)', borderRadius: 4, overflow: 'hidden' }}>
+             <img src={r.costume.assetUrl} alt="" style={{ width: '100%', height: 38, objectFit: 'cover', display: 'block' }}
+              onMouseEnter={() => up({ preview: { url: r.costume.assetUrl, label: `${r.name} 의 의상` } })}
+              onMouseLeave={() => up({ preview: null })} />
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
+             <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--green-600)' }}>의상</span>
+             <span style={{ fontSize: 9.5, color: 'var(--text-quaternary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+              {r.costume.label || ''}
+             </span>
+             <button type="button" title="의상 떼기"
+              onClick={() => up(p => ({ ...p, refs: { ...p.refs, character: (p.refs.character || []).map((x, j) => j === i ? { ...x, costume: null } : x) } }))}
+              style={{ fontSize: 9.5, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--text-quaternary)' }}>떼기</button>
+            </div>
+           </div>
+          ) : (
+           <button type="button" onClick={() => openCostumePicker(i)}
+            style={{ display: 'block', marginTop: 4, fontSize: 10, cursor: 'pointer', background: 'none', border: 'none', padding: 0,
+             color: 'var(--text-tertiary)' }}>+ 의상</button>
+          ))}
+          <button type="button" onClick={() => removeRef(g.key, i)}
+           style={{ marginTop: 3, fontSize: 10, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--text-quaternary)' }}>삭제</button>
+         </div>
+        </div>
+       ))}
+      </div>
+     </div>
+    ))}
+    <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12 }}>
+     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7, flexWrap: 'wrap' }}>
+      <span className="meta" style={{ fontWeight: 700, fontSize: 12 }}>챌린지 레퍼런스</span>
+      <span className="meta" style={{ fontSize: 10.5, color: 'var(--text-quaternary)' }}>영상 1개 · 따라 할 동작만 가져옵니다</span>
+      <label style={{ fontSize: 11, padding: '3px 9px', borderRadius: 999, cursor: 'pointer',
+       border: '1px solid var(--border-strong)', color: 'var(--text-tertiary)' }}>
+       + 영상
+       <input type="file" accept="video/*" style={{ display: 'none' }}
+        onChange={e => { addChallenge(e.target.files); e.target.value = ''; }} />
+      </label>
+     </div>
+     {!challengeRef && <div className="meta" style={{ fontSize: 11, color: 'var(--text-quaternary)' }}>없음</div>}
+     {challengeRef && (
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+       <video src={challengeRef.dataUrl} controls style={{ width: 200, borderRadius: 8, display: 'block' }} />
+       <div style={{ fontSize: 11, lineHeight: 1.8 }}>
+        <div style={{ fontWeight: 700 }}>@{challengeRef.refName}</div>
+        <div style={{ color: 'var(--text-quaternary)' }}>{challengeRef.name}</div>
+        <div style={{ color: 'var(--text-quaternary)' }}>
+         {challengeRef.sec ? challengeRef.sec.toFixed(1) + '초' : ''}{challengeRef.w ? ' · ' + challengeRef.w + 'x' + challengeRef.h : ''}
+        </div>
+        <button type="button" onClick={() => removeRef('challenge', 0)}
+         style={{ marginTop: 3, fontSize: 10, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--text-quaternary)' }}>삭제</button>
+       </div>
+      </div>
+     )}
+    </div>
+   </div>
+   )}
+
+   {v.error && (
+    <div className="card" style={{ padding: '12px 16px', marginTop: 12, borderColor: 'var(--red-500)', color: 'var(--red-600)', fontSize: 12 }}>{v.error}</div>
+   )}
+
+   {v.step === 'refs' && (
+   <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
+    <button type="button" onClick={() => runGen()} className="btn-primary"
+     style={{ padding: '11px 26px', borderRadius: 10, fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
+     {isInterview ? '인터뷰 생성' : '비하인드 생성'} · {cf.usd}({cf.krw})
+    </button>
+   </div>
+   )}
+
+    </div>
+   </div>
+  </div>
+ );
+})()}
+
  {appScreen === 'single' && singleTaskId === 'video-upscale' && (() => {
  const v = upscaleData;
  const up = (patch) => setUpscaleData(p => typeof patch === 'function' ? patch(p) : ({ ...p, ...patch }));
@@ -39207,7 +40695,7 @@ AUDIO:
 
 
  {/* 단일작업 — 빈 워크스페이스 (미연결 작업) */}
- {appScreen === 'single' && singleTaskId && singleTaskId !== 'plan-adapt' && singleTaskId !== 'plan-scenario-analyze' && singleTaskId !== 'plan-scenario-translate' && singleTaskId !== 'plan-video-analyze' && singleTaskId !== 'image-custom' && singleTaskId !== 'image-character' && singleTaskId !== 'image-title' && singleTaskId !== 'image-sheet' && singleTaskId !== 'image-poster' && singleTaskId !== 'image-booklet' && singleTaskId !== 'video-custom' && singleTaskId !== 'video-narrative' && singleTaskId !== 'video-vfx' && singleTaskId !== 'video-upscale' && singleTaskId !== 'sound-music' && singleTaskId !== 'sound-voice' && singleTaskId !== 'etc-srt' && singleTaskId !== 'etc-actor-auth' && currentView === 'single-blank' && (() => {
+ {appScreen === 'single' && singleTaskId && singleTaskId !== 'plan-adapt' && singleTaskId !== 'plan-scenario-analyze' && singleTaskId !== 'plan-scenario-translate' && singleTaskId !== 'plan-video-analyze' && singleTaskId !== 'image-custom' && singleTaskId !== 'image-character' && singleTaskId !== 'image-title' && singleTaskId !== 'image-sheet' && singleTaskId !== 'image-poster' && singleTaskId !== 'image-booklet' && singleTaskId !== 'video-custom' && singleTaskId !== 'video-narrative' && singleTaskId !== 'video-vfx' && singleTaskId !== 'video-extra' && singleTaskId !== 'video-upscale' && singleTaskId !== 'sound-music' && singleTaskId !== 'sound-voice' && singleTaskId !== 'etc-srt' && singleTaskId !== 'etc-actor-auth' && currentView === 'single-blank' && (() => {
  const item = SINGLE_TASK_CATALOG.flatMap((g) => g.items).find((i) => i.id === singleTaskId);
  if (!item) return null;
  return (
@@ -40142,6 +41630,57 @@ AUDIO:
  <div className="micro" style={{ color: 'var(--text-quaternary)', marginTop: 10, lineHeight: 1.6 }}>
  리전 <strong>ap-southeast</strong>(싱가포르) 기준입니다. 모델 사용 전에 콘솔에서 <strong>선불 리소스 팩</strong>을 구매해 해당 모델을 활성화해야 합니다.<br />
  영상 생성은 전부 이 키로 나갑니다 — 이 키가 없으면 영상이 만들어지지 않습니다.
+ </div>
+ </div>
+ </div>
+
+ {/* v1114: 배우 인증용 Access Key. 여태 입력 칸이 없어 .env.local 에 박힌 값만
+     쓰였고, 그게 다른 계정 키라 링크 발급이 그 계정으로 나갔다. 세터는 선언만 돼 있었다. */}
+ <div style={{ marginBottom: 24 }}>
+ <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+ <Sparkles size={13} color="var(--green-500)" />
+ <span className="micro" style={{ color: 'var(--green-700)' }}>ACCESS KEY · 배우 인증 · 자산 조회</span>
+ </div>
+ <div style={{ padding: '16px 18px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)' }}>
+ <div className="meta" style={{ marginBottom: 10, lineHeight: 1.6 }}>
+ 배우 인증 링크 발급과 배우 자산 조회에 씁니다. 위의 ModelArk API Key 와는 <strong>다른 키</strong>입니다 —
+ BytePlus 콘솔 우측 상단 <strong>사용자 이름 › IAM › Key management › Create new access key</strong> 에서 만듭니다.{' '}
+ <a href="https://console.byteplus.com/iam/keymanage" target="_blank" rel="noreferrer" style={{ color: 'var(--green-700)' }}>BytePlus IAM 열기</a>
+ </div>
+ <div className="micro" style={{ color: 'var(--text-tertiary)', marginBottom: 4 }}>Access Key ID</div>
+ <input type="password" className="feedback-input"
+ placeholder="AKLT… 붙여넣기"
+ value={arkAccessKeyId}
+ onChange={(e) => setArkAccessKeyId(sanitizeApiKey(e.target.value))}
+ style={{ fontFamily: 'SF Mono, monospace', fontSize: 12, marginBottom: 10 }}
+ />
+ <div className="micro" style={{ color: 'var(--text-tertiary)', marginBottom: 4 }}>Secret Access Key</div>
+ <input type="password" className="feedback-input"
+ placeholder="Secret Key 붙여넣기"
+ value={arkSecretKey}
+ onChange={(e) => setArkSecretKey(sanitizeApiKey(e.target.value))}
+ style={{ fontFamily: 'SF Mono, monospace', fontSize: 12, marginBottom: 8 }}
+ />
+ <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+ <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700,
+ background: (arkAccessKeyId && arkSecretKey) ? 'var(--green-50)' : 'rgba(239,68,68,0.1)',
+ color: (arkAccessKeyId && arkSecretKey) ? 'var(--green-700)' : 'var(--state-error)' }}>
+ {(arkAccessKeyId && arkSecretKey) ? '입력됨' : (arkAccessKeyId || arkSecretKey) ? '한쪽만 입력됨' : '미입력'}
+ </span>
+ {arkAccessKeyId && (
+ <span className="micro mono-font" style={{ color: 'var(--text-quaternary)' }}>
+ 지금 키: {arkAccessKeyId.slice(0, 8)}…
+ </span>
+ )}
+ {(arkAccessKeyId || arkSecretKey) && (
+ <button className="btn btn-ghost btn-sm" onClick={() => { setArkAccessKeyId(''); setArkSecretKey(''); }}>
+ <X size={11} /> 키 삭제
+ </button>
+ )}
+ </div>
+ <div className="micro" style={{ color: 'var(--text-quaternary)', marginTop: 10, lineHeight: 1.6 }}>
+ ★ <strong>위 ModelArk API Key 와 같은 계정</strong>에서 만든 키여야 합니다. 배우 자산은 그 계정 안에서만 유효해서,
+ 계정이 다르면 인증은 되는데 영상 생성 때 자산을 찾지 못합니다. 프로젝트는 <strong>default</strong> 를 씁니다.
  </div>
  </div>
  </div>
