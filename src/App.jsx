@@ -11361,7 +11361,7 @@ const callClaude = async (systemPrompt, userMessage, options = {}) => {
  if (typeof console !== 'undefined') console.warn('[callClaude] 잘렸지만 부분 결과 반환:', text.length, '자');
  return text;
  }
- throw new Error(`응답이 너무 길어 잘렸습니다${usageInfo}. 시나리오를 더 짧게 나눠 업로드하거나 에피소드 수를 줄여주세요.`);
+ throw new Error(`응답이 너무 길어 잘렸습니다${usageInfo}. 다시 시도하거나, 그래도 같으면 시나리오·구간을 더 짧게 나눠주세요.`);
  }
  return data.content
  .filter((b) => b.type === 'text')
@@ -18603,7 +18603,8 @@ const projectRefLiveSrc = (item) => {
  // v970: 자세 항목이 늘었으므로 상한을 올린다. 여기서 잘리면 마지막 인물 줄이
  //   사라지고, 다음 클립이 그 사람의 자리를 지어낸다 — 조용히 틀리는 쪽이라 위험하다.
  // v1047: 소지물 목록이 인물마다 붙으므로 다시 올린다.
- const out = await callClaude(sys, content, { model: 'claude-opus-5', maxTokens: 1400, workCat: 'video' });
+ // v1122: Opus 5 는 같은 내용을 더 많은 토큰으로 쓴다 — 잘리면 조용히 틀리는 쪽이라 넉넉히 준다.
+ const out = await callClaude(sys, content, { model: 'claude-opus-5', maxTokens: 3000, workCat: 'video' });
  const note = String(out || '').trim();
  projectShotRefCache.current.set(key, note);
  return note;
@@ -19171,10 +19172,20 @@ const projectRefLiveSrc = (item) => {
    .filter(nm => !txt.split(/(?=Cut (?:to|back to))/)
      .some(c => c.includes(nm) && readableCut.test(c) && !obscured.test(c)));
 
+ // v1122: Opus 5 로 올린 뒤 '응답이 너무 길어 잘렸습니다' 가 잦았다. 같은 프롬프트를
+ //   Sonnet 보다 3할 더 많은 토큰으로 쓰는데 한도는 1600 그대로였다.
+ //   한도는 상한일 뿐이라 올려 둬도 안 쓴 만큼은 청구되지 않는다.
  const writePrompt = async (extra) => {
-   const raw = await callClaude(PROJECT_VIDEO_PROMPT_SYS, extra ? `${user}\n\n${extra}` : user, {
-     model: 'claude-opus-5', maxTokens: 1600, workCat: 'video',
+   const ask = (mt) => callClaude(PROJECT_VIDEO_PROMPT_SYS, extra ? `${user}\n\n${extra}` : user, {
+     model: 'claude-opus-5', maxTokens: mt, workCat: 'video',
    });
+   let raw;
+   try { raw = await ask(3600); }
+   catch (e) {
+     if (!/잘렸습니다/.test(String(e?.message || ''))) throw e;
+     console.warn('[프로젝트] 프롬프트가 잘려 한도를 올려 다시 씁니다 — 3600 → 7000');
+     raw = await ask(7000);
+   }
    return String(raw || '').trim().replace(/^["'`]+|["'`]+$/g, '');
  };
  if (draftPrompt) {
@@ -38809,7 +38820,7 @@ AUDIO:
     '[{"who":"화자 이름 또는 빈 문자열","ko":"원문 그대로","tr":"옮긴 문장"}]',
     '큰따옴표 안에 아무것도 없으면 빈 배열 [] 만 출력한다.',
    ].join('\n');
-   const out = String(await callClaude(sys, situation, { model: 'claude-opus-5', maxTokens: 1500, workCat: 'video' }) || '');
+   const out = String(await callClaude(sys, situation, { model: 'claude-opus-5', maxTokens: 3000, workCat: 'video' }) || '');   // v1122
    const m = /\[[\s\S]*\]/.exec(out);
    if (!m) throw new Error('대사를 찾지 못했습니다.');
    const arr = JSON.parse(m[0]);
@@ -38862,7 +38873,7 @@ AUDIO:
   up({ extracting: true, error: '' });
   try {
    const out = await callClaude(PROJECT_REF_EXTRACT_SYS, `[씬 key=x]\n${situation}`,
-    { model: 'claude-opus-5', maxTokens: 1200, workCat: 'video' });
+    { model: 'claude-opus-5', maxTokens: 2400, workCat: 'video' });   // v1122
    const parsed = parseJsonFromResponse(out);
    const sc = (Array.isArray(parsed?.scenes) ? parsed.scenes : [])[0] || {};
    const mk = (names, key) => [...new Set((names || []).map(x => String(x || '').trim()).filter(Boolean))]
@@ -39003,7 +39014,7 @@ AUDIO:
       + src.dlgTr.map(x => (x.who ? x.who + ': ' : '') + '"' + (x.tr || '') + '"').join('\n')
     : '';
    const body = String(await callClaude(rulebook, `${head}\n${text}${mfs}${trBlock}`,
-    { model: 'claude-opus-5', maxTokens: 1600, workCat: 'video' }) || '').replace(/```/g, '').trim();
+    { model: 'claude-opus-5', maxTokens: 3200, workCat: 'video' }) || '').replace(/```/g, '').trim();   // v1122
    if (!body) throw new Error('프롬프트 생성 결과가 비었습니다.');
    let finalPrompt = body;
    if (outfitPairs.length) finalPrompt = `${EXTRA_IDENTITY_RULE}\n${outfitPairs.join('\n')}\n\n${finalPrompt}`;
