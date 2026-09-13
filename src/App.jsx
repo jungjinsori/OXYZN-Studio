@@ -1167,7 +1167,8 @@ const DlAudioPlayer = ({ src, onPlayingChange }) => {
 };
 
 // ─────────────────────────────────────────────────────────────
-// v669: FFS 파일 네이밍 규칙 — FFS_(파일유형)_(구분)_v001
+// v669: 파일 네이밍 규칙 — OXYZN_(파일유형)_(구분)_v001
+// v1123: 앞머리를 FFS_ 에서 OXYZN_ 으로 바꿨다. 옛 FFS_ 파일과는 번호를 따로 센다.
 //  · 버전 번호는 메인 프로세스가 다운로드폴더+아카이브를 스캔해 자동 증가
 //  · (묘사설명)은 Claude가 프롬프트/상황묘사를 핵심 키워드로 요약
 // ─────────────────────────────────────────────────────────────
@@ -1199,7 +1200,7 @@ const ffsKeyword = async (text) => {
  _ffsKwCache.set(src, kw);
  return kw;
 };
-// FFS_유형_구분… 조합 후 버전 번호를 붙여 최종 파일명(확장자 제외) 반환
+// OXYZN_유형_구분… 조합 후 버전 번호를 붙여 최종 파일명(확장자 제외) 반환
 // v702: version(생성 순번)이 주어지면 그 번호를 그대로 사용(디스크 스캔 안 함).
 //       프로그램에 쌓인 생성 횟수 기준 버전(v001, v012 …)으로 저장하기 위함.
 //       version 미지정 시에만 기존처럼 메인에서 디스크 스캔으로 다음 번호 부여(폴백).
@@ -1207,13 +1208,16 @@ const ffsKeyword = async (text) => {
 // v965: 버전은 '이름이 같을 때' 만 올라간다. 예전에는 호출부가 version 을 주면
 //   폴더를 뒤지지 않고 그 값을 그대로 썼는데, 그건 워크스페이스의 생성 회차라서
 //   서로 다른 회차가 같은 번호를 받았다. 실제로 이렇게 남아 있다.
-//     FFS_VFX_요소변경_v001.mp4 · FFS_VFX_요소변경_v001_1.mp4  ← OS 가 붙인 _1
-//     FFS_캐릭터_시험준비_v002.png                              ← v001 없이 v002 부터
+//     OXYZN_VFX_요소변경_v001.mp4 · OXYZN_VFX_요소변경_v001_1.mp4  ← OS 가 붙인 _1
+//     OXYZN_캐릭터_시험준비_v002.png                            ← v001 없이 v002 부터
 //   이제 항상 같은 이름을 세어 다음 번호를 매긴다. version 은 조회가 실패했을
 //   때의 폴백으로만 쓴다.
-const ffsBuildName = async ({ type, parts = [], version } = {}) => {
+const ffsBuildName = async ({ type, parts = [], version, fixedVersion = false } = {}) => {
  const clean = [ffsToken(type, 20), ...parts.map(p => ffsToken(p, 24))].filter(Boolean);
- const base = 'FFS_' + clean.join('_');
+ const base = 'OXYZN_' + clean.join('_');
+ // v1125: 번호를 부르는 쪽이 정한다(프로젝트 클립의 생성 순번). 이때는 폴더를 세지 않는다.
+ const fv = Number(version);
+ if (fixedVersion && Number.isFinite(fv) && fv > 0) return `${base}_v${String(Math.round(fv)).padStart(3, '0')}`;
  try {
  const res = await window.electronAPI?.ffsName?.(base);
  if (res && res.success && res.name) return res.name;
@@ -6006,6 +6010,23 @@ const genKeepAll = async (ws, items) => Promise.all(
 
 // 재생·저장은 받아둔 파일을 먼저 쓴다. 없으면 원본 주소(하루 안이면 살아 있다).
 const projectClipSrc = (seg) => (seg?.clipFile ? localFileUrl(seg.clipFile) : String(seg?.clipUrl || ''));
+
+// v1125: 한 클립에서 뽑은 영상들의 생성 순번 — 저장 파일의 _vNNN 이 이 번호다.
+//   [지금 클립, ...takes] 순서로 돌려준다. genNo 가 박힌 것은 그대로 쓰고, 없는 옛 것은
+//   시각 순으로 센다. 옛 것은 모두 새 것보다 먼저 뽑혔고, 다음 생성 때 이 번호가 박힌다 —
+//   그 뒤로는 목록이 8개로 잘리거나 되돌리기로 순서가 바뀌어도 번호가 밀리지 않는다.
+const projectGenNos = (seg) => {
+ const all = [
+  ...(seg?.clipUrl ? [{ ts: seg.clipTs || 0, genNo: seg.clipGenNo || 0 }] : []),
+  ...(seg?.takes || []),
+ ];
+ const legacy = all.map((x, i) => ({ x, i })).filter(o => !o.x.genNo)
+  // 시각이 같거나 없으면 목록 뒤쪽(더 오래된 것)을 먼저 센다
+  .sort((a, b) => ((a.x.ts || 0) - (b.x.ts || 0)) || (b.i - a.i));
+ const rank = new Map(legacy.map((o, k) => [o.i, k + 1]));
+ return all.map((x, i) => x.genNo || rank.get(i) || 0);
+};
+const projectVerLabel = (n) => (n > 0 ? `v${String(n).padStart(3, '0')}` : '');
 
 // v958: 저장 형식 번호. 2 = 검토·피드백이 빠진 4단계 체계(v932 이후).
 const PROJECT_SCHEMA = 2;
@@ -15652,7 +15673,7 @@ export default function DramaAutomation() {
  const handleDownloadCharacter = async (url) => {
  const gen = (characterWsData?.generations || []).find(g => (g.urls || []).includes(url));
  const nm = (gen?.params?.name || characterWsData?.name || '').trim();
- // v764: FFS_캐릭터_이름_v001 형식 (이름 미입력 시 키워드로 폴백)
+ // v764: OXYZN_캐릭터_이름_v001 형식 (이름 미입력 시 키워드로 폴백)
  const namePart = nm || await ffsKeyword(characterWsData?.features);
  const fileName = (await ffsBuildName({ type: '캐릭터', parts: [namePart] })) + '.png';
  setConfirmDialog({
@@ -18615,15 +18636,16 @@ const projectRefLiveSrc = (item) => {
  };
 
  // v909: 클립 저장 — 다른 작업과 같은 이름 규칙 · 확인 후 저장 · 아카이브 보관
- const handleProjectDownloadClip = async (seg, at) => {
+ // v1125: genNo 를 주면 폴더를 세지 않고 그 번호로 짓는다(생성 순서 = 버전 번호)
+ const handleProjectDownloadClip = async (seg, at, genNo = 0) => {
  if (!seg?.clipUrl && !seg?.clipFile) return;
  const m = projectSegMeta(seg);
  const base = (projectData.name || '무제').trim();
- // v953: 파일명에서 '프로젝트' 를 뺀다 — FFS_제목_S01_C01_v001
+ // v953: 파일명에서 '프로젝트' 를 뺀다 — OXYZN_제목_S01_C01_v001
  //   씬 번호도 두 자리로 맞춘다(S1 → S01). 정렬했을 때 10번 씬이 1번 앞에 오지 않게.
  const sceneNo = m.no ? `S${String(m.no).padStart(2, '0')}` : '';
  const parts = [base, sceneNo, `C${String(at + 1).padStart(2, '0')}`].filter(Boolean);
- const fileName = (await ffsBuildName({ parts })) + '.mp4';
+ const fileName = (await ffsBuildName({ parts, version: genNo, fixedVersion: genNo > 0 })) + '.mp4';
  setConfirmDialog({
  title: '클립 저장',
  message: `"${fileName}"\n\n다운로드 폴더에 저장되고, 아카이브(비디오)에도 보관됩니다.`,
@@ -19361,8 +19383,12 @@ const projectRefLiveSrc = (item) => {
  mark('클립 받아두기');
 
  // v928: 다시 뽑기 전의 결과를 남긴다 — 되돌아가 비교할 수 있어야 한다
+ // v1125: 생성 순번. 지금까지 나온 가장 큰 번호 + 1 — 잘려 나간 테이크가 있어도 앞으로만 간다.
+ const nosBefore = projectGenNos(seg);
+ const offBefore = seg.clipUrl ? 1 : 0;
+ const genNo = Math.max(seg.genSeq || 0, ...nosBefore.map(n => n || 0)) + 1;
  const prevTake = seg.clipUrl
- ? [{ url: seg.clipUrl, file: seg.clipFile || '', ts: seg.clipTs || 0, prompt: seg.prompt || '', feedback: seg.feedback || '' }]
+ ? [{ url: seg.clipUrl, file: seg.clipFile || '', ts: seg.clipTs || 0, prompt: seg.prompt || '', feedback: seg.feedback || '', genNo: nosBefore[0] || 0 }]
  : [];
  const clipPatch = {
  prompt: finalPrompt, clipUrl: url, clipFile, clipTs, feedback: fb,
@@ -19371,7 +19397,8 @@ const projectRefLiveSrc = (item) => {
  //   있어야 한다. 없어서 이번(지설 서기→앉기) 진단이 반쯤만 가능했다.
  //   몇백 자짜리 글이라 저장본에 부담이 없다.
  contNote: contNote || '',
- takes: [...prevTake, ...(seg.takes || [])].slice(0, 8),
+ takes: [...prevTake, ...(seg.takes || []).map((t, k) => ({ ...t, genNo: t.genNo || nosBefore[k + offBefore] || 0 }))].slice(0, 8),
+ clipGenNo: genNo, genSeq: genNo,
  };
  setProjectData(p => {
  const segments = p.segments.map(g => (g.id === segId ? { ...g, ...clipPatch } : g));
@@ -25747,10 +25774,10 @@ ${titleStyleGuide ? `\n[레퍼런스 STYLE GUIDE — 타이포 마감·질감·�
  }
  return ffsToken(person, 24) || '인물';
  };
- // ZIP 엔트리용 파일명 — 묶음 안에서 인물 중복 시 줄 인덱스로 구분 (FFS_TTS_인물_NNN)
+ // ZIP 엔트리용 파일명 — 묶음 안에서 인물 중복 시 줄 인덱스로 구분 (OXYZN_TTS_인물_NNN)
  const _makeTtsFilename = (lineIdx, line, voiceRef) => {
  const person = _ttsPersonName(line, voiceRef);
- return `FFS_TTS_${person}_${String(lineIdx).padStart(3, '0')}`;
+ return `OXYZN_TTS_${person}_${String(lineIdx).padStart(3, '0')}`;
  };
 
  const handleDownloadOneTts = async (lineIdx) => {
@@ -33042,6 +33069,7 @@ ${sampleText}`;
  style={{ width: '100%', display: 'block', background: '#000', aspectRatio: '16/9' }} />
  <div style={{ padding: '7px 9px' }}>
  <div className="micro" style={{ color: 'var(--text-quaternary)' }}>
+ {projectVerLabel(projectGenNos(cur)[ti + 1]) && <strong style={{ color: 'var(--text-secondary)', marginRight: 5 }}>{projectVerLabel(projectGenNos(cur)[ti + 1])}</strong>}
  {tk.ts ? fmtProjectTime(tk.ts) : '시각 미상'}
  </div>
  {tk.feedback && (
@@ -33050,7 +33078,15 @@ ${sampleText}`;
  “{tk.feedback}”
  </div>
  )}
- <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: 6, width: '100%', justifyContent: 'center', height: 22, fontSize: 10.5 }}
+ {/* v1124: 이전에 뽑은 영상도 바로 저장한다 — 되돌리지 않고도 받을 수 있게 */}
+ <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
+ <button type="button" className="btn btn-ghost btn-sm" title="이 영상 저장"
+ disabled={!tk.url && !tk.file}
+ onClick={() => handleProjectDownloadClip({ ...cur, clipUrl: tk.url || '', clipFile: tk.file || '', clipTs: tk.ts || 0 }, at, projectGenNos(cur)[ti + 1] || 0)}
+ style={{ flex: '0 0 30px', height: 22, padding: 0, justifyContent: 'center' }}>
+ <Download size={11} />
+ </button>
+ <button type="button" className="btn btn-ghost btn-sm" style={{ flex: 1, justifyContent: 'center', height: 22, fontSize: 10.5 }}
  disabled={!!projectGenJob}
  onClick={() => setConfirmDialog({
  title: '이 결과로 되돌리기',
@@ -33060,11 +33096,16 @@ ${sampleText}`;
  setConfirmDialog(null);
  setProjectData(p2 => ({ ...p2, segments: p2.segments.map(g2 => {
  if (g2.id !== cur.id) return g2;
- const rest = (g2.takes || []).filter((_, k) => k !== ti);
+ // v1125: 순번은 영상에 붙은 것이다 — 자리를 바꿔도 번호는 따라간다
+ const nos = projectGenNos(g2);
+ const off = g2.clipUrl ? 1 : 0;
+ const stamped = (g2.takes || []).map((t, k) => ({ ...t, genNo: t.genNo || nos[k + off] || 0 }));
+ const rest = stamped.filter((_, k) => k !== ti);
  const nowTake = g2.clipUrl
- ? [{ url: g2.clipUrl, file: g2.clipFile || '', ts: g2.clipTs || 0, prompt: g2.prompt || '', feedback: g2.feedback || '' }]
+ ? [{ url: g2.clipUrl, file: g2.clipFile || '', ts: g2.clipTs || 0, prompt: g2.prompt || '', feedback: g2.feedback || '', genNo: nos[0] || 0 }]
  : [];
  return { ...g2, clipUrl: tk.url, clipFile: tk.file || '', clipTs: tk.ts || Date.now(), prompt: tk.prompt || '',
+ clipGenNo: stamped[ti]?.genNo || 0, genSeq: Math.max(g2.genSeq || 0, ...nos.map(n => n || 0)),
  feedback: tk.feedback || '', takes: [...nowTake, ...rest].slice(0, 8) };
  }) }));
  try { showToast('이전 결과로 되돌렸습니다.', 'load'); } catch {}
@@ -33072,6 +33113,7 @@ ${sampleText}`;
  })}>
  이걸로 되돌리기
  </button>
+ </div>
  </div>
  </div>
  ))}
@@ -33161,9 +33203,9 @@ ${sampleText}`;
  </div>
  </div>
  )}
- <button type="button" className="btn btn-secondary" onClick={() => handleProjectDownloadClip(cur, at)}
+ <button type="button" className="btn btn-secondary" onClick={() => handleProjectDownloadClip(cur, at, projectGenNos(cur)[0] || 0)}
  style={{ marginTop: 8, width: '100%', justifyContent: 'center' }}>
- <Download size={13} /> 이 클립 저장
+ <Download size={13} /> 이 클립 저장{projectVerLabel(projectGenNos(cur)[0]) ? ` · ${projectVerLabel(projectGenNos(cur)[0])}` : ''}
  </button>
  <button type="button" className="btn btn-ghost btn-sm" onClick={() => projectUp({ step: 3 })}
  style={{ marginTop: 8, width: '100%', justifyContent: 'center' }}>
@@ -40178,7 +40220,7 @@ AUDIO:
  {instReady && (() => {
  // v1058: 파일명을 원곡과 맞춘다. 같은 인자로 이름을 만들고 Inst 만 뒤에 _inst 를 붙인다.
  //   전에는 장르+태그로 따로 지었더니(FFS_시네마틱_Inst_v001) 원곡과 짝인 게 안 보였다.
- //   이제 FFS_시네마틱_긴장_v001.mp3 / FFS_시네마틱_긴장_v001_inst.wav 로 나란히 남는다.
+ //   이제 OXYZN_시네마틱_긴장_v001.mp3 / OXYZN_시네마틱_긴장_v001_inst.wav 로 나란히 남는다.
  // v1072: 그런데 번호가 어긋났다 — 원곡을 받고 Inst 를 받으면 _v002_inst 가 됐다.
  //   ffs-name 은 다운로드 폴더와 아카이브를 훑어 'base_vNNN' 의 최대값+1 을 준다.
  //   그 정규식이 `_v(\d{3})(?:\.|$|_)` 라 base_v001.mp3 뿐 아니라 base_v001_inst.wav

@@ -1244,11 +1244,11 @@ ipcMain.handle('downloads-rename', async (event, payload) => {
   }
 })
 
-// FFS 파일명 버전 계산 — base(FFS_유형_구분)와 동일한 파일이 다운로드 폴더+아카이브에
-// 이미 있으면 최대 버전 +1을 붙여 최종 이름 반환 (예: FFS_각색_제목 → FFS_각색_제목_v003)
+// 파일명 버전 계산 — base(OXYZN_유형_구분)와 동일한 파일이 다운로드 폴더+아카이브에
+// 이미 있으면 최대 버전 +1을 붙여 최종 이름 반환 (예: OXYZN_각색_제목 → OXYZN_각색_제목_v003)
 ipcMain.handle('ffs-name', (event, base) => {
   try {
-    const safeBase = String(base || 'FFS_file').replace(/[\\/:*?"<>|\x00-\x1f]/g, '').replace(/[. ]+$/, '').trim() || 'FFS_file'
+    const safeBase = String(base || 'OXYZN_file').replace(/[\\/:*?"<>|\x00-\x1f]/g, '').replace(/[. ]+$/, '').trim() || 'OXYZN_file'
     // v965: 한글은 같은 글자를 NFC(조합형)와 NFD(분해형) 두 방식으로 담을 수 있고
     //   macOS 파일명에는 둘이 섞여 있다. 정규화하지 않으면 분해형으로 저장된
     //   파일을 못 찾아서 같은 번호를 다시 발급하고, OS 가 뒤에 _1 을 붙인다.

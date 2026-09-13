@@ -53,7 +53,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setDownloadCategory: (cat) => ipcRenderer.invoke('set-download-category', cat),
   // 다운로드 폴더 실시간 미러 (우측 패널)
   downloadsList: () => ipcRenderer.invoke('downloads-list'),
-  // FFS 파일명 버전 계산 (다운로드+아카이브에서 다음 버전 번호 부여)
+  // 파일명 버전 계산 (OXYZN_ 앞머리) (다운로드+아카이브에서 다음 버전 번호 부여)
   ffsName: (base) => ipcRenderer.invoke('ffs-name', base),
   downloadsReveal: () => ipcRenderer.invoke('downloads-reveal'),
   // v855: 다운로드 항목 이름 바꾸기 (실제 파일도 rename)
