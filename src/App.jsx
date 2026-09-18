@@ -390,7 +390,7 @@ JSON 응답에 prompt 필드로 다음 구조의 텍스트를 담음:
 다음 항목을 영어 콤마 나열로 출력. 컷 맥락에 맞는 추가 항목도 함께.
 - no dissolve transitions
 - no burned-in subtitles, no captions, no on-screen dialogue text
-- no music, no BGM, no soundtrack, no score (dialogue + ambient environment sounds only)
+- No BGM
 - no duplicate characters in any single frame
 - no AI artifacts (extra fingers, distorted hands, melted faces)
 - ★ dialogue language: Korean only as written in the prompt (no foreign dubbing, no translation)
@@ -961,7 +961,8 @@ const EXTRA_BEHIND_RULEBOOK = (durationSec = 10, langLabel = 'Korean', hasChalle
 - 상황이 분명하지 않으면 레퍼런스가 준 의상을 입은 쪽으로 둔다.
 
 ## 소리 — 현장에서 녹음된 소리다
-- 배경음악 없음. 현장음만 — 목소리, 발소리, 옷 스치는 소리, 장비 소리, 공기.
+- 현장에서 나는 소리만 있다 — 목소리, 발소리, 옷 스치는 소리, 장비 소리, 공기.
+  음악을 금지하는 문구는 코드가 붙이므로 프롬프트에 적지 않는다.
 - ★ 목소리도 그 자리에서 녹음된 것이다. 부스에서 딴 깨끗한 내레이션이 아니다.
   말하는 사람과 카메라 사이의 거리가 목소리에 그대로 들린다 — 멀면 작고 울리고,
   가까우면 크고 또렷하다. 등을 돌리거나 고개를 돌리면 소리도 같이 바뀐다.
@@ -980,9 +981,13 @@ const EXTRA_BEHIND_RULEBOOK = (durationSec = 10, langLabel = 'Korean', hasChalle
 ## 언어
 ${EXTRA_LANG_LINE(langLabel)}
 
+## 괄호와 소리
+- 소괄호 ( ) 를 쓰지 않는다 — Seedance 에서 소괄호는 음악 채널이라 부연으로 적은 괄호가 음악을 부른다. 부연·시각은 대괄호 [ ] 로.
+- 사운드 부정 지시를 따로 쓰지 않는다. 현장에서 실제로 나는 소리만 적는다.
+
 ## 마지막 줄
 프롬프트 맨 끝에 이 한 줄을 그대로 붙인다 —
-FINAL: No BGM, only ambient and on-set sounds. One continuous handheld phone take, no cuts.${hasChallenge ? EXTRA_CHALLENGE_CLAUSE : ''}`;
+${PROJECT_FINAL_LINE} One continuous handheld phone take, no cuts.${hasChallenge ? EXTRA_CHALLENGE_CLAUSE : ''}`;
 };
 
 const EXTRA_INTERVIEW_RULEBOOK = (durationSec = 10, intervieweeLang = 'Korean', hasChallenge = false) => {
@@ -1022,7 +1027,8 @@ const EXTRA_INTERVIEW_RULEBOOK = (durationSec = 10, intervieweeLang = 'Korean', 
   생각하느라 잠깐 시선을 내리는 것.
 
 ## 소리 — 현장에서 녹음된 소리다
-- 배경음악 없음. 목소리와 조용한 실내 공기음만.
+- 목소리와 조용한 실내 공기음만 있다.
+  음악을 금지하는 문구는 코드가 붙이므로 프롬프트에 적지 않는다.
 - ★ 목소리는 그 방에서 녹음된 것이다. 부스 녹음이 아니다. 방의 울림이 살짝 얹히고,
   카메라와의 거리가 목소리에 들린다. 에어컨 · 복도 · 먼 발소리 같은 것이 아주 낮게 깔린다.
 - 목소리가 배경 위에 붕 떠 있으면 안 된다. 같은 마이크로 같이 들어온 소리처럼 섞인다.
@@ -1039,9 +1045,13 @@ const EXTRA_INTERVIEW_RULEBOOK = (durationSec = 10, intervieweeLang = 'Korean', 
 ${EXTRA_LANG_LINE(intervieweeLang)}
 - 두 언어가 한 클립에 같이 있어도 된다. 질문은 한국어, 답은 ${intervieweeLang} 다.
 
+## 괄호와 소리
+- 소괄호 ( ) 를 쓰지 않는다 — Seedance 에서 소괄호는 음악 채널이다. 부연·시각은 대괄호 [ ] 로.
+- 사운드 부정 지시를 따로 쓰지 않는다. 방에서 실제로 나는 소리만 적는다.
+
 ## 마지막 줄
 프롬프트 맨 끝에 이 한 줄을 그대로 붙인다 —
-FINAL: No BGM, only ambient room tone. Locked-off tripod shot, one continuous take, no cuts. The interviewer is never visible.${hasChallenge ? EXTRA_CHALLENGE_CLAUSE : ''}`;
+${PROJECT_FINAL_LINE} Locked-off tripod shot, one continuous take, no cuts. The interviewer is never visible.${hasChallenge ? EXTRA_CHALLENGE_CLAUSE : ''}`;
 };
 
 const seedanceNarrativeRulebook = (durationSec = 15) => {
@@ -1051,10 +1061,11 @@ const seedanceNarrativeRulebook = (durationSec = 15) => {
  return `사용자가 준 시나리오/상황 묘사를 Seedance 영상 프롬프트로 변환한다. 사용자 의도는 유지하되 품질을 높인다.
 
 ## 절대 규칙
-- 출력은 영어. (대사만 한국어 원문 유지, 영어 번역 괄호 병기)
+- 출력은 영어. 대사만 한국어 원문 유지. 영어 병기가 필요하면 [EN: ...] 로 적는다.
 - 3000자 이내. 넘으면 압축.
 - 상단 제목 줄 금지. [Reference]로 바로 시작.
-- Audio에 항상 no music, no BGM.
+- 사운드·자막 부정 지시를 쓰지 않는다 — 코드가 붙인다. Audio 줄에는 이 장면에서 실제로 나는 소리만 적는다.
+- ★ 소괄호 ( ) 를 쓰지 않는다. Seedance 2.5 에서 소괄호는 음악 채널이라, 부연으로 적은 괄호가 음악을 부른다. 시각은 [0:00–0:03], 부연은 [ ] 로.
 - 길이 ${sec}초. 모든 Shot 시간 합 = ${sec}초.
 - 기본 톤: 실사 시네마틱 드라마.
 - 대사·상황이 ${sec}초에 넘치면 여러 ${sec}초로 분할하고 고지.
@@ -1066,13 +1077,13 @@ const seedanceNarrativeRulebook = (durationSec = 15) => {
 ...
 
 [Notes]
-- (해당 항목들)
+- [해당 항목들]
 
 [Shots]
-S1 — <size> / <beat> (0:00–0:0X) [in frame: ...]: <action + camera + dialogue>
+S1 — <size> / <beat> [0:00–0:0X] [in frame: ...]: <action + camera + dialogue>
 ...
 
-Audio: no music, no BGM. <현장음>
+Audio: <이 장면에서 실제로 나는 소리 — 발소리 · 사물 · 환경>
 
 - 헤더는 [Reference] / [Notes] / [Shots] / Audio 만.
 - ★ Seedance 2.5 멀티모달: 첨부 레퍼런스는 [Shots]에서 이미지=[Image1],[Image2]..., 비디오=[Video1]... 로 순서대로 지칭. [Reference] 슬롯 라벨 옆에 (=[Image1]) 처럼 대응 표기.
@@ -5154,14 +5165,40 @@ const PROJECT_VIDEO_EDIT_RULE = [
 //      스우시가 그대로 났다. 목록이 길수록 핵심 토큰이 묻힌다.
 //   문서는 이 지시를 프롬프트 '끝' 에 둘 때 가장 안정적이라고도 적어놨다 —
 //   PROJECT_FINAL_LINE 이 그 자리를 맡는다.
-const PROJECT_SOUND_RULE = [
- 'SOUND: No BGM, only ambient and action sounds — voices, footsteps, cloth, doors,',
- 'objects being handled, room air, and whatever the story itself makes here.',
-].join('\n');
+// v1126: 소리를 '채널' 로 건다. Seedance 2.5 는 오디오를 괄호로 배선한다 —
+//   ( ) 음악 · < > 효과음 · { } 대사 · 【 】 자막.
+//   여덟 번 시도해서 알아낸 진짜 원인은 문구가 아니라 괄호였다. 음악을 금지하면서
+//   본문의 소괄호(이미지 번호 · 부연 · 시각 표기)로 음악 채널을 클립마다 6~11번
+//   열고 있었다. 그래서 ① 쓸 채널만 열고 ② 본문의 소괄호는 아래 soundChannelize 가
+//   대괄호로 바꾼다.
+//   'diegetic' 은 나열 대신 범주다 — 타격음 · 유리 · 차 소리까지 들어오고 스코어 ·
+//   나레이션은 정의상 빠진다. 나열(footsteps, cloth, doors)은 화이트리스트로 읽혀
+//   목록 밖 소리가 사라졌다 — 액션씬이 무성영화가 됐다.
+//   부정은 문서가 예시로 준 토큰(No BGM · no subtitles)만 쓴다. 금지어를 늘리는 쪽은
+//   막다른 길이다 — 이름으로 부르면 그것이 호출된다(v1040 의 whoosh).
+const PROJECT_SOUND_RULE = 'SOUND: {} dialogue and <Foley — all diegetic sound in this scene>. No BGM.';
 
-// 마지막에 읽는 줄. 짧게 — 길면 앞 조항을 되풀이하는 것으로 흘려 읽는다.
-// v1040: 앞 조항과 같은 형식으로 맞췄다.
-const PROJECT_FINAL_LINE = 'FINAL: No BGM, only ambient and action sounds.';
+// 마지막에 읽는 줄. 자막 금지는 문서가 인정하는 다른 한 축이라 여기 같이 둔다.
+const PROJECT_FINAL_LINE = 'FINAL: no subtitles, no captions, no dialogue text on screen. No BGM.'
+ + ' The soundtrack is dialogue and Foley — only sound made where this scene happens.';
+
+// v1126: 본문 정리. ① 소괄호를 대괄호로 — 대괄호는 채널이 아니고, [Image 1] 은
+//   arkRefTokens 가 'Image 1' 로 펴 준다. ② 큰따옴표 대사를 대사 채널로 배선한다.
+//   ★ 이미 [ ] · { } 안에 있는 따옴표는 건드리지 않는다. 영어 병기 ["..."] 까지
+//     대사 채널에 넣으면 모델이 그 영어까지 말한다.
+//   ★ SOUND: · FINAL: 로 시작하는 줄은 건너뛴다 — 그 줄들이 채널 규약을 적은 줄이라
+//     바꾸면 뜻이 뒤집힌다. 멱등이라 두 번 돌려도 같다.
+const soundChannelize = (text) => String(text || '').split('\n').map(line => {
+ // 규약을 적은 줄은 그대로 둔다 — 바꾸면 뜻이 뒤집힌다
+ if (/^\s*(SOUND|FINAL):/.test(line)) return line;
+ // 괄호 안에 괄호가 있으면 한 번으로는 안 풀린다(안쪽부터 벗겨진다) — 남지 않을 때까지 돈다
+ let t = line;
+ for (let k = 0; k < 4 && /\([^()\n]{0,200}\)/.test(t); k += 1) {
+  t = t.replace(/\(([^()\n]{0,200})\)/g, '[$1]');
+ }
+ return t.replace(/([[{]\s*)?"([^"\n]{1,300})"(\s*[\]}])?/g,
+  (m, pre, inner, post) => ((pre && post) ? m : `{"${inner}"}`));
+}).join('\n');
 
 // v1006: 보이스 레퍼런스. 예전에는 'When A speaks, the voice timbre references
 //   Audio 1.' 두 줄뿐이었다. 그러면 보이스가 없는 인물에게도 그 목소리가 실린다 —
@@ -18976,7 +19013,7 @@ const projectRefLiveSrc = (item) => {
  //   저장본을 쓰면 같은 본문을 다시 담을 뿐이라, 규칙이나 검사를 고쳐도
  //   눌러 봐야 아무것도 안 바뀐다. 그래서 promptOnly 면 저장본을 무시한다.
  //   (예전 판은 finalPrompt 를 통째로 담았으므로 규칙 문구가 섞여 있으면 버린다.)
- const draftPrompt = (promptOnly || /LOCATION:|WARDROBE, per person|FINAL: No BGM/.test(rawDraft)) ? '' : rawDraft;
+ const draftPrompt = (promptOnly || /LOCATION:|WARDROBE, per person|^\s*(FINAL|SOUND):/m.test(rawDraft)) ? '' : rawDraft;
  // v935: 고칠 클립의 주소가 죽었으면 받아둔 파일을 올려서 쓴다.
  let editVideo = isEdit ? seg.clipUrl : '';
  if (isEdit && !arkUrlFresh(seg.clipTs)) {
@@ -19322,7 +19359,8 @@ const projectRefLiveSrc = (item) => {
  ? PROJECT_VIDEO_VO_RULE_FOR(voLines.map(v => ({ ...v, line: localize(v.line) })), lang)
  : '',
  PROJECT_FINAL_LINE,   // v1007: 마지막에 읽는 줄
- ].filter(Boolean).join('\n\n');
+ // v1126: 조립이 끝난 블록마다 괄호를 정리한다(사운드 두 줄은 스스로 건너뛴다)
+ ].filter(Boolean).map(t => soundChannelize(t)).join('\n\n');
 
  // v1086: 프롬프트만 만들고 멈춘다. 영상 호출 전이라 ARK 비용이 안 나간다.
  //   읽어 보고 괜찮으면 그대로 클립을 뽑고, 고칠 데가 있으면 고쳐서 뽑는다.
@@ -37299,8 +37337,10 @@ ${sampleText}`;
  //   (사용자는 여전히 아무것도 쓰지 않아도 된다)
  if (outfitDirectives.length) prompt = `[Wardrobe — highest priority, overrides any clothing seen in references]\n${OUTFIT_RULE}\n${outfitDirectives.join('\n')}\n\n${prompt}`;
  if (voiceDirectives.length) prompt += `\n\n[Voice]\n${voiceDirectives.join('\n')}`;
- // v644: 배경음악 금지 (뒷단 강제 · 현장음/디제시스 사운드만 허용)
- prompt += `\n\nAudio: no background music, no BGM, no soundtrack. Only natural/diegetic ambient and on-scene sound.`;
+ // v1126: 음악 금지를 나열이 아니라 채널로 건다. 본문의 소괄호가 음악 채널이라
+ //   먼저 정리하고, 그 다음 사운드 두 줄을 앞뒤로 붙인다.
+ prompt = soundChannelize(prompt);
+ prompt = `${PROJECT_SOUND_RULE}\n\n${prompt}\n\n${PROJECT_FINAL_LINE}`;
  return prompt;
  };
  const jobId = `vc_${Date.now()}_${(videoJobSeq.current += 1)}`;
@@ -37832,6 +37872,9 @@ ${sampleText}`;
  if (voiceDirectives.length) finalPrompt += `\n\n[Voice]\n${voiceDirectives.join('\n')}`;
  // v783: 의상 지시는 선두 배치 (Claude가 쓴 본문보다 앞)
  if (outfitDirectives.length) finalPrompt = `[Wardrobe — highest priority, overrides any clothing seen in references]\n${OUTFIT_RULE}\n${outfitDirectives.join('\n')}\n\n${finalPrompt}`;
+ // v1126: 본문의 괄호를 정리하고 사운드 두 줄을 앞뒤로 붙인다
+ finalPrompt = soundChannelize(finalPrompt);
+ finalPrompt = `${PROJECT_SOUND_RULE}\n\n${finalPrompt}\n\n${PROJECT_FINAL_LINE}`;
  // v789: 피드백 재생성 시 이전 결과 영상을 레퍼런스로 동반 (상한 3개·15초 안에서)
  const vidsForRun = opts.baseVideoUrl ? [opts.baseVideoUrl, ...vidList].slice(0, arkRefMax(tier, 'videos')) : vidList;
  const url = await callSeedanceVideo({ prompt: finalPrompt, duration: dur, resolution: res, aspectRatio: asp, generateAudio: true, images: imgList, videos: vidsForRun, audios: audioList, tier });
@@ -39063,6 +39106,8 @@ AUDIO:
    else if (hasPerson) finalPrompt = `${EXTRA_IDENTITY_RULE}\n\n${finalPrompt}`;
    if (placePairs.length) finalPrompt = `${EXTRA_LOCATION_RULE}\n${placePairs.join('\n')}\n\n${finalPrompt}`;
    if (voiceLines.length) finalPrompt += `\n\n[Voice]\n${voiceLines.join('\n')}`;
+   // v1126: 본문의 소괄호를 정리하고 사운드 조항을 앞에 붙인다(맨 끝 줄은 룰북이 붙인다)
+   finalPrompt = `${PROJECT_SOUND_RULE}\n\n${soundChannelize(finalPrompt)}`;
    up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, phase: '영상 생성 중', generatedPrompt: finalPrompt } : j) }));
    const url = await callSeedanceVideo({ prompt: finalPrompt, duration: sDur, resolution: sRes, aspectRatio: sAsp,
     generateAudio: true, tier: 'video25', images: imgList, videos: vidList, audios: audioList });
