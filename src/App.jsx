@@ -1054,6 +1054,47 @@ ${EXTRA_LANG_LINE(intervieweeLang)}
 ${PROJECT_FINAL_LINE} Locked-off tripod shot, one continuous take, no cuts. The interviewer is never visible.${hasChallenge ? EXTRA_CHALLENGE_CLAUSE : ''}`;
 };
 
+// v1128: 상황 묘사에서 '영상 레퍼런스로 걸 대상' 을 뽑는다. 프로젝트 작업의 추출과 같은
+//   발상이되, 여기서는 본문에 @ 를 붙이는 일까지 모델이 한다 — 한국어는 이름 뒤에 조사가
+//   바로 붙어서(고강 + 도 / 고강도) 코드로는 낱말을 가를 수 없다. 대신 돌려받은 본문을
+//   검증한다(§ extractNarrRefs): @ 를 모두 떼면 원문과 한 글자도 달라서는 안 된다.
+const NARR_REF_EXTRACT_SYS = `당신은 상황 묘사에서 '영상 레퍼런스로 걸 대상' 을 뽑는 스크립트 슈퍼바이저입니다.
+
+★ 가장 먼저 — 지문과 대사를 가르십시오.
+대사 안에 나오는 것은 무엇도 뽑지 마십시오. 사람도, 장소도, 물건도 아닙니다.
+말하는 사람의 이름만 인물로 셉니다.
+  강희구 : 사장님 어디갔어?      → 인물: 강희구 뿐. '사장님' 은 아닙니다
+  차희곤 : 그 USB 어디 숨겼어?   → 오브제 없음. USB 는 말 속에만 있습니다
+  강희구 : 병원에서 봤어.        → 장소 아님. 병원은 지금 화면이 아닙니다
+
+★ 본문에 그대로 적힌 말만 뽑으십시오. 지어내지 말고, 번역하지도 말고, 다듬지도 마십시오.
+  나중에 이 말로 본문에서 그 자리를 다시 찾습니다 — 한 글자라도 다르면 못 찾습니다.
+
+[인물]
+- 지문에서 말하거나 움직이는 사람의 이름만. 말로만 언급된 사람은 넣지 마십시오.
+- 이름 없는 무리(행인들 · 손님들)는 넣지 마십시오.
+
+[장소]
+- 지금 화면이 벌어지는 곳. 대사에서 언급된 곳, 과거 · 미래 · 가정의 장소는 빼십시오.
+
+[오브제]
+- 인물이 집거나 들거나 놓거나 건네거나 열거나 쓰는 물건, 이야기에서 뜻을 갖는 물건.
+- 빼는 것: 공간에 붙박인 것(문 · 창문 · 벽 · 바닥 · 천장 · 계단), 비유 · 관용구.
+- 촬영 지시로서의 카메라도 빼십시오 — '카메라를 돌린다' 는 화면이 움직인다는 뜻이지
+  물건을 다루는 것이 아닙니다. 다만 인물이 다른 캠코더 · 휴대폰을 들고 그것이
+  이야기에서 뜻을 가지면 오브제로 넣으십시오.
+
+[marked]
+받은 본문 전체를 그대로 돌려주되, 위에서 뽑은 이름이 지문에 나오는 자리마다 그 앞에 @ 를 붙입니다.
+- 이름 앞에 @ 를 붙이는 것 말고는 한 글자도 바꾸지 마십시오. 줄바꿈 · 띄어쓰기 · 문장부호 모두 그대로입니다.
+- @ 는 지문에만 붙입니다. 대사 안(따옴표 안 · 콜론 뒤)에는 절대 붙이지 마십시오.
+- 콜론 앞의 화자 이름에는 반드시 붙입니다 —  강희구 : "..."  →  @강희구 : "..."
+- 이름이 다른 낱말의 일부일 때는 붙이지 마십시오. 인물이 '고강' 이어도
+  '고강도 매력' 은 한 낱말이라 @ 를 붙이지 않습니다.
+
+JSON만 출력하십시오. 설명 · 머리말 · 코드블록 금지.
+{"characters":["…"],"places":["…"],"objects":["…"],"marked":"@ 를 붙인 본문 전체"}`;
+
 const seedanceNarrativeRulebook = (durationSec = 15) => {
  const sec = Math.max(4, Math.round(Number(durationSec) || 15));
  const shotMin = Math.max(2, Math.round(sec / 2.5));
@@ -1061,7 +1102,8 @@ const seedanceNarrativeRulebook = (durationSec = 15) => {
  return `사용자가 준 시나리오/상황 묘사를 Seedance 영상 프롬프트로 변환한다. 사용자 의도는 유지하되 품질을 높인다.
 
 ## 절대 규칙
-- 출력은 영어. 대사만 한국어 원문 유지. 영어 병기가 필요하면 [EN: ...] 로 적는다.
+- 출력은 영어. 대사만 한국어 원문 그대로 둔다. 영어 번역 병기 금지 — 연기 톤은 지문이 영어로 설명한다.
+- ★ 대사는 반드시 큰따옴표로 감싼다. 코드가 그 큰따옴표를 보고 대사 채널 {"..."} 로 배선한다. 큰따옴표가 없으면 대사 채널이 통째로 빈다.
 - 3000자 이내. 넘으면 압축.
 - 상단 제목 줄 금지. [Reference]로 바로 시작.
 - 사운드·자막 부정 지시를 쓰지 않는다 — 코드가 붙인다. Audio 줄에는 이 장면에서 실제로 나는 소리만 적는다.
@@ -1130,15 +1172,27 @@ const ToolImageGrid = ({ pool, onPick, busy }) => {
 // (입력창 자체는 일반 textarea 유지 → 캐럿 드리프트/한글 IME 문제 없음)
 const RefHighlightPreview = ({ text, refNames }) => {
  if (!text || !text.trim() || !refNames || refNames.length === 0) return null;
- const set = new Set(refNames);
- const parts = String(text).split(/(@[^\s@]+)/g);
- const hasMatch = parts.some(p => p.startsWith('@') && set.has(p.slice(1)));
+ // v1127: 한국어는 이름 뒤에 조사가 바로 붙는다 — '@강희구는' 처럼. 공백까지 한 덩어리로
+ //   끊어 대조하면 그런 것을 전부 놓친다. 등록된 이름 중 긴 것부터 앞에서 맞춘다.
+ const names = [...new Set(refNames)].filter(Boolean).sort((a, b) => b.length - a.length);
+ const src = String(text);
+ const parts = [];
+ let buf = '';
+ for (let i = 0; i < src.length;) {
+  if (src[i] === '@') {
+   const hit = names.find(n => src.slice(i + 1).startsWith(n));
+   if (hit) { if (buf) { parts.push(buf); buf = ''; } parts.push('@' + hit); i += 1 + hit.length; continue; }
+  }
+  buf += src[i]; i += 1;
+ }
+ if (buf) parts.push(buf);
+ const hasMatch = parts.some(p => p.startsWith('@') && names.includes(p.slice(1)));
  if (!hasMatch) return null;
  return (
  <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
  <div className="micro" style={{ color: 'var(--text-quaternary)', marginBottom: 4, fontSize: 9, letterSpacing: '0.03em' }}>레퍼런스 인식 미리보기</div>
  <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
- {parts.map((p, i) => p.startsWith('@') && set.has(p.slice(1))
+ {parts.map((p, i) => p.startsWith('@') && names.includes(p.slice(1))
  ? <span key={i} style={{ color: 'var(--green-500)', fontWeight: 700 }}>{p}</span>
  : <React.Fragment key={i}>{p}</React.Fragment>)}
  </div>
@@ -17422,6 +17476,8 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
  // 레퍼런스 4종: 상황(콘티뉴이티)/인물/공간/오브제 — 각 이미지 or 비디오
  refs: { situation: [], character: [], space: [], object: [] }, // 각 항목: { kind:'image'|'video', refName, name, base64?, mimeType?, dataUrl? }
  refSource: 'upload',
+ extracting: false,   // v1128: 레퍼런스 추출 중
+ fillTarget: null,    // v1128: 지금 채우기를 기다리는 대기 칸 { key, i }
  // v641: 비차단 생성 — 생성기록(jobs) 스택
  jobs: [], // [{ id, loading, phase, error, resultUrl, generatedPrompt, ts, estSec, params:{situation,aspect,resolution} }]
  selectedUrl: null,
@@ -37713,12 +37769,21 @@ ${sampleText}`;
  const cf = formatCostDisplay(estimateSeedance2Cost(vDur, vRes, v.aspect, { tier: vTier }));
  const GROUPS = [{ key: 'character', label: '인물' }, { key: 'object', label: '오브제' }, { key: 'space', label: '공간' }, { key: 'situation', label: '상황(콘티뉴이티)' }];
  const NAME_PREFIX = { character: '인물', object: '오브제', space: '공간', situation: '상황' };
+ // v1128: 슬롯마다 뜻에 맞는 것만 보여준다. 예전에는 커스텀 이미지가 네 슬롯에 전부
+ //   들어가고 '상황' 슬롯이 툴 그림을 통째로 받아서, 고르는 자리가 아니라 훑는 자리였다.
+ //   상황(콘티뉴이티)은 '앞 장면 그 화면' 이라 툴 그림이 대신할 수 없다 — 업로드만 받는다.
+ //   후보가 여러 종류라 썸네일 라벨에 시트 종류를 적는다.
+ const NARR_POOL_SHEETS = {
+  character: { character: '캐릭터', character_closeup: '인물', character_costume: '인물+의상' },
+  object: { object_small: '소형', object_large: '대형' },
+  space: { location_int: '전경' },
+ };
  const groupPool = (key) => {
- const out = [];
- (customImageData.generations || []).forEach(g => { if (!g.loading && Array.isArray(g.urls)) g.urls.forEach(u => out.push({ url: u, label: '커스텀' })); });
- (sheetWsData.history || []).forEach(g => { if (g.loading || !g.url) return; const st = g.params?.sheetType || ''; const isChar = st === 'character' || st === 'character_closeup'; const isObj = st.startsWith('object'); const isLoc = st.startsWith('location'); if ((key === 'character' && isChar) || (key === 'object' && isObj) || (key === 'space' && isLoc) || key === 'situation') out.push({ url: g.url, label: '시트' }); });
- (posterWsData.history || []).forEach(g => { if (!g.loading && g.url && (key === 'situation' || key === 'space')) out.push({ url: g.url, label: '포스터' }); });
- return out;
+  const want = NARR_POOL_SHEETS[key];
+  if (!want) return [];
+  return (sheetWsData.history || [])
+   .filter(g => !g.loading && g.url && want[g.params?.sheetType || ''])
+   .map(g => ({ url: g.url, label: want[g.params.sheetType] }));
  };
  const totalImgs = () => GROUPS.reduce((n, g) => n + (v.refs[g.key] || []).filter(r => r.kind === 'image').length, 0);
  const totalVids = () => GROUPS.reduce((n, g) => n + (v.refs[g.key] || []).filter(r => r.kind === 'video').length, 0);
@@ -37807,6 +37872,102 @@ ${sampleText}`;
  };
  const rmRef = (key, i) => up(p => ({ ...p, refs: { ...p.refs, [key]: (p.refs[key] || []).filter((_, x) => x !== i) } }));
  const renameRef = (key, i, nv) => up(p => ({ ...p, refs: { ...p.refs, [key]: (p.refs[key] || []).map((x, xi) => xi === i ? { ...x, refName: nv } : x) } }));
+
+ // v1128: 상황 묘사를 읽어 인물 · 장소 · 오브제를 뽑고 '이름만 든 대기 칸' 을 만든다.
+ //   사용자는 그 칸에 이미지를 붙이기만 하면 된다. 비워 두면 생성할 때 조용히 빠진다 —
+ //   본문의 @이름 은 평범한 말로 남고 모델이 알아서 그린다.
+ const extractNarrRefs = async () => {
+ const text = String(v.situation || '').trim();
+ if (!text || v.extracting || busy) return;
+ up({ extracting: true, error: '' });
+ try {
+ const out = await callClaude(NARR_REF_EXTRACT_SYS, text, { model: 'claude-sonnet-4-5', maxTokens: 4000, workCat: 'video' });
+ const parsed = parseJsonFromResponse(out) || {};
+ const pick = (arr) => (Array.isArray(arr) ? arr : []).map(x => String(x || '').trim()).filter(Boolean);
+ const want = { character: pick(parsed.characters), space: pick(parsed.places), object: pick(parsed.objects) };
+ up(p => {
+ const refs = { ...p.refs };
+ let added = 0;
+ for (const key of Object.keys(want)) {
+ const have = new Set((refs[key] || []).map(r => String(r?.refName || '')));
+ const plus = [];
+ for (const raw of want[key]) {
+ const nm = raw.replace(/[@\s]/g, '');
+ if (!nm || have.has(nm)) continue;
+ have.add(nm); added += 1;
+ plus.push({ kind: 'image', refName: nm, pending: true });
+ }
+ if (plus.length) refs[key] = [...(refs[key] || []), ...plus];
+ }
+ // ★ 모델에게 사용자의 글을 고치게 했으면 되돌려받은 것을 검증한다. @ 를 모두 떼면
+ //   원문과 한 글자도 달라서는 안 된다. 어긋나면 삽입을 포기한다 — 사용자가 쓴 글을
+ //   모델이 고쳐 놓는 것이 @ 가 없는 것보다 훨씬 나쁘다.
+ const bare = (x) => String(x || '').split('@').join('');
+ const ok = typeof parsed.marked === 'string' && bare(parsed.marked) === bare(p.situation);
+ if (!ok && typeof parsed.marked === 'string') {
+ console.warn('[내러티브] marked 검증 실패 — 본문은 그대로 두고 대기 칸만 만듭니다.');
+ }
+ return { ...p, refs, situation: ok ? parsed.marked : p.situation, extracting: false,
+ error: added ? '' : '새로 만들 대기 칸이 없습니다. 이미 다 있거나, 뽑을 것이 없습니다.' };
+ });
+ } catch (e) {
+ up({ extracting: false, error: `레퍼런스 추출 실패: ${e.message}` });
+ }
+ };
+
+ // 대기 칸을 채운다. 이름(refName)은 지킨다 — 본문의 @이름 과 묶여 있기 때문이다.
+ const fillPendingRef = (key, i, patch) => up(p => ({ ...p, fillTarget: null,
+ refs: { ...p.refs, [key]: (p.refs[key] || []).map((x, xi) => (xi === i ? { ...x, ...patch, pending: false } : x)) } }));
+
+ // 파일 · 아카이브 캐릭터 타일을 대기 칸에 바로 떨어뜨린다
+ const fillPendingFromDrop = async (key, i, dt) => {
+ if (!dt) return;
+ const charId = (() => { try { return dt.getData('text/oxyzn-char') || ''; } catch { return ''; } })();
+ if (charId && key === 'character') {
+ const c = (characterLibraryRef.current || []).find(x => x.id === charId && !x.deletedAt);
+ if (!c) return;
+ const b = await characterRefBytes(c);
+ fillPendingRef(key, i, { kind: 'image', srcUrl: characterModelSrc(c), charId: c.id,
+ base64: b?.base64 || null, mimeType: b?.mimeType || c.thumbMime || 'image/png',
+ isCharacter: true, voice: c.voice || null, noCostume: !!c.noCostume });
+ return;
+ }
+ const f = Array.from(dt.files || []).find(x => /^(image|video)\//.test(x.type));
+ if (!f) return;
+ const isVid = /^video\//.test(f.type);
+ const dataUrl = await new Promise(res => {
+ const fr = new FileReader();
+ fr.onload = () => res(String(fr.result || ''));
+ fr.onerror = () => res('');
+ fr.readAsDataURL(f);
+ });
+ if (!dataUrl) return;
+ const m = /^data:([^;]+);base64,([\s\S]+)$/.exec(dataUrl);
+ if (!m) return;
+ fillPendingRef(key, i, isVid
+ ? { kind: 'video', dataUrl, mimeType: m[1] }
+ : { kind: 'image', base64: m[2], mimeType: m[1] });
+ };
+ // 대기 칸을 채우는 길은 출처마다 다르다 — 툴 이미지는 URL, 캐릭터는 userData 파일,
+ //   배우 자산은 base64 없이 asset:// 로만 나간다(재인코딩하면 신뢰가 깨진다).
+ const fillPendingFromUrl = async (key, i, url) => {
+ try {
+ const r = await imageUrlToRef(url, key);
+ fillPendingRef(key, i, { kind: 'image', base64: r.base64, mimeType: r.mimeType });
+ } catch (e) { up({ error: `이미지를 읽지 못했습니다: ${e.message}` }); }
+ };
+ const fillPendingFromCharacter = async (key, i, c) => {
+ if (!c?.url && !characterHasBytes(c)) { up({ error: '이 캐릭터에는 원본 데이터가 없습니다.' }); return; }
+ const b = await characterRefBytes(c);
+ fillPendingRef(key, i, { kind: 'image', srcUrl: characterModelSrc(c), charId: c.id,
+ base64: b?.base64 || null, mimeType: b?.mimeType || c.thumbMime || 'image/png',
+ isCharacter: true, voice: c.voice || null, noCostume: !!c.noCostume });
+ };
+ const fillPendingFromActor = (key, i, asset) => fillPendingRef(key, i, {
+ kind: 'image', srcUrl: `asset://${asset.id}`, previewUrl: asset.url || null,
+ base64: null, mimeType: null, isActorAsset: true, noCostume: true });
+ // 지금 채우기를 기다리는 칸 — 후보를 누르면 새로 붙이지 않고 이 칸에 들어간다
+ const fillSlot = (key) => (v.fillTarget && v.fillTarget.key === key ? v.fillTarget.i : -1);
  // @이름 자동완성 (상황 묘사)
  const detectSuggest = (val, caret) => { const before = val.slice(0, caret); const m = before.match(/@([^\s@]*)$/); if (!m || refNames.length === 0) { setNarrRefSuggest(null); return; } const q = m[1].toLowerCase(); const matches = refNames.filter(n => n.toLowerCase().startsWith(q) && n.toLowerCase() !== q); setNarrRefSuggest(matches.length ? { matches, caret, active: 0 } : null); };
  const applySuggest = (name) => { const src = v.situation; const caret = narrRefSuggest?.caret ?? src.length; const before = src.slice(0, caret).replace(/@([^\s@]*)$/, `@${name} `); const newVal = before + src.slice(caret); const newCaret = before.length; up({ situation: newVal }); setNarrRefSuggest(null); setTimeout(() => { const ta = narrPromptTaRef.current; if (ta) { ta.focus(); ta.setSelectionRange(newCaret, newCaret); } }, 0); };
@@ -37828,8 +37989,15 @@ ${sampleText}`;
  const imgList = [], vidList = [], manifest = [], tokenMap = {};
  let imgN = 0, vidN = 0;
  const outfitDirectives = [];
- const voiceDirectives = [], audioList = [];
+ // v1127: 보이스 지시문을 프로젝트 작업의 조항으로 바꾼다. 예전에는 [ImageN] 으로
+ //   가리켰는데, 그러면 보이스가 없는 인물에게도 그 목소리가 실린다(프로젝트에서 겪었다).
+ //   이름으로 묶고, 없는 사람은 없다고 이름까지 적어 못 박는다.
+ const voiceNamed = [], audioList = [];
+ // v1128: 이미지를 안 붙인 대기 칸은 조용히 빠진다 — 모델이 알아서 그린다
+ const pendingNames = [];
+ GROUPS.forEach(g => (v.refs[g.key] || []).forEach(r => { if (r && r.pending && r.refName) pendingNames.push(r.refName); }));
  GROUPS.forEach(g => (v.refs[g.key] || []).forEach(r => {
+ if (r && r.pending) return;
  if (r.kind === 'image' && imgN < 9) { imgN++; imgList.push(liveCharSrc(r) || r.srcUrl || `data:${r.mimeType};base64,${r.base64}`); const tok = `[Image${imgN}]`; if (r.refName) tokenMap[r.refName] = tok; const charIdx = manifest.push(`${tok} = "${r.refName}" (${g.label})`) - 1;
  // v770: 캐릭터에 묶인 의상은 사용자 프롬프트 없이 뒷단에서 자동 적용
  if (r.costume && r.costume.base64 && imgN < 9) { imgN++; imgList.push(`data:${r.costume.mimeType};base64,${r.costume.base64}`); const ctok = `[Image${imgN}]`;
@@ -37846,12 +38014,32 @@ ${sampleText}`;
  audioList.push(vsrc);
  const atok = `[Audio${audioList.length}]`;
  manifest.push(`${atok} = "${r.refName}의 목소리" (음색 · 자동 적용, [Shots]에서 따로 지칭하지 말 것)`);
- voiceDirectives.push(`When ${tok} speaks, the voice timbre references ${atok}. Keep that timbre consistent for ${tok} throughout.`);
+ voiceNamed.push(r.refName || tok);
  } }
  else if (r.kind === 'video' && vidN < arkRefMax(tier, 'videos')) { vidN++; vidList.push(r.dataUrl); const tok = `[Video${vidN}]`; if (r.refName) tokenMap[r.refName] = tok; manifest.push(`${tok} = "${r.refName}" (${g.label})`); }
  }));
- let situationText = situation;
+ // v1127: 대사 안의 @이름 은 아래에서 [ImageN] 으로 바뀌고, 그러면 배우가 'Image 1' 을
+ //   소리내어 말한다. 화면에서는 레퍼런스가 잘 걸린 것처럼 보여 눈에 띄지 않는다.
+ //   ★ 어떤 줄이 대사인지 생김새로 판정하지 않는다. 콜론 앞이 '우리가 아는 인물 이름'
+ //     일 때만 대사로 본다 — ^이름: 꼴로 자르면 지문의 '시간: 밤. @임싸가…' 까지 먹는다.
+ let situationClean = situation.replace(/"([^"\n]{0,400})"/g, (m, inner) => `"${inner.split('@').join('')}"`);
+ {
+  const speakers = (v.refs?.character || []).map(r => String(r?.refName || '').trim()).filter(Boolean);
+  situationClean = situationClean.split('\n').map(line => {
+   const ci = line.indexOf(':');
+   if (ci < 0) return line;
+   const head = line.slice(0, ci);
+   const who = head.split('@').join('').trim();
+   if (!speakers.includes(who)) return line;
+   // 화자 이름에는 @ 가 붙어야 레퍼런스가 걸린다. 대사 쪽의 @ 는 전부 뗀다.
+   const lead = (head.match(/^\s*/) || [''])[0];
+   return `${lead}@${who}:${line.slice(ci + 1).split('@').join('')}`;
+  }).join('\n');
+ }
+ let situationText = situationClean;
  Object.keys(tokenMap).sort((a, b) => b.length - a.length).forEach(nm => { situationText = situationText.split(`@${nm}`).join(tokenMap[nm]); });
+ [...new Set(pendingNames)].sort((a, b) => b.length - a.length)
+  .forEach(nm => { situationText = situationText.split(`@${nm}`).join(nm); });
  const jobId = `vn_${Date.now()}_${(narrJobSeq.current += 1)}`;
  // v643: 입력 스냅샷(상황묘사·설정·레퍼런스 4종) 저장 → 썸네일 클릭 시 복원
  const params = { situation, aspect: asp, resolution: res, duration: dur, tier, refsSnapshot: JSON.parse(JSON.stringify(v.refs || {})), feedback: opts.feedbackNote || null };
@@ -37869,7 +38057,10 @@ ${sampleText}`;
  up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, generatedPrompt: genPrompt } : j) }));
  }
  let finalPrompt = genPrompt;
- if (voiceDirectives.length) finalPrompt += `\n\n[Voice]\n${voiceDirectives.join('\n')}`;
+ const voiceOthers = (v.refs?.character || [])
+  .filter(r => r && r.kind === 'image' && r.refName && !voiceNamed.includes(r.refName))
+  .map(r => r.refName);
+ if (voiceNamed.length) finalPrompt += `\n\n${PROJECT_VOICE_RULE_FOR(voiceNamed, voiceOthers)}`;
  // v783: 의상 지시는 선두 배치 (Claude가 쓴 본문보다 앞)
  if (outfitDirectives.length) finalPrompt = `[Wardrobe — highest priority, overrides any clothing seen in references]\n${OUTFIT_RULE}\n${outfitDirectives.join('\n')}\n\n${finalPrompt}`;
  // v1126: 본문의 괄호를 정리하고 사운드 두 줄을 앞뒤로 붙인다
@@ -37991,7 +38182,17 @@ ${sampleText}`;
  <div style={{ width: 400, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
  <div className="card" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
  <div>
- <div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>상황 묘사 <span style={{ color: 'var(--state-error)' }}>*</span></div>
+ <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+ <div className="meta" style={{ fontWeight: 600 }}>상황 묘사 <span style={{ color: 'var(--state-error)' }}>*</span></div>
+ {/* v1128: 본문을 읽어 대기 칸을 만들고, 본문의 그 이름 앞에 @ 를 붙인다 */}
+ <button type="button" className="btn btn-secondary btn-sm"
+ style={{ marginLeft: 'auto', height: 24, fontSize: 10.5 }}
+ disabled={!String(v.situation || '').trim() || !!v.extracting || busy}
+ onClick={extractNarrRefs}
+ title="상황 묘사에서 인물 · 장소 · 오브제를 뽑아 대기 칸을 만들고, 본문의 그 이름 앞에 @ 를 붙입니다">
+ {v.extracting ? '읽는 중…' : '레퍼런스 추출'}
+ </button>
+ </div>
  <div style={{ position: 'relative' }}>
  <textarea ref={narrPromptTaRef} className="input" value={v.situation} rows={6} disabled={busy}
  onChange={(e) => { up({ situation: e.target.value }); detectSuggest(e.target.value, e.target.selectionStart); }}
@@ -38042,7 +38243,33 @@ ${sampleText}`;
  padding: list.length ? '9px 10px' : 0, borderRadius: 9,
  background: list.length ? 'rgba(63,175,185,0.05)' : 'transparent',
  border: list.length ? '1px solid rgba(63,175,185,0.22)' : 'none' }}>
- {list.map((r, i) => (
+ {/* v1128: 대기 칸 — 이름만 있고 이미지가 없다. 눌러서 아래 후보에서 고르거나 끌어다 놓는다.
+     비워 두면 생성할 때 조용히 빠지고, 본문의 @이름 은 평범한 말로 남는다. */}
+ {list.map((r, i) => (!r || !r.pending ? null : (
+ <div key={`pend-${i}`} style={{ position: 'relative', width: 56 }}>
+ <button type="button" className="ff-refadd"
+ title={`"${r.refName}" 자리 — 누른 뒤 아래에서 고르거나, 이미지를 끌어다 놓으세요`}
+ onClick={() => up(p => ({ ...p, fillTarget: (p.fillTarget && p.fillTarget.key === g.key && p.fillTarget.i === i) ? null : { key: g.key, i } }))}
+ onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('is-dragover'); }}
+ onDragLeave={(e) => e.currentTarget.classList.remove('is-dragover')}
+ onDrop={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('is-dragover'); fillPendingFromDrop(g.key, i, e.dataTransfer); }}
+ style={{ width: 56, height: 56, borderRadius: 8, background: 'transparent', cursor: 'pointer', padding: 0,
+ border: `1.5px dashed ${fillSlot(g.key) === i ? 'var(--green-500)' : 'var(--border-strong)'}`,
+ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1,
+ color: fillSlot(g.key) === i ? 'var(--green-700)' : 'var(--text-quaternary)' }}>
+ <Plus size={13} /><span style={{ fontSize: 7 }}>{fillSlot(g.key) === i ? '고르는 중' : '대기'}</span>
+ </button>
+ <button onClick={() => rmRef(g.key, i)} title="이 칸 지우기"
+ style={{ position: 'absolute', top: -6, right: -6, width: 16, height: 16, borderRadius: '50%', border: 'none', cursor: 'pointer',
+ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--text-primary)', color: 'var(--bg-primary)' }}>
+ <X size={9} />
+ </button>
+ <div className="micro" title={r.refName}
+ style={{ marginTop: 3, fontSize: 8.5, textAlign: 'center', color: 'var(--text-tertiary)', fontFamily: 'SF Mono, monospace',
+ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>@{r.refName}</div>
+ </div>
+ )))}
+ {list.map((r, i) => (r && r.pending ? null : (
  <div key={i} style={{ position: 'relative', width: 56 }}>
  <div className="ff-refimg" style={{ width: 56, height: 56 }}>
  {r.kind === 'video' ? <video src={r.dataUrl} muted style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--green-500)', display: 'block' }} /> : <img src={r.previewUrl || `data:${r.mimeType};base64,${r.base64}`} alt={r.refName} style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: `1px solid ${r.isActorAsset ? 'var(--green-500)' : 'var(--border)'}`, display: 'block' }} />}
@@ -38102,7 +38329,7 @@ ${sampleText}`;
  );
  })()}
  </div>
- ))}
+ )))}
  {(v.refSource || 'upload') === 'upload' && canAdd && (
  <button onClick={() => document.getElementById(`narr-file-${g.key}`)?.click()} disabled={busy} className="ff-refadd"
  onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('is-dragover'); }}
@@ -38116,7 +38343,7 @@ ${sampleText}`;
  <input id={`narr-file-${g.key}`} type="file" accept="image/*,video/*" multiple style={{ display: 'none' }} onChange={(e) => { addFiles(g.key, e.target.files); e.target.value = ''; }} />
  </div>
  {v.refSource === 'tool' && (
- <div style={{ marginTop: 6 }}><ToolImageGrid pool={groupPool(g.key)} onPick={(u) => addToolImg(g.key, u)} busy={busy || totalImgs() >= 9} /></div>
+ <div style={{ marginTop: 6 }}><ToolImageGrid pool={groupPool(g.key)} onPick={(u) => (fillSlot(g.key) >= 0 ? fillPendingFromUrl(g.key, fillSlot(g.key), u) : addToolImg(g.key, u))} busy={busy || totalImgs() >= 9} /></div>
  )}
  {v.refSource === 'character' && g.key !== 'character' && (
  <div className="micro" style={{ marginTop: 6, color: 'var(--text-quaternary)', padding: '6px 0', textAlign: 'center' }}>
@@ -38150,7 +38377,7 @@ ${sampleText}`;
  ) : (
  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
  {withAssets.flatMap(grp => imgOf(grp).map(as => (
- <button key={as.id} onClick={() => addActorAssetRefN(g.key, grp, as)} disabled={busy || totalImgs() >= 9}
+ <button key={as.id} onClick={() => (fillSlot(g.key) >= 0 ? fillPendingFromActor(g.key, fillSlot(g.key), as) : addActorAssetRefN(g.key, grp, as))} disabled={busy || totalImgs() >= 9}
  title={`${grp.name || grp.id} — 인증된 배우 자산`}
  style={{ width: 74, padding: 0, border: '1px solid var(--green-500)', borderRadius: 6, background: 'var(--bg-secondary)', cursor: (busy || totalImgs() >= 9) ? 'not-allowed' : 'pointer', opacity: (busy || totalImgs() >= 9) ? 0.5 : 1, overflow: 'hidden' }}>
  {as.url
@@ -38171,7 +38398,7 @@ ${sampleText}`;
  ) : (
  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
  {liveCharacters.map(c => (
- <button key={c.id} onClick={() => addCharacterRefN(g.key, c)} disabled={busy || totalImgs() >= 9}
+ <button key={c.id} onClick={() => (fillSlot(g.key) >= 0 ? fillPendingFromCharacter(g.key, fillSlot(g.key), c) : addCharacterRefN(g.key, c))} disabled={busy || totalImgs() >= 9}
  title={`${c.name} — 원본 URL로 첨부`}
  style={{ width: 74, padding: 0, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-secondary)', cursor: (busy || totalImgs() >= 9) ? 'not-allowed' : 'pointer', opacity: (busy || totalImgs() >= 9) ? 0.5 : 1, overflow: 'hidden' }}>
  <img src={characterImgSrc(c)} alt={c.name}
