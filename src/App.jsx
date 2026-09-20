@@ -1252,10 +1252,14 @@ const POV_CAMERA_STYLE = {
   + ' Eye level, a natural human field of view, and the small constant sway of a living body: breathing,'
   + ' weight shifting from foot to foot, the little settle at the end of every step. Turning the head is a pan,'
   + ' looking up or down is a tilt, walking forward moves the whole frame forward with the rhythm of footfalls.'
-  + ' The eyes move the way people actually look — they land on a thing, hold long enough to see it, then move on.',
+  + ' The eyes move the way people actually look — they land on a thing, hold long enough to see it, then move on:'
+  + ' the look goes first and the body follows a beat later. An occasional blink darkens the frame for an instant.'
+  + ' Nothing of a camera exists here — no lens flare from a device, no recording marks, no screen edge.',
  device: 'The person telling this is holding a phone or a small action camera up at their own eye line, and the'
   + ' frame is what that device sees: a little wider than the eye, slight distortion toward the edges, the grip'
-  + ' shake of a hand, and the image swinging when the arm moves. They keep it up the whole time.',
+  + ' shake of a hand, and the image swinging when the arm moves — wider and heavier than an eye would move,'
+  + ' overshooting a little on fast turns and settling back. Their holding arm and hand are often at the bottom'
+  + ' or side of frame, and the whole frame drops when they lower it. They keep it up the whole time.',
 };
 
 // ★ POV 가 깨지는 첫 번째 자리 — 모델이 '나' 를 3인칭으로 세운다. 내 몸 중 화면에
@@ -1270,6 +1274,12 @@ const POV_BODY_RULE = 'WHOSE BODY THIS IS. The one telling this is never seen fr
 const POV_SPEECH_RULE = 'WHO SPEAKS AND FROM WHERE. Lines spoken by the one telling this are heard from behind the'
  + ' frame — very close, breath-level, and not lip-synced to any mouth on screen. Everyone else is on screen and'
  + ' lip-synced. People speaking to them look straight into the frame, because that is where their eyes are.';
+
+const POV_SELF_RULE = (gender) => {
+ const g = gender === 'female' ? 'woman' : 'man';
+ return `WHO IS TELLING THIS: a ${g}. The hands and forearms that come into frame are a ${g}'s —`
+  + ` build, skin and sleeves match. The voice heard from behind the frame is a ${g}'s voice.`;
+};
 
 const seedancePovRulebook = (durationSec = 15) => {
  const sec = Math.max(4, Math.round(Number(durationSec) || 15));
@@ -17682,6 +17692,7 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
   refs: { situation: [], character: [], space: [], object: [] }, refSource: 'upload',
   extracting: false, fillTarget: null,
   camera: 'eyes',   // 'eyes' | 'device'
+  povGender: 'male',   // 'male' | 'female' — 화면에 들어오는 손과 프레임 뒤의 목소리
   prevClip: null,
   jobs: [], selectedUrl: null, feedbackOpen: false, feedback: '', error: '',
  });
@@ -20826,7 +20837,7 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  setVideoPovData({
  situation: '', tier: 'video25', duration: 15, aspect: '16:9', resolution: '480p',
  refs: { situation: [], character: [], space: [], object: [] }, refSource: 'upload',
- extracting: false, fillTarget: null, camera: 'eyes', prevClip: null,
+ extracting: false, fillTarget: null, camera: 'eyes', povGender: 'male', prevClip: null,
  jobs: [], selectedUrl: null, feedbackOpen: false, feedback: '', error: '',
  });
  setNarrRefSuggest(null);
@@ -38289,7 +38300,8 @@ ${sampleText}`;
  // v643: 입력 스냅샷(상황묘사·설정·레퍼런스 4종) 저장 → 썸네일 클릭 시 복원
  const params = { situation, aspect: asp, resolution: res, duration: dur, tier,
   refsSnapshot: JSON.parse(JSON.stringify(v.refs || {})), feedback: opts.feedbackNote || null,
-  ...(isTake ? { camera: v.camera || (isPov ? 'eyes' : 'handheld'), hasPrevClip: !!(v.prevClip && v.prevClip.dataUrl) } : {}) };
+  ...(isTake ? { camera: v.camera || (isPov ? 'eyes' : 'handheld'), hasPrevClip: !!(v.prevClip && v.prevClip.dataUrl) } : {}),
+  ...(isPov ? { povGender: v.povGender || 'male' } : {}) };
  const estSec = estSecFor(durKeyVideo(res, dur, opts.baseVideoUrl ? true : false), estVideoGenSeconds(res, dur) + (opts.directPrompt ? 0 : 12));  // v791: 실측 학습값 우선, 표본 없으면 상수 추정
  up(p => ({ ...p, error: '', feedback: '', feedbackOpen: false, jobs: [{ id: jobId, version: narrJobSeq.current, loading: true, phase: opts.directPrompt ? '영상 생성 중' : '프롬프트 생성 중', ts: Date.now(), estSec, params }, ...p.jobs] }));
  try {
@@ -38309,7 +38321,7 @@ ${sampleText}`;
   // POV 는 '나' 가 화면에 서는 것과 내 대사가 남의 입에 붙는 것, 두 군데서 깨진다.
   //   그래서 시점 조항에 몸과 목소리 조항을 언제나 함께 붙인다.
   const camStyle = isPov
-   ? `${POV_CAMERA_STYLE[v.camera] || POV_CAMERA_STYLE.eyes} ${POV_BODY_RULE} ${POV_SPEECH_RULE}`
+   ? `${POV_CAMERA_STYLE[v.camera] || POV_CAMERA_STYLE.eyes} ${POV_SELF_RULE(v.povGender)} ${POV_BODY_RULE} ${POV_SPEECH_RULE}`
    : (DOCU_CAMERA_STYLE[v.camera] || DOCU_CAMERA_STYLE.handheld)
     + (isInterview ? ` ${DOCU_INTERVIEW_RULE} ${DOCU_CAMERA_UNSEEN}` : '');
   // ★ 클로드가 자리표시자를 그대로 내놓는다고 가정하지 않는다. 자기 말로 풀어 쓰면
@@ -38380,7 +38392,7 @@ ${sampleText}`;
  runGen({ directPrompt: editLead + (revised || origPrompt), feedbackNote: fb, baseVideoUrl: selectedJob.resultUrl || null });
  } catch (e) { up({ feedbackBusy: false, error: `피드백 처리 실패: ${e.message}` }); }
  };
- const loadJob = (job) => up(p => ({ ...p, situation: job.params?.situation ?? '', aspect: job.params?.aspect ?? '16:9', resolution: job.params?.resolution ?? '480p', refs: job.params?.refsSnapshot ? JSON.parse(JSON.stringify(job.params.refsSnapshot)) : { situation: [], character: [], space: [], object: [] }, selectedUrl: job.resultUrl || null, feedbackOpen: false, feedback: '', camera: job.params?.camera ?? p.camera }));
+ const loadJob = (job) => up(p => ({ ...p, situation: job.params?.situation ?? '', aspect: job.params?.aspect ?? '16:9', resolution: job.params?.resolution ?? '480p', refs: job.params?.refsSnapshot ? JSON.parse(JSON.stringify(job.params.refsSnapshot)) : { situation: [], character: [], space: [], object: [] }, selectedUrl: job.resultUrl || null, feedbackOpen: false, feedback: '', camera: job.params?.camera ?? p.camera, povGender: job.params?.povGender ?? p.povGender }));
  const newFootage = () => up({ situation: '', aspect: '16:9', resolution: '480p', refs: { situation: [], character: [], space: [], object: [] }, selectedUrl: null, feedbackOpen: false, feedback: '', error: '', fillTarget: null, prevClip: null });
  return (
  <div className="fade-in" style={{ maxWidth: 1240, margin: '0 auto', padding: '0 8px' }}>
@@ -38543,6 +38555,18 @@ ${sampleText}`;
  </button>
  ))}
  </div>
+ {isPov && (<>
+ <div className="meta" style={{ fontWeight: 600, margin: '12px 0 6px' }}>'나'
+  <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}> · 화면에 들어오는 손과 목소리</span>
+ </div>
+ <div style={{ display: 'flex', gap: 6 }}>
+ {[{ id: 'male', label: '남성' }, { id: 'female', label: '여성' }].map(x => (
+ <button key={x.id} type="button" onClick={() => up({ povGender: x.id })} disabled={busy}
+  className={(v.povGender || 'male') === x.id ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+  style={{ flex: 1 }}>{x.label}</button>
+ ))}
+ </div>
+ </>)}
  <div className="meta" style={{ fontWeight: 600, margin: '12px 0 6px' }}>이전 클립
  <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}> · 선택 · 이어서 찍는 화면</span>
  </div>
