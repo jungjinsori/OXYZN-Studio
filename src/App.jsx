@@ -1240,6 +1240,103 @@ Audio: <그 자리에서 실제로 나는 소리 — 발소리 · 사물 · 공�
 - 위 형식의 프롬프트만 출력. 설명 · 머리말 · 코드블록 금지.`;
 };
 
+
+// ─────────────────────────────────────────────────────────────
+// v1130: POV — 화면이 곧 '나' 의 눈이다. 다큐멘터리와 워크스페이스 · 레퍼런스 · UI 를
+//   그대로 쓰고 룰북과 카메라 조항만 다르다.
+// ─────────────────────────────────────────────────────────────
+
+// 두 가지 시점. 다큐의 '핸드헬드 / 고정' 자리에 그대로 들어간다.
+const POV_CAMERA_STYLE = {
+ eyes: 'The frame is the eyes of the person telling this — there is no camera in this world.'
+  + ' Eye level, a natural human field of view, and the small constant sway of a living body: breathing,'
+  + ' weight shifting from foot to foot, the little settle at the end of every step. Turning the head is a pan,'
+  + ' looking up or down is a tilt, walking forward moves the whole frame forward with the rhythm of footfalls.'
+  + ' The eyes move the way people actually look — they land on a thing, hold long enough to see it, then move on.',
+ device: 'The person telling this is holding a phone or a small action camera up at their own eye line, and the'
+  + ' frame is what that device sees: a little wider than the eye, slight distortion toward the edges, the grip'
+  + ' shake of a hand, and the image swinging when the arm moves. They keep it up the whole time.',
+};
+
+// ★ POV 가 깨지는 첫 번째 자리 — 모델이 '나' 를 3인칭으로 세운다. 내 몸 중 화면에
+//   들어오는 것이 무엇인지까지 적어 둬야 손이 아래에서 들어오는 그림이 나온다.
+const POV_BODY_RULE = 'WHOSE BODY THIS IS. The one telling this is never seen from outside — no shot of their face,'
+ + ' no shot of their back, no reflection of them unless this prompt asks for one. What does belong in frame is'
+ + ' their own body seen from their own eyes: hands and forearms entering from the bottom or the side edges,'
+ + ' a shoulder at the very edge, legs and feet below when they look down, and whatever they are holding.'
+ + ' Those hands are the only part of them that ever appears.';
+
+// ★ 두 번째 자리 — 내 대사가 화면 안 사람 입에 붙어 버린다.
+const POV_SPEECH_RULE = 'WHO SPEAKS AND FROM WHERE. Lines spoken by the one telling this are heard from behind the'
+ + ' frame — very close, breath-level, and not lip-synced to any mouth on screen. Everyone else is on screen and'
+ + ' lip-synced. People speaking to them look straight into the frame, because that is where their eyes are.';
+
+const seedancePovRulebook = (durationSec = 15) => {
+ const sec = Math.max(4, Math.round(Number(durationSec) || 15));
+ return `사용자가 '나' 를 중심으로 쓴 서술을 1인칭 시점샷(POV) 의 Seedance 영상 프롬프트로 옮긴다.
+화면은 곧 '나' 의 눈이다. 카메라를 든 사람도, 나를 바라보는 카메라도 없다.
+
+예: "눈 앞에 보이는 건 젊은 무당 하나. 고개를 들어 왼쪽을 보니 귀신이 다가오고 있었다"
+  → 처음에는 젊은 무당이 눈앞에 있고, 화면이 위로 틸트한 뒤 왼쪽으로 팬하면, 그 끝에 귀신이 있고
+    점점 커지며 다가온다. 전부 한 테이크 안에서 화면의 움직임으로만 일어난다.
+
+## 1인칭 서술을 화면의 움직임으로 옮긴다
+- '본다 · 눈 앞에' → 지금 프레임의 한가운데에 있는 것.
+- '고개를 돌린다 · 왼쪽을 보니' → 팬. '고개를 든다 · 내려다본다' → 틸트.
+- '다가간다 · 물러선다' → 프레임 전체가 앞뒤로 움직인다. 발소리의 리듬이 같이 간다.
+- '다가온다' → 대상이 프레임 안에서 커진다. 카메라는 그 자리에 있다.
+- '손을 뻗는다 · 집는다' → 내 손과 팔뚝이 화면 아래에서 올라와 그것을 잡는다.
+- 시선은 사람이 보는 속도로 움직인다. 한 곳에 잠깐 머물렀다가 옮기고, 급한 순간에만 빨라진다.
+
+## ★ 지켜야 하는 것
+- 컷이 없다. S1 · S2 로 나누지 않는다. 처음부터 끝까지 [Take] 하나다.
+  시간 구간 표기는 컷이 아니라 한 테이크 안에서 시간이 흐른다는 표시다.
+- '나' 를 밖에서 보여주지 않는다. 내 얼굴 · 뒷모습 · 전신 샷은 없다.
+  화면에 들어오는 내 몸은 아래에서 올라오는 손 · 팔뚝 · 내려다본 다리뿐이다.
+- 내가 하는 말은 화면 밖에서 들린다. 화면 안 인물의 입에 붙이지 않는다.
+- 나에게 말하는 사람은 프레임을 똑바로 본다. 거기가 내 눈이다.
+- 거울 · 유리에 비친 내 모습은 사용자가 적었을 때만 쓴다.
+
+## 그 밖의 절대 규칙
+- 출력은 영어. 대사만 한국어 원문 그대로 둔다. 영어 번역 병기 금지.
+- ★ 대사는 반드시 큰따옴표로 감싼다. 코드가 그 큰따옴표를 보고 대사 채널 {"..."} 로 배선한다.
+- ★ 소괄호 ( ) 를 쓰지 않는다. Seedance 2.5 에서 소괄호는 음악 채널이라, 부연으로 적은 괄호가 음악을 부른다. 시각은 [0:00–0:03], 부연은 [ ] 로.
+- 사운드·자막 부정 지시를 쓰지 않는다 — 코드가 붙인다.
+- 3000자 이내. 상단 제목 줄 금지. [Reference]로 바로 시작. 길이 ${sec}초.
+
+## 출력 형식
+[Reference]
+① [Label] — @
+...
+
+[Notes]
+- [해당 항목들]
+
+[Take]
+[0:00–0:0X] <무엇이 보이는가 · 화면이 어떻게 움직이는가 · 무엇이 들리는가>
+[0:0X–0:${String(sec).padStart(2, '0')}] ...
+
+CAMERA: <CAMERA_STYLE>
+
+Audio: <내 귀에 들리는 소리 — 내 호흡과 발소리는 가깝고 크게, 나머지는 거리만큼 멀게>
+
+- 헤더는 [Reference] / [Notes] / [Take] / CAMERA / Audio 만.
+- CAMERA 줄의 <CAMERA_STYLE> 은 그대로 남긴다. 코드가 채운다.
+- 첨부 레퍼런스는 [Take] 에서 이미지=[Image1],[Image2]..., 비디오=[Video1]... 로 지칭한다.
+- 인물 레퍼런스는 '내가 보는 사람들' 이다. 내 레퍼런스가 붙어 있어도 화면에 세우지 않는다.
+
+## [Notes] 필수
+- 시점: "first-person point of view throughout — the frame is this person's eyes."
+- 컷 없음: "one continuous take, no cuts, no edits."
+- 자기 노출 금지: "the viewpoint character is never shown from outside — no face, no back, no full body."
+- 내 몸: "their own hands and forearms enter frame from below when they reach or hold something."
+- 시선 교환: "anyone speaking to them looks directly into frame."
+- 복제 방지: "each person appears exactly once, no duplicated faces."
+
+## 출력
+- 위 형식의 프롬프트만 출력. 설명 · 머리말 · 코드블록 금지.`;
+};
+
 // 툴에서 생성한 이미지 선택 그리드 — pool: [{url,label}], onPick(url)
 const ToolImageGrid = ({ pool, onPick, busy }) => {
  if (!pool || pool.length === 0) return (
@@ -14543,6 +14640,7 @@ const SINGLE_TASK_CATALOG = [
  { id: 'video-custom', label: '커스텀', desc: '프롬프트 · 화면비 · 품질 · 레퍼런스(이미지/비디오)', status: 'new' },
  { id: 'video-narrative', label: '내러티브', desc: '상황묘사 → 룰북 자동 프롬프트 → 영상 (최대 30초)', status: 'new' },
  { id: 'video-documentary', label: '다큐멘터리', desc: '컷 없는 한 테이크 · 핸드헬드/고정 · 앞 클립 이어받기', status: 'new' },
+ { id: 'video-pov', label: 'POV', desc: "'나' 중심 서술 → 1인칭 시점샷 · 컷 없는 한 테이크", status: 'new' },
  { id: 'video-vfx', label: 'AI VFX', desc: '배경교체 · 리터치(군중 추가·오브제 변경) · 특수효과 통합 · 프롬프트 추후', status: 'new' },
  { id: 'video-extra', label: '부가콘텐츠', desc: '비하인드 · 인터뷰 — 단일 컷 · 레퍼런스 첨부', status: 'new' },
  { id: 'video-upscale', label: 'Upscale', desc: '영상 화질 향상 · Topaz (업스케일 · 노이즈 제거 · 프레임 보간)', status: 'new' },
@@ -17578,6 +17676,15 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
  const narrJobSeq = useRef(0);
  // v1129: 다큐멘터리. 워크스페이스는 내러티브와 공유하고 상태만 가른다 —
  //   복사한 경로는 반드시 한쪽만 고쳐진다(사운드 조항이 다섯 경로에 흩어져 있던 일).
+ // v1130: POV. 다큐와 같은 모양이다 — 워크스페이스도 레퍼런스도 그대로 쓴다.
+ const [videoPovData, setVideoPovData] = useState({
+  situation: '', tier: 'video25', duration: 15, aspect: '16:9', resolution: '480p',
+  refs: { situation: [], character: [], space: [], object: [] }, refSource: 'upload',
+  extracting: false, fillTarget: null,
+  camera: 'eyes',   // 'eyes' | 'device'
+  prevClip: null,
+  jobs: [], selectedUrl: null, feedbackOpen: false, feedback: '', error: '',
+ });
  const [videoDocuData, setVideoDocuData] = useState({
   situation: '', tier: 'video25', duration: 15, aspect: '16:9', resolution: '480p',
   refs: { situation: [], character: [], space: [], object: [] }, refSource: 'upload',
@@ -20515,13 +20622,13 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  sheetWsData: setSheetWsData, standaloneCloneData: setStandaloneCloneData, titleDesignData: setTitleDesignData,
  translateToolData: setTranslateToolData, ttsToolData: setTtsToolData, upscaleData: setUpscaleData,
  vfxData: setVfxData, videoAnalyzeData: setVideoAnalyzeData, videoCustomData: setVideoCustomData,
- videoNarrativeData: setVideoNarrativeData, videoDocuData: setVideoDocuData, extraData: setExtraData,
+ videoNarrativeData: setVideoNarrativeData, videoDocuData: setVideoDocuData, videoPovData: setVideoPovData, extraData: setExtraData,
  };
  const sessionValues = {
  actorAuthData, adaptToolData, adaptFeedback, bookletWsData, characterWsData, customImageData,
  musicToolData, posterComposeData, posterToolData, posterWsData, promptVideoData, scenarioAnalyzeData,
  scenarioToolData, scenarioTransData, sheetToolData, sheetWsData, standaloneCloneData, titleDesignData,
- translateToolData, ttsToolData, upscaleData, vfxData, videoAnalyzeData, videoCustomData, videoNarrativeData, videoDocuData, extraData,
+ translateToolData, ttsToolData, upscaleData, vfxData, videoAnalyzeData, videoCustomData, videoNarrativeData, videoDocuData, videoPovData, extraData,
  };
  const sessionRestored = useRef(false);
  const sessionTimer = useRef(null);
@@ -20595,7 +20702,7 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  musicToolData, posterComposeData, posterToolData, posterWsData, promptVideoData,
  scenarioAnalyzeData, scenarioToolData, scenarioTransData, sheetToolData, sheetWsData,
  standaloneCloneData, titleDesignData, translateToolData, ttsToolData, upscaleData, vfxData,
- videoAnalyzeData, videoCustomData, videoNarrativeData, videoDocuData, extraData]);
+ videoAnalyzeData, videoCustomData, videoNarrativeData, videoDocuData, videoPovData, extraData]);
 
  // ─────────────────────────────────────────────────────────────
  // v734: 단일작업 워크스페이스별 초기화 — 사이드바 각 행의 초기화 버튼에서 호출.
@@ -20711,6 +20818,15 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  situation: '', tier: 'video25', duration: 15, aspect: '16:9', resolution: '480p',
  refs: { situation: [], character: [], space: [], object: [] }, refSource: 'upload',
  extracting: false, fillTarget: null,
+ jobs: [], selectedUrl: null, feedbackOpen: false, feedback: '', error: '',
+ });
+ setNarrRefSuggest(null);
+ break;
+ case 'video-pov':
+ setVideoPovData({
+ situation: '', tier: 'video25', duration: 15, aspect: '16:9', resolution: '480p',
+ refs: { situation: [], character: [], space: [], object: [] }, refSource: 'upload',
+ extracting: false, fillTarget: null, camera: 'eyes', prevClip: null,
  jobs: [], selectedUrl: null, feedbackOpen: false, feedback: '', error: '',
  });
  setNarrRefSuggest(null);
@@ -29732,6 +29848,7 @@ ${sampleText}`;
     pushJobs('video-custom', videoCustomData, '영상 생성 중');
     pushJobs('video-narrative', videoNarrativeData, '영상 생성 중');
     pushJobs('video-documentary', videoDocuData, '영상 생성 중');
+    pushJobs('video-pov', videoPovData, '영상 생성 중');
     pushJobs('video-vfx', vfxData, 'VFX 처리 중');
     pushJobs('video-extra', extraData, '영상 생성 중');
     pushJobs('video-upscale', upscaleData, '업스케일 중');
@@ -29800,7 +29917,7 @@ ${sampleText}`;
     nowTick,
     adaptToolData, scenarioAnalyzeData, videoAnalyzeData, scenarioTransData,
     customImageData, characterWsData, titleDesignData, sheetWsData, posterWsData,
-    videoCustomData, videoNarrativeData, videoDocuData, vfxData, bookletWsData,
+    videoCustomData, videoNarrativeData, videoDocuData, videoPovData, vfxData, bookletWsData,
     musicToolData, ttsToolData, standaloneCloneData,
     translateToolData,
     projectData, projectGenJob, projectCleanJob,
@@ -37865,12 +37982,15 @@ ${sampleText}`;
  })()}
 
  {/* ═══ 비디오 내러티브(15s) 워크스페이스 (상황묘사 → 룰북 프롬프트 → Seedance, v633) ═══ */}
- {appScreen === 'single' && (singleTaskId === 'video-narrative' || singleTaskId === 'video-documentary') && (() => {
+ {appScreen === 'single' && (singleTaskId === 'video-narrative' || singleTaskId === 'video-documentary' || singleTaskId === 'video-pov') && (() => {
  // v1129: 워크스페이스는 한 벌이고 상태만 가른다. 입력 · 레퍼런스 4종 · 생성기록 ·
  //   피드백이 완전히 같고, 다른 것은 룰북 · 카메라 · 이전 클립뿐이다.
  const isDocu = singleTaskId === 'video-documentary';
- const v = isDocu ? videoDocuData : videoNarrativeData;
- const setV = isDocu ? setVideoDocuData : setVideoNarrativeData;
+ const isPov = singleTaskId === 'video-pov';
+ // 카메라 · 앞 클립을 함께 쓰는 두 작업. 룰북과 시점 조항만 갈라진다.
+ const isTake = isDocu || isPov;
+ const v = isPov ? videoPovData : isDocu ? videoDocuData : videoNarrativeData;
+ const setV = isPov ? setVideoPovData : isDocu ? setVideoDocuData : setVideoNarrativeData;
  const up = (patch) => setV(p => typeof patch === 'function' ? patch(p) : ({ ...p, ...patch }));
  const busy = false; // v641: 비차단 — 입력 항상 활성
  const jobs = v.jobs || [];
@@ -38169,7 +38289,7 @@ ${sampleText}`;
  // v643: 입력 스냅샷(상황묘사·설정·레퍼런스 4종) 저장 → 썸네일 클릭 시 복원
  const params = { situation, aspect: asp, resolution: res, duration: dur, tier,
   refsSnapshot: JSON.parse(JSON.stringify(v.refs || {})), feedback: opts.feedbackNote || null,
-  ...(isDocu ? { camera: v.camera || 'handheld', hasPrevClip: !!(v.prevClip && v.prevClip.dataUrl) } : {}) };
+  ...(isTake ? { camera: v.camera || (isPov ? 'eyes' : 'handheld'), hasPrevClip: !!(v.prevClip && v.prevClip.dataUrl) } : {}) };
  const estSec = estSecFor(durKeyVideo(res, dur, opts.baseVideoUrl ? true : false), estVideoGenSeconds(res, dur) + (opts.directPrompt ? 0 : 12));  // v791: 실측 학습값 우선, 표본 없으면 상수 추정
  up(p => ({ ...p, error: '', feedback: '', feedbackOpen: false, jobs: [{ id: jobId, version: narrJobSeq.current, loading: true, phase: opts.directPrompt ? '영상 생성 중' : '프롬프트 생성 중', ts: Date.now(), estSec, params }, ...p.jobs] }));
  try {
@@ -38177,15 +38297,21 @@ ${sampleText}`;
  if (!genPrompt) {
  const manifestStr = manifest.length ? `\n\n[첨부 레퍼런스 — 이 토큰으로 [Shots]에서 지칭]\n${manifest.join('\n')}` : '\n\n(첨부 레퍼런스 없음)';
  const userMsg = `아래 상황을 ${dur}초 Seedance 영상 프롬프트로 변환하세요.${manifestStr}\n\n[상황 묘사]\n${situationText}`;
- const rulebook = isDocu ? seedanceDocumentaryRulebook(dur) : seedanceNarrativeRulebook(dur);
+ const rulebook = isPov ? seedancePovRulebook(dur)
+  : isDocu ? seedanceDocumentaryRulebook(dur)
+  : seedanceNarrativeRulebook(dur);
  genPrompt = String(await callClaude(rulebook, userMsg, { model: adaptModel, maxTokens: 2000, workCat: 'video' }) || '').replace(/```/g, '').trim();
  if (!genPrompt) throw new Error('프롬프트 생성 결과가 비었습니다.');
- if (isDocu) {
+ if (isTake) {
   // 인터뷰 조항은 카메라 종류와 무관하다. 고정 카메라 조항을 그대로 쓰면 광각 · 정중앙 ·
   //   렌즈 응시가 되는데, 그것은 감시 카메라의 구도다.
   const isInterview = /인터뷰|interview/i.test(situation);
-  const camStyle = (DOCU_CAMERA_STYLE[v.camera] || DOCU_CAMERA_STYLE.handheld)
-   + (isInterview ? ` ${DOCU_INTERVIEW_RULE} ${DOCU_CAMERA_UNSEEN}` : '');
+  // POV 는 '나' 가 화면에 서는 것과 내 대사가 남의 입에 붙는 것, 두 군데서 깨진다.
+  //   그래서 시점 조항에 몸과 목소리 조항을 언제나 함께 붙인다.
+  const camStyle = isPov
+   ? `${POV_CAMERA_STYLE[v.camera] || POV_CAMERA_STYLE.eyes} ${POV_BODY_RULE} ${POV_SPEECH_RULE}`
+   : (DOCU_CAMERA_STYLE[v.camera] || DOCU_CAMERA_STYLE.handheld)
+    + (isInterview ? ` ${DOCU_INTERVIEW_RULE} ${DOCU_CAMERA_UNSEEN}` : '');
   // ★ 클로드가 자리표시자를 그대로 내놓는다고 가정하지 않는다. 자기 말로 풀어 쓰면
   //   치환이 아무 일도 하지 않고 카메라 조항이 통째로 빠진다 — 있으면 쓰고, 없으면 붙인다.
   if (genPrompt.includes('<CAMERA_STYLE>')) genPrompt = genPrompt.split('<CAMERA_STYLE>').join(camStyle);
@@ -38205,7 +38331,7 @@ ${sampleText}`;
  // v1129: 앞 클립 이어받기. 프로젝트의 콘티뉴이티 조항을 그대로 쓰되, 그 조항은
  //   '인물마다 신원 스틸이 붙어 있다' 를 전제로 쓰여 있다 — 다큐는 스틸 없이 앞 클립만
  //   붙일 수 있어서 얼굴의 출처가 사라진다. 인물 단위로 한 문장을 더 얹어 갈라 둔다.
- const prevClipUrl = (isDocu && v.prevClip && v.prevClip.dataUrl) ? v.prevClip.dataUrl : '';
+ const prevClipUrl = (isTake && v.prevClip && v.prevClip.dataUrl) ? v.prevClip.dataUrl : '';
  if (prevClipUrl) {
   const cntCharRefs = (v.refs?.character || []).filter(r => r && r.kind === 'image' && !r.pending).length;
   finalPrompt += `\n\n${PROJECT_VIDEO_CONT_RULE_FOR(cntCharRefs >= 2)}`;
@@ -38259,8 +38385,12 @@ ${sampleText}`;
  return (
  <div className="fade-in" style={{ maxWidth: 1240, margin: '0 auto', padding: '0 8px' }}>
  <div style={{ marginBottom: 22, textAlign: 'center' }}>
- <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>내러티브 <span style={{ fontSize: 14, color: 'var(--text-tertiary)', fontWeight: 600 }}>(15초)</span></h2>
- <p className="meta" style={{ color: 'var(--text-tertiary)', marginTop: 5 }}>상황을 적으면 룰북에 맞춰 Claude가 프롬프트를 만들고 15초 영상을 생성합니다. 화면비·품질만 선택.</p>
+ <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>{isPov ? 'POV' : isDocu ? '다큐멘터리' : '내러티브'} <span style={{ fontSize: 14, color: 'var(--text-tertiary)', fontWeight: 600 }}>({vDur}초)</span></h2>
+ <p className="meta" style={{ color: 'var(--text-tertiary)', marginTop: 5 }}>
+ {isPov ? "'나' 를 중심으로 적으면 1인칭 시점샷으로 옮겨 생성합니다. 컷 없이 한 테이크로 갑니다."
+  : isDocu ? '그 자리에서 찍고 있는 화면으로 만듭니다. 컷 없이 한 테이크로 가고, 앞 클립을 이어받을 수 있습니다.'
+  : '상황을 적으면 룰북에 맞춰 Claude가 프롬프트를 만들고 영상을 생성합니다. 화면비·품질만 선택.'}
+ </p>
  <div style={{ height: 3, marginTop: 16, borderRadius: 3, background: 'linear-gradient(to right, transparent, var(--green-500), transparent)' }} />
  </div>
  <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start' }}>
@@ -38376,7 +38506,11 @@ ${sampleText}`;
  onKeyDown={(e) => { if (narrRefSuggest?.matches?.length) { const len = Math.min(narrRefSuggest.matches.length, 6); if (e.key === 'ArrowDown') { e.preventDefault(); setNarrRefSuggest(s => ({ ...s, active: ((s.active ?? 0) + 1) % len })); } else if (e.key === 'ArrowUp') { e.preventDefault(); setNarrRefSuggest(s => ({ ...s, active: ((s.active ?? 0) - 1 + len) % len })); } else if (e.key === 'Tab' || e.key === 'Enter') { e.preventDefault(); applySuggest(narrRefSuggest.matches[activeIdx]); } else if (e.key === 'Escape') setNarrRefSuggest(null); } }}
  onClick={(e) => detectSuggest(e.target.value, e.target.selectionStart)}
  onBlur={() => setTimeout(() => setNarrRefSuggest(null), 150)}
- placeholder="시나리오 원문을 붙여넣거나 상황을 적어주세요. (예: S#12 리버클럽 입구 — @인물1 과 @인물2 가 인파 뒤에서 광경을 주시한다...)"
+ placeholder={isPov
+  ? "'나' 를 중심으로 적어주세요. 예: 눈 앞에 보이는 건 젊은 무당 하나. 고개를 들어 왼쪽을 보니 귀신이 다가오고 있었다"
+  : isDocu
+   ? '그 자리에서 무슨 일이 찍히고 있는지 적어주세요. 예: 좁은 부엌에서 @엄마 가 김치를 담그고, 카메라를 든 사람이 옆에서 따라다니며 묻는다'
+   : '시나리오 원문을 붙여넣거나 상황을 적어주세요. 예: S#12 리버클럽 입구 — @인물1 과 @인물2 가 인파 뒤에서 광경을 주시한다'}
  style={{ width: '100%', resize: 'vertical', fontSize: 13, lineHeight: 1.6, boxSizing: 'border-box' }} />
  <TextClearButton show={!!v.situation} onClear={() => { up({ situation: '' }); setNarrRefSuggest(null); }} />
  {narrRefSuggest?.matches?.length > 0 && (
@@ -38393,13 +38527,16 @@ ${sampleText}`;
  <RefHighlightPreview text={v.situation} refNames={refNames} />
  </div>
  {/* v1129: 다큐멘터리만 — 카메라 · 이전 클립 */}
- {isDocu && (
+ {isTake && (
  <div>
- <div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>카메라</div>
+ <div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>{isPov ? '시점' : '카메라'}</div>
  <div style={{ display: 'flex', gap: 6 }}>
- {[{ id: 'handheld', label: '핸드헬드', desc: '들고 따라다닌다' }, { id: 'fix', label: '고정', desc: '놓아두고 돌아간다' }].map(c => (
+ {(isPov
+  ? [{ id: 'eyes', label: '맨눈', desc: '내 눈이 곧 화면' }, { id: 'device', label: '손에 든 카메라', desc: '폰 · 액션캠' }]
+  : [{ id: 'handheld', label: '핸드헬드', desc: '들고 따라다닌다' }, { id: 'fix', label: '고정', desc: '놓아두고 돌아간다' }]
+ ).map(c => (
  <button key={c.id} type="button" onClick={() => up({ camera: c.id })} disabled={busy}
- className={(v.camera || 'handheld') === c.id ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+ className={(v.camera || (isPov ? 'eyes' : 'handheld')) === c.id ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
  style={{ flex: 1, height: 'auto', padding: '6px 8px', flexDirection: 'column', gap: 1 }}>
  <span style={{ fontWeight: 700 }}>{c.label}</span>
  <span style={{ fontSize: 9, opacity: 0.75 }}>{c.desc}</span>
@@ -40014,6 +40151,7 @@ AUDIO:
  (videoCustomData.jobs || []).forEach(j => { if (!j.loading && j.resultUrl) out.push({ url: j.resultUrl, label: '커스텀' }); });
  (videoNarrativeData.jobs || []).forEach(j => { if (!j.loading && j.resultUrl) out.push({ url: j.resultUrl, label: '내러티브' }); });
  (videoDocuData.jobs || []).forEach(j => { if (!j.loading && j.resultUrl) out.push({ url: j.resultUrl, label: '다큐멘터리' }); });
+ (videoPovData.jobs || []).forEach(j => { if (!j.loading && j.resultUrl) out.push({ url: j.resultUrl, label: 'POV' }); });
  (vfxData.jobs || []).forEach(j => { if (!j.loading && j.resultUrl) out.push({ url: j.resultUrl, label: 'AI VFX' }); });
  return out.slice(0, 48);
  };
@@ -41419,7 +41557,7 @@ AUDIO:
 
 
  {/* 단일작업 — 빈 워크스페이스 (미연결 작업) */}
- {appScreen === 'single' && singleTaskId && singleTaskId !== 'plan-adapt' && singleTaskId !== 'plan-scenario-analyze' && singleTaskId !== 'plan-scenario-translate' && singleTaskId !== 'plan-video-analyze' && singleTaskId !== 'image-custom' && singleTaskId !== 'image-character' && singleTaskId !== 'image-title' && singleTaskId !== 'image-sheet' && singleTaskId !== 'image-poster' && singleTaskId !== 'image-booklet' && singleTaskId !== 'video-custom' && singleTaskId !== 'video-narrative' && singleTaskId !== 'video-documentary' && singleTaskId !== 'video-vfx' && singleTaskId !== 'video-extra' && singleTaskId !== 'video-upscale' && singleTaskId !== 'sound-music' && singleTaskId !== 'sound-voice' && singleTaskId !== 'etc-srt' && singleTaskId !== 'etc-actor-auth' && currentView === 'single-blank' && (() => {
+ {appScreen === 'single' && singleTaskId && singleTaskId !== 'plan-adapt' && singleTaskId !== 'plan-scenario-analyze' && singleTaskId !== 'plan-scenario-translate' && singleTaskId !== 'plan-video-analyze' && singleTaskId !== 'image-custom' && singleTaskId !== 'image-character' && singleTaskId !== 'image-title' && singleTaskId !== 'image-sheet' && singleTaskId !== 'image-poster' && singleTaskId !== 'image-booklet' && singleTaskId !== 'video-custom' && singleTaskId !== 'video-narrative' && singleTaskId !== 'video-documentary' && singleTaskId !== 'video-pov' && singleTaskId !== 'video-vfx' && singleTaskId !== 'video-extra' && singleTaskId !== 'video-upscale' && singleTaskId !== 'sound-music' && singleTaskId !== 'sound-voice' && singleTaskId !== 'etc-srt' && singleTaskId !== 'etc-actor-auth' && currentView === 'single-blank' && (() => {
  const item = SINGLE_TASK_CATALOG.flatMap((g) => g.items).find((i) => i.id === singleTaskId);
  if (!item) return null;
  return (
