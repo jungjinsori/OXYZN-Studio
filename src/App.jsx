@@ -881,6 +881,8 @@ const EXTRA_IDENTITY_RULE = [
   'blemishes, enlarged pores, oily sheen or lines the image does not have.',
   'Where a wardrobe image is given for that person, it is the sole authority on what',
   'they wear there — match design, colour, pattern, fabric, fit and closures exactly.',
+  'Any skin-toned surface in the wardrobe image is the display form it was shown on,',
+  'never this person\'s skin.',
   'Wherever that garment opens or the wardrobe image leaves a space hollow, and',
   'anywhere the body reaches past the garment, render THEIR OWN LIVING SKIN in the',
   'tone from their identity image. Nothing worn in the identity image appears here.',
@@ -1262,13 +1264,19 @@ const POV_CAMERA_STYLE = {
   + ' or side of frame, and the whole frame drops when they lower it. They keep it up the whole time.',
 };
 
-// ★ POV 가 깨지는 첫 번째 자리 — 모델이 '나' 를 3인칭으로 세운다. 내 몸 중 화면에
-//   들어오는 것이 무엇인지까지 적어 둬야 손이 아래에서 들어오는 그림이 나온다.
-const POV_BODY_RULE = 'WHOSE BODY THIS IS. The one telling this is never seen from outside — no shot of their face,'
- + ' no shot of their back, no reflection of them unless this prompt asks for one. What does belong in frame is'
- + ' their own body seen from their own eyes: hands and forearms entering from the bottom or the side edges,'
- + ' a shoulder at the very edge, legs and feet below when they look down, and whatever they are holding.'
- + ' Those hands are the only part of them that ever appears.';
+// ★ POV 가 깨지는 첫 번째 자리 — 모델이 '나' 를 3인칭으로 세운다.
+// v1141: 두 번째 자리 — 남이 하는 동작이 '내 손' 으로 넘어온다. 손은 기본적으로 닫는다.
+const POV_BODY_RULE_FOR = (hands) => {
+ const head = 'WHOSE BODY THIS IS. The viewer is never seen from outside — no shot of their face, no shot of their'
+  + ' back, no reflection of them unless this prompt asks for one. Every object in this scene is handled only by the'
+  + ' person who is named doing it, with that person\'s own hands, in front of the viewer.'
+  + ' Whenever someone on screen handles an object, their hands and arms are in full view in the frame, across'
+  + ' from the viewer, and the object stays on their side, beyond the viewer\'s reach. While they act the frame'
+  + ' holds them from the chest up at eye level; a look down at a table or the floor is only a brief glance.';
+ return hands
+  ? `${head} The viewer\'s own hands come into frame, rising from the bottom edge, only to do this: ${hands}. Nothing else is in their hands.`
+  : `${head} The viewer\'s hands do nothing in this take and never come into frame — the viewer only watches and listens.`;
+};
 
 // ★ 두 번째 자리 — 내 대사가 화면 안 사람 입에 붙어 버린다.
 const POV_SPEECH_RULE = 'WHO SPEAKS AND FROM WHERE. Lines spoken by the one telling this are heard from behind the'
@@ -1277,8 +1285,8 @@ const POV_SPEECH_RULE = 'WHO SPEAKS AND FROM WHERE. Lines spoken by the one tell
 
 const POV_SELF_RULE = (gender) => {
  const g = gender === 'female' ? 'woman' : 'man';
- return `WHO IS TELLING THIS: a ${g}. The hands and forearms that come into frame are a ${g}'s —`
-  + ` build, skin and sleeves match. The voice heard from behind the frame is a ${g}'s voice.`;
+ return `THE VIEWER is a ${g} — a different person from anyone on screen. If the viewer's hands ever come into`
+  + ` frame they are a ${g}'s. The viewer's voice, heard from behind the frame, is a ${g}'s voice.`;
 };
 
 const seedancePovRulebook = (durationSec = 15) => {
@@ -1295,17 +1303,31 @@ const seedancePovRulebook = (durationSec = 15) => {
 - '고개를 돌린다 · 왼쪽을 보니' → 팬. '고개를 든다 · 내려다본다' → 틸트.
 - '다가간다 · 물러선다' → 프레임 전체가 앞뒤로 움직인다. 발소리의 리듬이 같이 간다.
 - '다가온다' → 대상이 프레임 안에서 커진다. 카메라는 그 자리에 있다.
-- '손을 뻗는다 · 집는다' → 내 손과 팔뚝이 화면 아래에서 올라와 그것을 잡는다.
+- '내가 손을 뻗는다 · 내가 집는다' 처럼 '나' 가 주어일 때만 내 손과 팔뚝이 화면 아래에서 올라온다.
+  주어가 다른 인물이면 그 인물의 손이다 — '@무당이 붓을 든다' 는 무당의 손이 붓을 드는 것이다.
 - 시선은 사람이 보는 속도로 움직인다. 한 곳에 잠깐 머물렀다가 옮기고, 급한 순간에만 빨라진다.
 
 ## ★ 지켜야 하는 것
 - 컷이 없다. S1 · S2 로 나누지 않는다. 처음부터 끝까지 [Take] 하나다.
   시간 구간 표기는 컷이 아니라 한 테이크 안에서 시간이 흐른다는 표시다.
 - '나' 를 밖에서 보여주지 않는다. 내 얼굴 · 뒷모습 · 전신 샷은 없다.
-  화면에 들어오는 내 몸은 아래에서 올라오는 손 · 팔뚝 · 내려다본 다리뿐이다.
+  내 손은 상황 묘사에 '나' 가 손으로 하는 일이 적혀 있을 때만 나온다. 그 밖에는 화면에 들어오지 않는다.
+- ★ 화면 안 인물의 동작은 문장마다 그 인물의 번호로 시작한다 — '[Image1] lifts the brush'.
+  he · she · they 를 쓰지 않는다. '나' 도 사람이라 대명사가 '나' 에게 붙어, 남의 동작이 내 손으로 넘어온다.
+  '나' 는 언제나 'the viewer' 로 쓴다.
+- ★ 물건은 그것을 다룬다고 적힌 사람의 손에만 있다. 그 사람이 내려놓기 전에는 다른 누구의 손에도 가지 않는다.
 - 내가 하는 말은 화면 밖에서 들린다. 화면 안 인물의 입에 붙이지 않는다.
 - 나에게 말하는 사람은 프레임을 똑바로 본다. 거기가 내 눈이다.
 - 거울 · 유리에 비친 내 모습은 사용자가 적었을 때만 쓴다.
+- ★ 첫 프레임은 눈높이에서 화면 안 인물을 향한다 — 그 사람의 상체와 두 손, 그 앞의 탁자가 함께 보인다.
+  상황 묘사가 '고개를 들어 바라봤다' 로 이어져도 앞부분을 책상 · 바닥을 내려다보는 구도로 오래 두지 않는다.
+  아래를 보는 것은 1초 안쪽으로 스치게 쓴다. 1인칭으로 책상을 내려다보는 화면은 '내가 그 책상에서 무언가를
+  하는 장면' 으로 읽혀, 남이 하는 동작이 내 손으로 넘어온다.
+- ★ 다른 인물이 다루는 물건은 그 사람 앞, 탁자 건너편, 시점 인물의 손이 닿지 않는 거리에 있다고 위치를 적는다.
+  '탁상 한가운데 · 그 옆' 처럼 쓰면 내 앞에 놓인 것으로 그려진다.
+- ★ 다른 인물이 물건을 다루는 동안에는 그 사람의 손과 팔이 화면 안에 보이게 적는다 —
+  "[Image1]'s hands, in full view across the table, lift [Image4]". 손이 보일 자리가 비면 모델이 아래에서
+  올라오는 손으로 채운다.
 
 ## 그 밖의 절대 규칙
 - 출력은 영어. 대사만 한국어 원문 그대로 둔다. 영어 번역 병기 금지.
@@ -1328,10 +1350,13 @@ const seedancePovRulebook = (durationSec = 15) => {
 
 CAMERA: <CAMERA_STYLE>
 
+VIEWER HANDS: <none — 또는 상황 묘사에 '나' 가 손으로 하는 일이 적혀 있으면 그 일을 영어로 짧게>
+
 Audio: <내 귀에 들리는 소리 — 내 호흡과 발소리는 가깝고 크게, 나머지는 거리만큼 멀게>
 
-- 헤더는 [Reference] / [Notes] / [Take] / CAMERA / Audio 만.
+- 헤더는 [Reference] / [Notes] / [Take] / CAMERA / VIEWER HANDS / Audio 만.
 - CAMERA 줄의 <CAMERA_STYLE> 은 그대로 남긴다. 코드가 채운다.
+- VIEWER HANDS 는 상황 묘사에 '나' 가 손으로 하는 일이 없으면 none 이다. 짐작해서 채우지 않는다.
 - 첨부 레퍼런스는 [Take] 에서 이미지=[Image1],[Image2]..., 비디오=[Video1]... 로 지칭한다.
 - 인물 레퍼런스는 '내가 보는 사람들' 이다. 내 레퍼런스가 붙어 있어도 화면에 세우지 않는다.
 
@@ -1339,7 +1364,7 @@ Audio: <내 귀에 들리는 소리 — 내 호흡과 발소리는 가깝고 크
 - 시점: "first-person point of view throughout — the frame is this person's eyes."
 - 컷 없음: "one continuous take, no cuts, no edits."
 - 자기 노출 금지: "the viewpoint character is never shown from outside — no face, no back, no full body."
-- 내 몸: "their own hands and forearms enter frame from below when they reach or hold something."
+- 동작의 주인: "every action is done by the person named doing it; the viewer only watches unless the VIEWER HANDS line says otherwise."
 - 시선 교환: "anyone speaking to them looks directly into frame."
 - 복제 방지: "each person appears exactly once, no duplicated faces."
 
@@ -1359,6 +1384,13 @@ const ToolImageGrid = ({ pool, onPick, busy }) => {
  style={{ position: 'relative', width: 60, height: 60, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', padding: 0, cursor: busy ? 'default' : 'pointer', background: 'var(--bg-secondary)', flexShrink: 0 }}>
  <img src={p.url} alt={p.label || ''} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
  {p.label && <span style={{ position: 'absolute', bottom: 0, left: 0, right: 0, fontSize: 8, background: 'rgba(0,0,0,0.5)', color: '#fff', padding: '1px 0', textAlign: 'center' }}>{p.label}</span>}
+ {/* v1138: 보이스가 붙은 캐릭터 */}
+ {p.voice && (
+  <span title={`보이스: ${p.voice}`} style={{ position: 'absolute', top: 3, right: 3, display: 'inline-flex', alignItems: 'center', gap: 2,
+   padding: '1px 4px', borderRadius: 4, background: 'var(--green-500)', color: '#fff', fontSize: 8, fontWeight: 800 }}>
+   <Mic size={8} />보이스
+  </span>
+ )}
  </button>
  ))}
  </div>
@@ -5430,6 +5462,15 @@ const PROJECT_VIDEO_EDIT_RULE = [
 const PROJECT_SOUND_RULE = 'SOUND: {} dialogue and <Foley — all diegetic sound in this scene>. No BGM.';
 
 // 마지막에 읽는 줄. 자막 금지는 문서가 인정하는 다른 한 축이라 여기 같이 둔다.
+// v1143: 오브제 시트에는 크기를 재는 회색 손(소형) · 사람 실루엣(대형)이 그려져 있다.
+//   1인칭 화면에서 그 손이 '내 손' 으로 읽혀, 무당이 드는 붓을 시점 인물이 들었다(9/21 —
+//   프롬프트 글은 [Image1] 이 든다고 맞게 적혀 있었는데도). 대형은 없던 사람을 불러올 수 있다.
+//   이미 만든 시트에도 손이 있으므로, 시트를 고치는 것과 별개로 영상 쪽에서 크기 자라고 못 박는다.
+const SCALE_FIGURE_RULE = 'SIZE RULERS: an object reference image may show a flat grey hand or a flat grey human'
+ + ' silhouette beside the object. That shape is only a size ruler printed on the reference sheet — it is not a'
+ + ' hand or a person in this scene and it belongs to no one. Take only the object and its true size from it; no'
+ + ' extra hand and no extra person appear because of it.';
+
 const PROJECT_FINAL_LINE = 'FINAL: no subtitles, no captions, no dialogue text on screen. No BGM.'
  + ' The soundtrack is dialogue and Foley — only sound made where this scene happens.';
 
@@ -5640,6 +5681,10 @@ const OUTFIT_RULE = [
  'layer it does not. Open stays open, fastened stays fastened.',
  'Garment only — not its display form, pose, framing or background. It defines',
  'what the garment IS, not whether it is worn now.',
+ // v1131: 의상 시트가 피부색 마네킹으로 바뀌었다. 그 살색은 마네킹의 것이지 이 사람의
+ //   것이 아니다 — 자리표시자다. 옛 투명 마네킹 시트(빈 속)도 같은 문장이 덮는다.
+ 'The wardrobe image may show the garment on a skin-toned display form. That tone',
+ 'is the form, a placeholder, never this person\'s skin.',
  'Wherever the display form shows through — or, where the wardrobe image leaves an',
  'opening hollow and empty, wherever that emptiness sits — inside the garment (open',
  'front, neckline, armhole, any gap) and anywhere the body reaches past it (face,',
@@ -6279,14 +6324,30 @@ const ffsUrl = (fp) => {
 //   두 형태를 다 받는다. 옛 저장본도 그대로 열린다.
 const imgUrlOf = (x) => (typeof x === 'string' ? x : String((x && (x.url || x.dataUrl)) || ''));
 
-const genKeep = async (ws, id, url) => {
+// v1133: ext — 주소가 확장자로 끝나지 않을 때 쓸 확장자(영상은 'mp4'). 안 주면 예전처럼 png.
+const genKeep = async (ws, id, url, ext) => {
  const remote = String(url || '');
  if (!/^https?:\/\//i.test(remote)) return { file: '', url: remote };
  try {
- const r = await window.electronAPI?.genSave?.({ ws, id, url: remote });
+ const r = await window.electronAPI?.genSave?.({ ws, id, url: remote, ext });
  if (r?.success && r.path) return { file: r.path, url: ffsUrl(r.path), srcUrl: remote };
  } catch { /* 아래 폴백 */ }
  return { file: '', url: remote };
+};
+// v1133: 생성이 끝난 결과(영상 포함)를 받아 두고, 기록에 넣을 필드를 돌려준다.
+//   원격 주소는 하루쯤이면 죽는다 — 영상 기록이 원격 주소만 들고 있어서 이틀쯤 지나면
+//   미리보기가 깨졌다. 받아 두지 못하면 원격 주소를 그대로 쓴다(예전과 같다).
+//   ★ 받아 둔 '다음' 에 기록에 올린다. 원격으로 먼저 띄웠다가 로컬로 바꾸면 선택
+//     (selectedUrl — 주소 문자열로 영상을 짚는다) 이 옛 주소를 쥔 채 어긋난다.
+const keepGenResult = async (ws, id, url, ext) => {
+ const k = await genKeep(ws, id, url, ext);
+ return { resultUrl: k.url || String(url || ''), file: k.file || '', remoteUrl: k.srcUrl || '' };
+};
+// v1133: 툴에서 기록을 지우면 받아 둔 파일도 지운다. 파일이 없는 옛 기록은 할 일이 없다.
+const genForget = (job) => {
+ const f = job && job.file;
+ if (!f) return;
+ try { window.electronAPI?.genDelete?.({ path: f }); } catch { /* 지우기 실패는 8GB 상한이 결국 치운다 */ }
 };
 // 히스토리 여러 장을 한꺼번에 받아 둔다 (순서 유지)
 const genKeepAll = async (ws, items) => Promise.all(
@@ -14870,9 +14931,9 @@ LAYOUT — one 16:9 landscape frame divided into exactly two zones by a single c
     Four DETAIL SHOTS of the same outfit — close crops of construction and material: fabric weave and texture, seams and stitching, closures (buttons/zippers/ties), collar or cuff construction, and any accessories worn with the outfit (belt, bag, jewellery, footwear).
   The zone widths and the panel divisions inside each zone must be even and consistent. Panels are separated by thin clean margins, no decorative frames.
 
-PRESENTATION: ghost-mannequin (invisible-mannequin) product photography — the outfit ALONE, holding the exact three-dimensional shape it takes when worn: shoulders, chest, waist and hips filled out, sleeves and skirt hanging with their true weight and drape, collars and closures sitting as they would on a wearer. The wearer is not in the picture. Every opening — neckline, armholes, cuffs, hem, any gap in an open front — is hollow: through it you see the inner lining of the garment itself, or the plain background behind. The worn shape follows [GENDER] and [BODY TYPE]. Footwear is photographed EMPTY — laid on the floor or shot from the side, with nothing inside it: no foot, no ankle, no leg, no form of any kind. Open sandals and straps simply hold their own shape. Other accessories are shown the same way, on their own. Nothing else is in frame: no person, no visible form, no stand, no hanger, no pins, wires or supports.
+PRESENTATION: the outfit is dressed on a store DISPLAY MANNEQUIN — a smooth, matte, seamless fibreglass figure in one even warm neutral skin tone, shaped as a [GENDER] figure of [BODY TYPE]. It is plainly an object, not a person: a featureless egg-shaped head with no eyes, nose, mouth, ears, eyebrows or hair; no nipples, no navel and no anatomical detail anywhere; no makeup, no pores, no veins; at most a faint seam at the joints. The mannequin wears ONLY the outfit described — nothing under it: no underwear, no bra, no briefs, no slip, no camisole, no body stocking, no base layer. Wherever the garment opens or ends — neckline, armholes, short sleeves, hem, slits, an open front — the smooth skin-tone surface of the mannequin shows through, exactly where a wearer's skin would show. Headwear, helmets and hair ornaments sit on the mannequin's head. Footwear is WORN on the mannequin's feet, laced or strapped as it is when walked in. Accessories sit where they are worn on the body. Nothing else is in frame: no person, no clothes rack, no second figure.
 
-WORN SHAPE: the garment holds a natural, relaxed standing shape that suits this particular piece and lets it hang and read correctly (a costume-fitting stance, not a fashion runway pose or dynamic action). CRITICAL — the front and back full shots must be the SAME shape from opposite sides: identical stance, identical limb positions, identical garment drape and fit. Nothing shifts between the two views.
+WORN SHAPE: the dressed mannequin stands in a natural, relaxed pose that suits this particular piece and lets it hang and read correctly (a costume-fitting stance, not a fashion runway pose or dynamic action). CRITICAL — the front and back full shots must be the SAME shape from opposite sides: identical stance, identical limb positions, identical garment drape and fit. Nothing shifts between the two views.
 
 GARMENT ACCURACY (most important): the SAME single outfit appears in every panel with identical color, fabric, pattern, cut, length, layering, hardware, and wear. Render the fabric realistically — true weave and knit structure, correct weight and stiffness, natural drape and fold behaviour, authentic sheen or matte finish, visible texture at detail scale. No invented variations between panels.
 
@@ -14880,7 +14941,7 @@ BACKGROUND & LIGHTING: clean pure white studio cyclorama (seamless white horizon
 
 CAMERA & RENDER: look like a real photograph shot on a professional studio camera — full-frame sensor with a prime lens, natural optical depth of field on the detail crops, accurate color rendition, realistic micro-contrast and fine fabric grain, subtle natural lens falloff. Not an illustration, not a 3D render, not a flat product mockup.
 
-NEGATIVE: no live model, no body, no face, skin or hair anywhere in frame, no changing garment color / fabric / cut between panels, no differing pose between front and back, no uneven or misaligned panel divisions, no extra panels beyond the specified 2 + 4, no colored or textured background, no props or set dressing, no fashion-editorial posing. NO rendered text, captions, labels, view names, measurements, logos, or watermark anywhere in the image — do NOT write words like "front", "back", "detail", or any numbers.`,
+NEGATIVE: no live model, no real person, no human face, no hair, no anatomical detail on the mannequin, no underwear, bra, briefs, slip or base layer under the outfit, no second mannequin, no changing garment color / fabric / cut between panels, no differing pose between front and back, no uneven or misaligned panel divisions, no extra panels beyond the specified 2 + 4, no colored or textured background, no props or set dressing, no fashion-editorial posing. NO rendered text, captions, labels, view names, measurements, logos, or watermark anywhere in the image — do NOT write words like "front", "back", "detail", or any numbers.`,
  },
  character_costume: {
  // v1116: 인물 시트 + 의상 시트 → 그 옷을 입은 인물의 시트 (Seedream).
@@ -14894,7 +14955,7 @@ NEGATIVE: no live model, no body, no face, skin or hair anywhere in frame, no ch
 
 IMAGE 1 is the PERSON. Take ONLY their identity from it: the face, its features and proportions, hairline and hair, skin tone, body build and height. What they wear in Image 1 is a plain garment worn only so the body can be measured for casting — it belongs to nobody in this sheet and is never shown.
 
-IMAGE 2 is the OUTFIT. Take ONLY the garment from it: design, colour, pattern, fabric, cut, length, layering, trims, closures, and every accessory, headwear and footwear it shows. It is a wardrobe record — take nothing else from it: not its display form, not its pose, not its framing, not its background.
+IMAGE 2 is the OUTFIT. Take ONLY the garment from it: design, colour, pattern, fabric, cut, length, layering, trims, closures, and every accessory, headwear and footwear it shows. It is a wardrobe record — take nothing else from it: not its display form, not its pose, not its framing, not its background. The outfit may be shown on a skin-toned display mannequin: that surface is the display form, and its tone is never this person's skin — wherever the outfit leaves the body bare, the skin is Image 1's.
 
 Create ONE photorealistic COSTUME FITTING SHEET: the person from Image 1 actually wearing the outfit from Image 2.
 
@@ -17693,6 +17754,8 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
   extracting: false, fillTarget: null,
   camera: 'eyes',   // 'eyes' | 'device'
   povGender: 'male',   // 'male' | 'female' — 화면에 들어오는 손과 프레임 뒤의 목소리
+  startFrame: null, endFrame: null,   // v1132: { name, dataUrl }
+  frameMode: 'exact',   // 'exact' (first/last_frame) | 'keyframe' (레퍼런스로 싣는다)
   prevClip: null,
   jobs: [], selectedUrl: null, feedbackOpen: false, feedback: '', error: '',
  });
@@ -19633,6 +19696,8 @@ const projectRefLiveSrc = (item) => {
  voLines.length
  ? PROJECT_VIDEO_VO_RULE_FOR(voLines.map(v => ({ ...v, line: localize(v.line) })), lang)
  : '',
+ // v1143: 오브제 시트의 크기 자(회색 손 · 사람 실루엣)가 장면에 새어 나오지 않게
+ fullList.some(x => x.kindLabel === '오브제') ? SCALE_FIGURE_RULE : '',
  PROJECT_FINAL_LINE,   // v1007: 마지막에 읽는 줄
  // v1126: 조립이 끝난 블록마다 괄호를 정리한다(사운드 두 줄은 스스로 건너뛴다)
  ].filter(Boolean).map(t => soundChannelize(t)).join('\n\n');
@@ -20716,6 +20781,41 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  videoAnalyzeData, videoCustomData, videoNarrativeData, videoDocuData, videoPovData, extraData]);
 
  // ─────────────────────────────────────────────────────────────
+ // v1133: 이번 판 전에 만든 영상 기록은 원격 주소만 들고 있다. 아직 살아 있으면(하루 안)
+ //   지금 받아 둔다. 한 번 시도한 기록은 다시 보지 않는다. 바꿀 때는 선택 주소도 같은
+ //   업데이트에서 함께 바꾼다 — 따로 바꾸면 선택된 미리보기가 옛 주소를 쥔 채 비어 보인다.
+ const genBackfillTried = useRef(new Set());
+ useEffect(() => {
+  const slices = [
+   ['video-custom', videoCustomData, setVideoCustomData],
+   ['video-narrative', videoNarrativeData, setVideoNarrativeData],
+   ['video-documentary', videoDocuData, setVideoDocuData],
+   ['video-pov', videoPovData, setVideoPovData],
+   ['video-extra', extraData, setExtraData],
+   ['video-vfx', vfxData, setVfxData],
+   ['video-upscale', upscaleData, setUpscaleData],
+  ];
+  const STALE = 26 * 3600 * 1000;   // 이보다 오래된 원격 주소는 이미 죽었다 — 요청하지 않는다
+  for (const [ws, data, setData] of slices) {
+   for (const j of ((data && data.jobs) || [])) {
+    if (!j || j.loading || j.file) continue;
+    const old = String(j.resultUrl || '');
+    if (!/^https?:\/\//i.test(old)) continue;
+    if (genBackfillTried.current.has(j.id)) continue;
+    genBackfillTried.current.add(j.id);
+    if (j.ts && Date.now() - j.ts > STALE) continue;
+    const ext = /\.(png|jpe?g|webp)(\?|$)/i.test(old) ? '' : 'mp4';
+    keepGenResult(ws, j.id, old, ext).then(k => {
+     if (!k.file) return;
+     setData(p => ({ ...p,
+      jobs: (p.jobs || []).map(x => (x.id === j.id && x.resultUrl === old ? { ...x, ...k } : x)),
+      selectedUrl: p.selectedUrl === old ? k.resultUrl : p.selectedUrl }));
+    }).catch(() => {});
+   }
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+ }, [videoCustomData, videoNarrativeData, videoDocuData, videoPovData, extraData, vfxData, upscaleData]);
+
  // v734: 단일작업 워크스페이스별 초기화 — 사이드바 각 행의 초기화 버튼에서 호출.
  // 오직 해당 작업의 자체 state만 초기 상태로 되돌리며, 다른 작업이나 공용 자산
  // (크레딧 로그, 아카이브, clonedVoiceLibrary 보이스 라이브러리, savedPlaces 저장 장소)은 건드리지 않는다.
@@ -20838,6 +20938,7 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  situation: '', tier: 'video25', duration: 15, aspect: '16:9', resolution: '480p',
  refs: { situation: [], character: [], space: [], object: [] }, refSource: 'upload',
  extracting: false, fillTarget: null, camera: 'eyes', povGender: 'male', prevClip: null,
+ startFrame: null, endFrame: null, frameMode: 'exact',
  jobs: [], selectedUrl: null, feedbackOpen: false, feedback: '', error: '',
  });
  setNarrRefSuggest(null);
@@ -23026,40 +23127,68 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
 
  //   v935: file:// 에서 읽은 blob 은 type 이 비어 있다. 확장자·Content-Type 이
  //   엉키면 받는 쪽이 영상으로 안 읽으므로 호출부가 지정할 수 있게 뒀다.
+ // v1145: 업로드가 408(시간 초과) 로 떨어졌다 — 6.8MB 이미지(9/23). 한 번 실패하면 그대로
+ //   끝나서 작업 전체가 죽었다. 일시적인 실패(408 · 429 · 5xx · 끊김) 는 세 번까지 다시 한다.
+ //   다시 할 때 업로드 주소도 새로 받는다 — 받아 둔 주소는 시간이 지나면 못 쓴다.
+ //   413(크기 거부) 은 다시 해도 같으므로 바로 끝낸다.
  const falUploadFile = async (src, apiKey, typeHint) => {
- if (!src) throw new Error('업로드할 파일이 없습니다.');
- if (/^https?:\/\//i.test(src)) return src; // 이미 공개 URL이면 그대로 사용
- const blob = await (await fetch(src)).blob();
- const contentType = typeHint || blob.type || 'application/octet-stream';
- const ext = ((contentType.split('/')[1] || 'bin').split(';')[0]) || 'bin';
- const initRes = await fetch(`${FAL_REST_BASE}/storage/upload/initiate?storage_type=fal-cdn-v3`, {
- method: 'POST',
- headers: { 'Authorization': `Key ${apiKey}`, 'Content-Type': 'application/json' },
- body: JSON.stringify({ content_type: contentType, file_name: `oxyzn_${Date.now()}.${ext}` }),
- });
- if (!initRes.ok) {
- // v984: 원문 JSON 을 그대로 던지면 '코드 오류' 처럼 보인다. 해석을 거친다.
- const t = await initRes.text().catch(() => '');
- throw new Error(falErrorMessage(initRes.status, t, 'upload'));
- }
- const { upload_url: uploadUrl, file_url: fileUrl } = await initRes.json();
- if (!uploadUrl || !fileUrl) throw new Error('fal 업로드 URL을 받지 못했습니다.');
- const putRes = await fetch(uploadUrl, { method: 'PUT', body: blob, headers: { 'Content-Type': contentType } });
- if (!putRes.ok) {
- // v985: 413 은 크기 거부다. 숫자를 같이 알려주지 않으면 무엇을 줄여야 하는지
- //   알 수가 없다 — 실제로 '업로드 실패 (413)' 만 보고 원인을 찾아야 했다.
- const mb = (blob.size / 1048576).toFixed(1);
- if (putRes.status === 413) {
- throw new Error(`파일이 너무 커서 fal 이 받지 않았습니다 (413).\n`
- + `이 파일 ${mb}MB — fal 스토리지 업로드 상한을 넘었습니다.\n\n`
- + `· 앱에서 만든 영상이라면 그 결과에서 바로 업스케일하십시오. 그때는 이미 공개된\n`
- + `  주소를 그대로 넘기므로 업로드 단계가 없습니다.\n`
- + `· 외부 파일이라면 길이를 자르거나 해상도를 낮춰 다시 시도하십시오.\n`
- + `  업스케일은 입력이 작아도 출력 배율로 화질이 올라갑니다.`);
- }
- throw new Error(`fal 파일 업로드 실패 (${putRes.status}) — ${mb}MB`);
- }
- return fileUrl;
+  if (!src) throw new Error('업로드할 파일이 없습니다.');
+  if (/^https?:\/\//i.test(src)) return src; // 이미 공개 URL이면 그대로 사용
+  const blob = await (await fetch(src)).blob();
+  const contentType = typeHint || blob.type || 'application/octet-stream';
+  const ext = ((contentType.split('/')[1] || 'bin').split(';')[0]) || 'bin';
+  const mb = (blob.size / 1048576).toFixed(1);
+  const AGAIN = new Set([408, 425, 429, 500, 502, 503, 504]);
+  let last = null;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+   try {
+    const initRes = await fetch(`${FAL_REST_BASE}/storage/upload/initiate?storage_type=fal-cdn-v3`, {
+     method: 'POST',
+     headers: { 'Authorization': `Key ${apiKey}`, 'Content-Type': 'application/json' },
+     body: JSON.stringify({ content_type: contentType, file_name: `oxyzn_${Date.now()}.${ext}` }),
+    });
+    if (!initRes.ok) {
+     // v984: 원문 JSON 을 그대로 던지면 '코드 오류' 처럼 보인다. 해석을 거친다.
+     const t = await initRes.text().catch(() => '');
+     const e = new Error(falErrorMessage(initRes.status, t, 'upload'));
+     e.status = initRes.status;
+     throw e;
+    }
+    const { upload_url: uploadUrl, file_url: fileUrl } = await initRes.json();
+    if (!uploadUrl || !fileUrl) throw new Error('fal 업로드 URL을 받지 못했습니다.');
+    const putRes = await fetch(uploadUrl, { method: 'PUT', body: blob, headers: { 'Content-Type': contentType } });
+    if (putRes.ok) return fileUrl;
+    // v985: 413 은 크기 거부다. 숫자를 같이 알려주지 않으면 무엇을 줄여야 하는지
+    //   알 수가 없다 — 실제로 '업로드 실패 (413)' 만 보고 원인을 찾아야 했다.
+    if (putRes.status === 413) {
+     const e = new Error(`파일이 너무 커서 fal 이 받지 않았습니다 (413).\n`
+      + `이 파일 ${mb}MB — fal 스토리지 업로드 상한을 넘었습니다.\n\n`
+      + `· 앱에서 만든 영상이라면 그 결과에서 바로 업스케일하십시오. 그때는 이미 공개된\n`
+      + `  주소를 그대로 넘기므로 업로드 단계가 없습니다.\n`
+      + `· 외부 파일이라면 길이를 자르거나 해상도를 낮춰 다시 시도하십시오.\n`
+      + `  업스케일은 입력이 작아도 출력 배율로 화질이 올라갑니다.`);
+     e.fatal = true;
+     throw e;
+    }
+    const e = new Error(`fal 파일 업로드 실패 (${putRes.status}) — ${mb}MB`);
+    e.status = putRes.status;
+    throw e;
+   } catch (e) {
+    last = e;
+    if (e && e.fatal) throw e;
+    // 상태 코드가 없으면 네트워크가 끊긴 것이다 — 그것도 다시 해본다
+    const again = (e && e.status) ? AGAIN.has(e.status) : true;
+    if (!again || attempt === 3) break;
+    console.warn(`[fal] 업로드 ${attempt}번째 실패(${(e && e.status) || '끊김'}) — 다시 시도합니다. ${mb}MB`);
+    await new Promise(r => setTimeout(r, attempt * 1500));
+   }
+  }
+  const st = last && last.status;
+  if (st === 408 || st === 504) {
+   throw new Error(`fal 파일 업로드가 시간 안에 끝나지 않았습니다 (${st}) — ${mb}MB.\n`
+    + `세 번 시도했습니다. 잠시 뒤 다시 하거나, 파일을 줄여서 올려주세요.`);
+  }
+  throw last || new Error(`fal 파일 업로드 실패 — ${mb}MB`);
  };
 
  // v1006: 원래 callSeedanceVideo 안에 있던 것을 꺼냈다. 프로젝트 쪽에서도 같은
@@ -23272,8 +23401,9 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  content.push({ type: 'text', text: arkRefTokens(prompt) });
 
  if (firstFrame) {
- content.push(asImageEntry(firstFrame, 'first_frame'));
- if (endFrame) content.push(asImageEntry(endFrame, 'last_frame'));
+ // v1132: 프레임도 공개 주소로 올려 보낸다 — data URL 을 그대로 실으면 요청이 413 으로 막힌다(v1000)
+ content.push(asImageEntry(await asPublicUrl(firstFrame, '시작 프레임'), 'first_frame'));
+ if (endFrame) content.push(asImageEntry(await asPublicUrl(endFrame, '끝 프레임'), 'last_frame'));
  } else {
  for (const u of imageUrls) content.push(asImageEntry(u, 'reference_image'));
  }
@@ -37656,7 +37786,9 @@ ${sampleText}`;
  const prompt = assembleVidPrompt(polished);
  const url = await callSeedanceVideo({ prompt, duration: dur, resolution: res, aspectRatio: asp, generateAudio: true, images, videos: vidsForRun, audios, tier });
  // v789: 영상 비용은 callSeedanceVideo가 실제 completion_tokens로 기록한다 — 여기서 또 적립하면 이중 계상.
- up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, resultUrl: url } : j), selectedUrl: p.selectedUrl || url }));
+ up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, phase: '받아두는 중' } : j) }));
+ const vKept = await keepGenResult('video-custom', jobId, url, 'mp4');   // v1133
+ up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, phase: '', ...vKept } : j), selectedUrl: p.selectedUrl || vKept.resultUrl }));
  // v741: 완료 알람은 중앙(progressItems 상태 전이)에서 발송 — 중복 제거
  } catch (e) { up(p => ({ ...p, error: `영상 생성 실패: ${e.message}`, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, error: e.message } : j) })); }
  };
@@ -37746,7 +37878,7 @@ ${sampleText}`;
  <video src={job.resultUrl} muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
  <div className="ff-hover-btns" style={{ position: 'absolute', bottom: 4, right: 4, display: 'flex', gap: 4 }}>
  <button onClick={(e) => { e.stopPropagation(); dlVideo(job.resultUrl, 'custom_video'); }} title="다운로드" style={iconBtn}><Download size={11} /></button>
- <button onClick={(e) => { e.stopPropagation(); up(p => ({ ...p, jobs: p.jobs.filter(j => j.id !== job.id), selectedUrl: p.selectedUrl === job.resultUrl ? null : p.selectedUrl })); }} title="삭제" style={iconBtn}><X size={11} /></button>
+ <button onClick={(e) => { e.stopPropagation(); genForget(job); up(p => ({ ...p, jobs: p.jobs.filter(j => j.id !== job.id), selectedUrl: p.selectedUrl === job.resultUrl ? null : p.selectedUrl })); }} title="삭제" style={iconBtn}><X size={11} /></button>
  </div>
  {job.params?.feedback && <span style={{ position: 'absolute', top: 4, left: 4, fontSize: 8, background: 'rgba(63,175,185,0.85)', color: '#fff', padding: '1px 4px', borderRadius: 4 }}>피드백</span>}
  </>
@@ -37833,7 +37965,10 @@ ${sampleText}`;
  <div style={{ position: 'relative', marginTop: 4 }}>
  {r.costume ? (
  <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '2px 3px', border: '1px solid var(--green-700)', borderRadius: 5, background: 'rgba(63,175,185,0.08)' }}>
- <img src={`data:${r.costume.mimeType};base64,${r.costume.base64}`} alt="의상" style={{ width: 18, height: 18, objectFit: 'cover', borderRadius: 3, display: 'block', flexShrink: 0 }} />
+ {/* v1135: 마우스를 올리면 확대 */}
+ <RefZoom src={`data:${r.costume.mimeType};base64,${r.costume.base64}`} label={r.costume.label || '의상'}>
+ <img src={`data:${r.costume.mimeType};base64,${r.costume.base64}`} alt="의상" style={{ width: 18, height: 18, objectFit: 'cover', borderRadius: 3, display: 'block', flexShrink: 0, cursor: 'zoom-in' }} />
+ </RefZoom>
  <span style={{ fontSize: 8, color: 'var(--green-500)', fontWeight: 700, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>의상</span>
  <button onClick={() => detachCostume(ri)} title="의상 제거" style={{ width: 12, height: 12, border: 'none', background: 'transparent', color: 'var(--text-quaternary)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><X size={9} /></button>
  </div>
@@ -37857,10 +37992,12 @@ ${sampleText}`;
  <Plus size={13} /><span style={{ fontSize: 7 }}>업로드</span>
  </button>
  {pool.map((c, ci) => (
- <button key={ci} onClick={() => { attachCostume(ri, c); up({ costumePickFor: null }); }} title={c.label}
+ <RefZoom key={ci} src={c.url} label={c.label}>
+ <button onClick={() => { attachCostume(ri, c); up({ costumePickFor: null }); }} title={c.label}
  style={{ width: 50, height: 50, padding: 0, border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', cursor: 'pointer', background: 'var(--bg-secondary)' }}>
  <img src={c.url} alt={c.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
  </button>
+ </RefZoom>
  ))}
  </div>
  {pool.length === 0 && (
@@ -38020,6 +38157,7 @@ ${sampleText}`;
  //   들어가고 '상황' 슬롯이 툴 그림을 통째로 받아서, 고르는 자리가 아니라 훑는 자리였다.
  //   상황(콘티뉴이티)은 '앞 장면 그 화면' 이라 툴 그림이 대신할 수 없다 — 업로드만 받는다.
  //   후보가 여러 종류라 썸네일 라벨에 시트 종류를 적는다.
+ const sheetCharOf = (url) => (characterLibrary || []).find(c => c && !c.deletedAt && c.url === url) || null;   // v1137
  const NARR_POOL_SHEETS = {
   character: { character: '캐릭터', character_closeup: '인물', character_costume: '인물+의상' },
   object: { object_small: '소형', object_large: '대형' },
@@ -38028,9 +38166,14 @@ ${sampleText}`;
  const groupPool = (key) => {
   const want = NARR_POOL_SHEETS[key];
   if (!want) return [];
+  // v1137: 인물+의상 시트는 레퍼런스 두 장으로 만든 파생 이미지라 ModelArk 가 절대 신뢰하지 않는다.
+  //   바이트를 그대로 보내면 '실제 인물' 로 입력 심의에서 거부된다(김귀인 · 김무당, 9/21).
+  //   캐릭터로 저장 · 자산 등록한 것만 후보에 두고, 고르면 그 캐릭터(asset://) 로 붙인다.
   return (sheetWsData.history || [])
    .filter(g => !g.loading && g.url && want[g.params?.sheetType || ''])
-   .map(g => ({ url: g.url, label: want[g.params.sheetType] }));
+   .filter(g => !(key === 'character' && g.params?.derived && !sheetCharOf(g.url)?.assetId))
+   .map(g => ({ url: g.url, label: want[g.params.sheetType] + (sheetCharOf(g.url)?.assetId ? ' · 자산' : ''),
+    voice: sheetCharOf(g.url)?.voice?.name || '' }));
  };
  const totalImgs = () => GROUPS.reduce((n, g) => n + (v.refs[g.key] || []).filter(r => r.kind === 'image').length, 0);
  const totalVids = () => GROUPS.reduce((n, g) => n + (v.refs[g.key] || []).filter(r => r.kind === 'video').length, 0);
@@ -38039,10 +38182,21 @@ ${sampleText}`;
  const nextName = (key, arr) => { const prefix = NAME_PREFIX[key] || 'Ref'; const re = new RegExp('^' + prefix + '(\\d+)$'); const mx = (arr || []).reduce((m, r) => { const mm = String(r.refName || '').match(re); return mm ? Math.max(m, parseInt(mm[1], 10)) : m; }, 0); return `${prefix}${mx + 1}`; };
  const refNames = GROUPS.flatMap(g => (v.refs[g.key] || []).map(r => r.refName)).filter(Boolean);
  const addFiles = (key, files) => Array.from(files || []).forEach(f => {
- if (f.type.startsWith('image/')) { const rd = new FileReader(); rd.onload = () => up(p => (cntImgs(p.refs) >= 9 ? p : { ...p, refs: { ...p.refs, [key]: [...(p.refs[key] || []), { kind: 'image', refName: nextName(key, p.refs[key]), base64: String(rd.result).split(',')[1], mimeType: f.type }] } })); rd.readAsDataURL(f); }
+ if (f.type.startsWith('image/')) { const rd = new FileReader(); rd.onload = async () => {
+  const b64 = String(rd.result).split(',')[1];
+  // v1140: 인물 칸이면 저장된 캐릭터와 같은 파일인지 먼저 본다
+  const sc = key === 'character' ? await findCharByBytes(b64) : null;
+  if (sc) { addCharacterRefN(key, sc); return; }
+  const derived = key === 'character' ? await isDerivedBytes(b64) : false;
+  up(p => (cntImgs(p.refs) >= 9 ? p : { ...p, refs: { ...p.refs, [key]: [...(p.refs[key] || []), { kind: 'image', refName: nextName(key, p.refs[key]), base64: b64, mimeType: f.type, via: 'file', derived }] } }));
+ }; rd.readAsDataURL(f); }
  else if (f.type.startsWith('video/')) { const rd = new FileReader(); rd.onload = () => up(p => (cntVids(p.refs) >= 3 ? p : { ...p, refs: { ...p.refs, [key]: [...(p.refs[key] || []), { kind: 'video', refName: nextName(key, p.refs[key]), dataUrl: String(rd.result) }] } })); rd.readAsDataURL(f); }
  });
- const addToolImg = async (key, url) => { if (totalImgs() >= 9) return; try { const r = await imageUrlToRef(url, key); up(p => (cntImgs(p.refs) >= 9 ? p : { ...p, refs: { ...p.refs, [key]: [...(p.refs[key] || []), { kind: 'image', refName: nextName(key, p.refs[key]), base64: r.base64, mimeType: r.mimeType }] } })); } catch (e) { up({ error: `툴 이미지 실패: ${e.message}` }); } };
+ // v1134: 인물+의상 시트는 이미 옷을 입고 있다 — 의상을 또 붙이지 않게 표시해 둔다
+ const isDressedSheet = (url) => (sheetWsData.history || []).some(h => h.url === url && h.params?.sheetType === 'character_costume');
+ // v1139: 레퍼런스로 만든 시트(파생)는 ModelArk 가 신뢰하지 않는다 — 표시해 두고 생성 전에 거른다
+ const isDerivedSheet = (url) => (sheetWsData.history || []).some(h => h.url === url && !!h.params?.derived);
+ const addToolImg = async (key, url) => { if (totalImgs() >= 9) return; try { const r = await imageUrlToRef(url, key); up(p => (cntImgs(p.refs) >= 9 ? p : { ...p, refs: { ...p.refs, [key]: [...(p.refs[key] || []), { kind: 'image', refName: nextName(key, p.refs[key]), base64: r.base64, mimeType: r.mimeType, noCostume: isDressedSheet(url), derived: isDerivedSheet(url), via: 'sheet' }] } })); } catch (e) { up({ error: `툴 이미지 실패: ${e.message}` }); } };
  // v763: 저장된 캐릭터 추가 (그룹별) — ModelArk 원본 URL을 재인코딩 없이 전달
  // v770: 캐릭터에 붙일 의상(턴어라운드 시트 costume) 후보 + 첨부/해제
  const costumePool = () => (sheetWsData.history || [])
@@ -38095,7 +38249,7 @@ ${sampleText}`;
  // v974: 원본 바이트는 userData 파일에 있다 — 읽어서 담는다
  const _b = await characterRefBytes(c);
  up(p => (cntImgs(p.refs) >= 9 ? p : { ...p, refs: { ...p.refs, [key]: [...(p.refs[key] || []), {
- kind: 'image', refName: (c.name || nextName(key, p.refs[key])).replace(/\s+/g, ''),
+ kind: 'image', refName: (c.name || nextName(key, p.refs[key])).replace(/\s+/g, ''), gender: c.gender || '',   // v1136
  srcUrl: characterModelSrc(c), charId: c.id, base64: _b?.base64 || null, mimeType: _b?.mimeType || c.thumbMime || 'image/png', isCharacter: true,
  voice: c.voice || null, // v773: 저장된 보이스가 있으면 영상 생성 시 reference_audio로 함께 간다
  noCostume: !!c.noCostume, // v786: 2D/3D 시트 캐릭터는 의상이 이미 포함 — 의상 첨부 UI 숨김
@@ -38119,6 +38273,12 @@ ${sampleText}`;
  };
  const rmRef = (key, i) => up(p => ({ ...p, refs: { ...p.refs, [key]: (p.refs[key] || []).filter((_, x) => x !== i) } }));
  const renameRef = (key, i, nv) => up(p => ({ ...p, refs: { ...p.refs, [key]: (p.refs[key] || []).map((x, xi) => xi === i ? { ...x, refName: nv } : x) } }));
+ // v1136: 인물의 성별 — 대본에 드러나지 않으면 프롬프트를 쓰는 쪽이 매번 추측해서, 같은
+ //   인물이 he 였다 she 였다 하고 목소리도 뒤집힌다(프로젝트 작업 v1028 에서 겪었다).
+ const cycleGender = (key, i) => up(p => {
+  const next = { '': 'male', male: 'female', female: '' };
+  return { ...p, refs: { ...p.refs, [key]: (p.refs[key] || []).map((x, xi) => (xi === i ? { ...x, gender: next[x.gender || ''] ?? '' } : x)) } };
+ });
 
  // v1128: 상황 묘사를 읽어 인물 · 장소 · 오브제를 뽑고 '이름만 든 대기 칸' 을 만든다.
  //   사용자는 그 칸에 이미지를 붙이기만 하면 된다. 비워 두면 생성할 때 조용히 빠진다 —
@@ -38176,7 +38336,7 @@ ${sampleText}`;
  const b = await characterRefBytes(c);
  fillPendingRef(key, i, { kind: 'image', srcUrl: characterModelSrc(c), charId: c.id,
  base64: b?.base64 || null, mimeType: b?.mimeType || c.thumbMime || 'image/png',
- isCharacter: true, voice: c.voice || null, noCostume: !!c.noCostume });
+ isCharacter: true, voice: c.voice || null, noCostume: !!c.noCostume, gender: c.gender || '' });
  return;
  }
  const f = Array.from(dt.files || []).find(x => /^(image|video)\//.test(x.type));
@@ -38191,9 +38351,14 @@ ${sampleText}`;
  if (!dataUrl) return;
  const m = /^data:([^;]+);base64,([\s\S]+)$/.exec(dataUrl);
  if (!m) return;
+ if (key === 'character' && !isVid) {
+  const sc = await findCharByBytes(m[2]);   // v1140
+  if (sc) { await fillPendingFromCharacter(key, i, sc); return; }
+ }
+ const derived = key === 'character' && !isVid ? await isDerivedBytes(m[2]) : false;
  fillPendingRef(key, i, isVid
  ? { kind: 'video', dataUrl, mimeType: m[1] }
- : { kind: 'image', base64: m[2], mimeType: m[1] });
+ : { kind: 'image', base64: m[2], mimeType: m[1], via: 'file', derived });
  };
  // 대기 칸을 채우는 길은 출처마다 다르다 — 툴 이미지는 URL, 캐릭터는 userData 파일,
  //   배우 자산은 base64 없이 asset:// 로만 나간다(재인코딩하면 신뢰가 깨진다).
@@ -38209,7 +38374,7 @@ ${sampleText}`;
  const fillPendingFromUrl = async (key, i, url) => {
  try {
  const r = await imageUrlToRef(url, key);
- fillPendingRef(key, i, { kind: 'image', base64: r.base64, mimeType: r.mimeType });
+ fillPendingRef(key, i, { kind: 'image', base64: r.base64, mimeType: r.mimeType, noCostume: isDressedSheet(url), derived: isDerivedSheet(url), via: 'sheet' });
  } catch (e) { up({ error: `이미지를 읽지 못했습니다: ${e.message}` }); }
  };
  const fillPendingFromCharacter = async (key, i, c) => {
@@ -38217,24 +38382,148 @@ ${sampleText}`;
  const b = await characterRefBytes(c);
  fillPendingRef(key, i, { kind: 'image', srcUrl: characterModelSrc(c), charId: c.id,
  base64: b?.base64 || null, mimeType: b?.mimeType || c.thumbMime || 'image/png',
- isCharacter: true, voice: c.voice || null, noCostume: !!c.noCostume });
+ isCharacter: true, voice: c.voice || null, noCostume: !!c.noCostume, gender: c.gender || '' });
  };
  const fillPendingFromActor = (key, i, asset) => fillPendingRef(key, i, {
  kind: 'image', srcUrl: `asset://${asset.id}`, previewUrl: asset.url || null,
  base64: null, mimeType: null, isActorAsset: true, noCostume: true });
  // 지금 채우기를 기다리는 칸 — 후보를 누르면 새로 붙이지 않고 이 칸에 들어간다
  const fillSlot = (key) => (v.fillTarget && v.fillTarget.key === key ? v.fillTarget.i : -1);
+ // v1137: 툴의 시트가 캐릭터로 저장돼 있으면(자산 등록 포함) 그 캐릭터로 붙인다 — 시트 바이트가
+ //   아니라 캐릭터 경로를 타야 asset:// · 보이스 · 성별 · 의상 여부가 함께 온다.
+ //   캐릭터는 저장할 때 그 시트의 주소를 url 로 들고 있다.
+ // v1140: 인물 칸에 파일을 떨구거나 올리면, 그 파일이 저장된 캐릭터의 원본과 바이트가 같은지 본다.
+ //   같으면 그 캐릭터로 붙인다 — 자산 등록돼 있으면 asset:// 로 나간다. 다운로드 폴더에 저장한
+ //   시트는 원본과 바이트가 같다. 이 연결이 없어서 등록한 시트를 파일로 넣으면 바이트가 나가
+ //   '실제 인물' 로 거부됐다(무당, 9/21). 자산 등록된 캐릭터부터 비교한다.
+ const findCharByBytes = async (b64) => {
+  if (!b64) return null;
+  const lib = (characterLibraryRef.current || []).filter(c => c && !c.deletedAt)
+   .sort((a, b) => (b.assetId ? 1 : 0) - (a.assetId ? 1 : 0));
+  for (const c of lib) {
+   const got = await characterRefBytes(c).catch(() => null);
+   if (got && got.base64 && got.base64.length === b64.length && got.base64 === b64) return c;
+  }
+  return null;
+ };
+ const isDerivedBytes = async (b64) => {
+  if (!b64) return false;
+  for (const h of (sheetWsData.history || [])) {
+   if (!h || h.loading || !h.url || !h.params?.derived) continue;
+   const got = await imageUrlToRef(h.url, 'character').catch(() => null);
+   if (got && got.base64 && got.base64.length === b64.length && got.base64 === b64) return true;
+  }
+  return false;
+ };
+ // v1146: 시작 · 끝 프레임에 실사 인물이 있으면 그대로는 입력 심의에서 거부된다.
+ //   여기서 바로 인증 자산으로 등록하고, 등록되면 asset:// 로 보낸다.
+ //   (캐릭터 쪽 등록은 라이브러리 레코드를 고치며 도는 별도 경로라 그대로 둔다)
+ const frameLabel = (key) => (key === 'startFrame' ? '시작 프레임' : '끝 프레임');
+ const patchFrame = (key, patch) => up(p => ({ ...p, [key]: { ...(p[key] || {}), ...patch } }));
+ const registerFrameAsset = async (key) => {
+  const f = v[key];
+  if (!f || !f.dataUrl || f.assetId || v.frameAssetBusy) return;
+  const label = frameLabel(key);
+  const phase = (t) => up({ frameAssetBusy: key, frameAssetPhase: t });
+  try {
+   phase('공개 주소 만드는 중');
+   const url = await falPublicUrl(f.dataUrl, `${label} 자산`);
+   if (!/^https?:\/\//i.test(String(url || ''))) throw new Error('공개 주소를 만들지 못했습니다. fal 키를 확인해 주세요.');
+   let groupId = f.groupId || '';
+   if (!groupId) {
+    phase('자산 그룹 만드는 중');
+    const g = await arkOpenapiCall('CreateAssetGroup', { Name: `OXYZN ${label}`.slice(0, 64),
+     Description: 'OXYZN Studio — POV 시작·끝 프레임', GroupType: 'AIGC' });
+    groupId = String(g?.Id || g?.GroupId || '');
+    if (!groupId) throw new Error(`자산 그룹 id 를 받지 못했습니다. 응답: ${JSON.stringify(g).slice(0, 200)}`);
+    patchFrame(key, { groupId });
+   }
+   phase('자산 올리는 중');
+   const a = await arkOpenapiCall('CreateAsset', { GroupId: groupId, URL: url,
+    Name: `OXYZN ${label}`.slice(0, 64), AssetType: 'Image', Moderation: { Strategy: 'Default' } });
+   const assetId = String(a?.Id || a?.AssetId || '');
+   if (!assetId) throw new Error(`자산 id 를 받지 못했습니다. 응답: ${JSON.stringify(a).slice(0, 200)}`);
+   // 자산은 이미 만들어졌다 — id 를 먼저 남긴다. 버리면 유령 자산이 되고 두 번 등록하게 된다
+   patchFrame(key, { groupId, assetPendingId: assetId, previewUrl: url });
+   const t0 = Date.now();
+   for (let i = 0; i < 60; i += 1) {   // 5초 × 60 = 5분
+    await new Promise(r => setTimeout(r, 5000));
+    phase(`처리 기다리는 중 ${Math.round((Date.now() - t0) / 1000)}초`);
+    const g2 = await arkOpenapiCall('GetAsset', { Id: assetId });
+    const st = String(g2?.Status || '');
+    if (st === 'Active') {
+     patchFrame(key, { assetId, assetPendingId: '' });
+     try { showToast(`${label} — 자산 등록 완료 · 만료 없음`, 'load'); } catch {}
+     return;
+    }
+    if (st === 'Failed') throw new Error(arkAssetErrText(g2?.Error?.Code, g2?.Error?.Message));
+   }
+   try { showToast(`${label} — 아직 처리 중입니다. 잠시 뒤 '등록 확인' 을 눌러주세요.`, 'load'); } catch {}
+  } catch (e) {
+   up({ error: `${label} 자산 등록 실패: ${(e && e.message) || e}` });
+  } finally {
+   up({ frameAssetBusy: '', frameAssetPhase: '' });
+  }
+ };
+ const recheckFrameAsset = async (key) => {
+  const f = v[key];
+  if (!f || !f.assetPendingId || v.frameAssetBusy) return;
+  const label = frameLabel(key);
+  up({ frameAssetBusy: key, frameAssetPhase: '확인 중' });
+  try {
+   const g = await arkOpenapiCall('GetAsset', { Id: f.assetPendingId });
+   const st = String(g?.Status || '');
+   if (st === 'Active') {
+    patchFrame(key, { assetId: f.assetPendingId, assetPendingId: '' });
+    try { showToast(`${label} — 자산 등록 완료`, 'load'); } catch {}
+   } else if (st === 'Failed') {
+    patchFrame(key, { assetPendingId: '' });
+    up({ error: `${label} 자산 등록 실패: ${arkAssetErrText(g?.Error?.Code, g?.Error?.Message)}` });
+   } else {
+    up({ error: `${label} — 아직 처리 중입니다. 잠시 뒤 다시 확인해 주세요.` });
+   }
+  } catch (e) {
+   up({ error: `${label} 확인 실패: ${(e && e.message) || e}` });
+  } finally {
+   up({ frameAssetBusy: '', frameAssetPhase: '' });
+  }
+ };
+ const pickToolImg = (key, url) => {
+  const sc = key === 'character' ? sheetCharOf(url) : null;
+  const slot = fillSlot(key);
+  if (sc) return slot >= 0 ? fillPendingFromCharacter(key, slot, sc) : addCharacterRefN(key, sc);
+  return slot >= 0 ? fillPendingFromUrl(key, slot, url) : addToolImg(key, url);
+ };
  // @이름 자동완성 (상황 묘사)
  const detectSuggest = (val, caret) => { const before = val.slice(0, caret); const m = before.match(/@([^\s@]*)$/); if (!m || refNames.length === 0) { setNarrRefSuggest(null); return; } const q = m[1].toLowerCase(); const matches = refNames.filter(n => n.toLowerCase().startsWith(q) && n.toLowerCase() !== q); setNarrRefSuggest(matches.length ? { matches, caret, active: 0 } : null); };
  const applySuggest = (name) => { const src = v.situation; const caret = narrRefSuggest?.caret ?? src.length; const before = src.slice(0, caret).replace(/@([^\s@]*)$/, `@${name} `); const newVal = before + src.slice(caret); const newCaret = before.length; up({ situation: newVal }); setNarrRefSuggest(null); setTimeout(() => { const ta = narrPromptTaRef.current; if (ta) { ta.focus(); ta.setSelectionRange(newCaret, newCaret); } }, 0); };
  const activeIdx = narrRefSuggest?.active ?? 0;
  const findRef = (name) => { for (const g of GROUPS) { const r = (v.refs[g.key] || []).find(x => x.refName === name); if (r) return r; } return null; };
  const dlVideo = (url, tag) => { setConfirmDialog({ title: '영상 저장', message: '이 영상을 다운로드 폴더에 저장할까요?', confirmLabel: '저장', onConfirm: async () => { setConfirmDialog(null); /* v852: 작업 스냅샷 기준 (현재 화면 값이 아니라) */
- const _j = (v.jobs || []).find(j => j.resultUrl === url); const kw = await ffsKeyword(_j?.params?.situation ?? v.situation); const fname = (await ffsBuildName({ type: '내러티브', parts: [kw, _j?.params?.resolution || videoNarrativeData?.resolution || '480p'], version: _j?.version })) + '.mp4'; try { const res = await fetch(url); const blob = await res.blob(); const objUrl = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = objUrl; a.download = fname; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(() => URL.revokeObjectURL(objUrl), 4000); try { showToast('영상을 저장했습니다.', 'load'); } catch {} } catch (err) { try { const a = document.createElement('a'); a.href = url; a.download = fname; a.target = '_blank'; document.body.appendChild(a); a.click(); document.body.removeChild(a); try { showToast('영상을 저장했습니다.', 'load'); } catch {} } catch (e2) { try { showToast('영상 저장 실패', 'error'); } catch {} } } } }); };
+ const _j = (v.jobs || []).find(j => j.resultUrl === url); const kw = await ffsKeyword(_j?.params?.situation ?? v.situation); const fname = (await ffsBuildName({ type: isPov ? 'POV' : isDocu ? '다큐' : '내러티브', parts: [kw, _j?.params?.resolution || v.resolution || '480p'], version: _j?.version })) + '.mp4'; try { const res = await fetch(url); const blob = await res.blob(); const objUrl = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = objUrl; a.download = fname; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(() => URL.revokeObjectURL(objUrl), 4000); try { showToast('영상을 저장했습니다.', 'load'); } catch {} } catch (err) { try { const a = document.createElement('a'); a.href = url; a.download = fname; a.target = '_blank'; document.body.appendChild(a); a.click(); document.body.removeChild(a); try { showToast('영상을 저장했습니다.', 'load'); } catch {} } catch (e2) { try { showToast('영상 저장 실패', 'error'); } catch {} } } } }); };
  const jobTimeText = (job) => { const el = Math.max(0, Math.round((Date.now() - (job.ts || Date.now())) / 1000)); const rm = Math.max(0, (job.estSec || 60) - el); return `경과 ${el}초 · 잔여 ~${rm}초`; };
  // v641: 비차단 생성 — 프롬프트 생성 → 영상 생성을 하나의 job으로 추적. 미리보기·입력 잠기지 않음
  const runGen = async (opts = {}) => {
  const situation = String(opts.situation != null ? opts.situation : v.situation).trim();
+ // v1139: 파생 이미지(레퍼런스로 만든 인물+의상 시트 · 레퍼런스를 넣은 캐릭터 디자인)는
+ //   자산으로 등록해 asset:// 로 보내야만 입력 심의를 통과한다. 바이트로 보내면 '실제 인물' 로
+ //   거부되고, 그 사이 프롬프트 쓰기 비용은 이미 나간다(9/21 두 번). 보내기 전에 거른다.
+ {
+  const blocked = [];
+  GROUPS.forEach(g => (v.refs[g.key] || []).forEach(r => {
+   if (!r || r.pending || r.kind !== 'image') return;
+   if (/^asset:\/\//.test(String(r.srcUrl || '')) || liveCharSrc(r)) return;   // 자산 — 통과
+   const c = r.charId ? (characterLibraryRef.current || []).find(x => x.id === r.charId) : null;
+   if (!(c ? c.derived : r.derived)) return;
+   blocked.push(`${r.refName || '이름 없음'} — ${c && c.assetPendingId
+    ? '자산 등록이 아직 확인되지 않았습니다. 아카이브의 캐릭터 타일에서 등록 확인을 눌러주세요.'
+    : '레퍼런스로 만든 파생 이미지입니다. 캐릭터로 저장 · 자산 등록을 먼저 해야 합니다.'}`);
+  }));
+  if (blocked.length) {
+   up({ error: `이대로 보내면 '실제 인물' 로 거부됩니다 — 생성을 멈췄습니다(비용 없음).\n${blocked.map(x => `· ${x}`).join('\n')}` });
+   return;
+  }
+ }
  if (!situation) { up({ error: '상황 묘사를 입력하세요.' }); return; }
  // v1049: 티어(2.0/2.5)에 맞춰 길이·해상도를 조인다. 프롬프트도 이 길이로 만든다.
  // v1061: 2.0 을 걷어냈다. 옛 세션에 tier:'video' 가 저장돼 있어도 2.5 로 읽는다.
@@ -38274,6 +38563,42 @@ ${sampleText}`;
  } }
  else if (r.kind === 'video' && vidN < arkRefMax(tier, 'videos')) { vidN++; vidList.push(r.dataUrl); const tok = `[Video${vidN}]`; if (r.refName) tokenMap[r.refName] = tok; manifest.push(`${tok} = "${r.refName}" (${g.label})`); }
  }));
+ // v1132: POV 의 시작 · 끝 프레임. 보내는 방식이 둘이다 —
+ //   exact    : first_frame / last_frame 역할로 보낸다. 시작 · 끝 그림이 그대로 나온다.
+ //              2.5 문서에서 이 모드는 레퍼런스 작업과 별개라, 레퍼런스 이미지와 앞 클립을
+ //              함께 보낼 수 없다(보내도 callSeedanceVideo 가 이미지 레퍼런스를 뺀다).
+ //   keyframe : 그림을 레퍼런스 이미지로 싣고 '여기서 시작해 여기서 끝난다' 고 적는다.
+ //              다른 레퍼런스가 그대로 가지만, 그림과 픽셀 단위로 같게 시작하지는 않을 수 있다.
+ //   끝 프레임만 있을 때는 exact 가 성립하지 않는다(first_frame 없는 last_frame 은 없다) — keyframe 으로 보낸다.
+ // v1146: 인증 자산으로 등록했으면 그 주소로 보낸다 — 실사 인물이 있어도 심의를 통과한다
+ const frameSrc = (f) => (f ? (f.assetId ? `asset://${f.assetId}` : (f.dataUrl || '')) : '');
+ const frameStart = isPov ? frameSrc(v.startFrame) : '';
+ const frameEnd = isPov ? frameSrc(v.endFrame) : '';
+ const frameExact = !!frameStart && (v.frameMode || 'exact') === 'exact';
+ const frameLines = [];
+ const droppedNames = [];
+ if (frameExact) {
+  // 레퍼런스 이미지가 안 가므로, 번호로 가리키면 없는 그림을 가리키게 된다.
+  //   이미지 토큰을 걷고 본문의 @이름 은 평범한 말로 남긴다. 의상 지시도 같은 이유로 뺀다.
+  Object.keys(tokenMap).forEach(nm => { if (/^\[Image/.test(String(tokenMap[nm]))) { droppedNames.push(nm); delete tokenMap[nm]; } });
+  for (let k = manifest.length - 1; k >= 0; k -= 1) { if (/^\[Image/.test(String(manifest[k] || ''))) manifest.splice(k, 1); }
+  imgList.length = 0;
+  outfitDirectives.length = 0;
+  frameLines.push(`FRAMES: the take opens exactly on the start frame${frameEnd ? ' and arrives exactly at the end frame in its final moment' : ''}. Everything in between moves from one to the other in a single continuous take.`);
+ } else if (frameStart || frameEnd) {
+  const addKey = (src, label) => {
+   if (!src || imgN >= 9) return '';
+   imgN += 1;
+   imgList.push(src);
+   const tok = `[Image${imgN}]`;
+   manifest.push(`${tok} = ${label} (키프레임 — 이 그림을 인물로 세우지 말 것)`);
+   return tok;
+  };
+  const ts = addKey(frameStart, '시작 프레임');
+  const te = addKey(frameEnd, '끝 프레임');
+  if (ts) frameLines.push(`KEYFRAME, START: the take opens on ${ts} — that same view, the same people in the same places, the same light. Everything after moves on from that picture.`);
+  if (te) frameLines.push(`KEYFRAME, END: in its final moment the take arrives at ${te} — that view, those people in those places.`);
+ }
  // v1127: 대사 안의 @이름 은 아래에서 [ImageN] 으로 바뀌고, 그러면 배우가 'Image 1' 을
  //   소리내어 말한다. 화면에서는 레퍼런스가 잘 걸린 것처럼 보여 눈에 띄지 않는다.
  //   ★ 어떤 줄이 대사인지 생김새로 판정하지 않는다. 콜론 앞이 '우리가 아는 인물 이름'
@@ -38296,19 +38621,35 @@ ${sampleText}`;
  Object.keys(tokenMap).sort((a, b) => b.length - a.length).forEach(nm => { situationText = situationText.split(`@${nm}`).join(tokenMap[nm]); });
  [...new Set(pendingNames)].sort((a, b) => b.length - a.length)
   .forEach(nm => { situationText = situationText.split(`@${nm}`).join(nm); });
+ // v1132: 정확히 모드에서 이미지가 빠진 이름도 평범한 말로 남긴다
+ [...new Set(droppedNames)].sort((a, b) => b.length - a.length)
+  .forEach(nm => { situationText = situationText.split(`@${nm}`).join(nm); });
  const jobId = `vn_${Date.now()}_${(narrJobSeq.current += 1)}`;
  // v643: 입력 스냅샷(상황묘사·설정·레퍼런스 4종) 저장 → 썸네일 클릭 시 복원
  const params = { situation, aspect: asp, resolution: res, duration: dur, tier,
   refsSnapshot: JSON.parse(JSON.stringify(v.refs || {})), feedback: opts.feedbackNote || null,
   ...(isTake ? { camera: v.camera || (isPov ? 'eyes' : 'handheld'), hasPrevClip: !!(v.prevClip && v.prevClip.dataUrl) } : {}),
-  ...(isPov ? { povGender: v.povGender || 'male' } : {}) };
+  ...(isPov ? { povGender: v.povGender || 'male', frameMode: v.frameMode || 'exact', hasFrames: !!(v.startFrame || v.endFrame) } : {}) };
  const estSec = estSecFor(durKeyVideo(res, dur, opts.baseVideoUrl ? true : false), estVideoGenSeconds(res, dur) + (opts.directPrompt ? 0 : 12));  // v791: 실측 학습값 우선, 표본 없으면 상수 추정
  up(p => ({ ...p, error: '', feedback: '', feedbackOpen: false, jobs: [{ id: jobId, version: narrJobSeq.current, loading: true, phase: opts.directPrompt ? '영상 생성 중' : '프롬프트 생성 중', ts: Date.now(), estSec, params }, ...p.jobs] }));
+ // v1139: 심의가 content[N] 을 짚으면 그것이 어느 레퍼런스인지 알아야 고칠 수 있다
+ let contentNames = [];
  try {
  let genPrompt = opts.directPrompt || null;
  if (!genPrompt) {
  const manifestStr = manifest.length ? `\n\n[첨부 레퍼런스 — 이 토큰으로 [Shots]에서 지칭]\n${manifest.join('\n')}` : '\n\n(첨부 레퍼런스 없음)';
- const userMsg = `아래 상황을 ${dur}초 Seedance 영상 프롬프트로 변환하세요.${manifestStr}\n\n[상황 묘사]\n${situationText}`;
+ // v1132: 시작 · 끝 그림을 클로드는 못 본다 — 테이크가 거기서 출발하고 거기서 끝난다는 것만 알린다
+ const frameNote = (frameStart || frameEnd)
+  ? `\n\n[프레임] 이 테이크는 ${frameStart ? '주어진 시작 그림에서 시작' : ''}${frameStart && frameEnd ? '하고 ' : ''}${frameEnd ? '주어진 끝 그림에서 끝난다' : '한다'}.`
+   + ' 상황 묘사를 그 사이의 움직임으로 쓴다. 그림 속 장면을 새로 지어내거나 다른 곳에서 시작하지 않는다.'
+  : '';
+ const genderPairs = (v.refs?.character || [])
+  .filter(r => r && r.refName && (r.gender === 'male' || r.gender === 'female'))
+  .map(r => `${r.refName}: ${r.gender === 'male' ? '남성' : '여성'}`);
+ const genderNote = genderPairs.length
+  ? `\n\n[인물 성별 — 지정됨] ${[...new Set(genderPairs)].join(' · ')}\n상황 묘사에서 다르게 읽혀도 이대로 쓴다. 인칭(he/she)과 목소리도 이 성별을 따른다.`
+  : '';
+ const userMsg = `아래 상황을 ${dur}초 Seedance 영상 프롬프트로 변환하세요.${manifestStr}${frameNote}${genderNote}\n\n[상황 묘사]\n${situationText}`;
  const rulebook = isPov ? seedancePovRulebook(dur)
   : isDocu ? seedanceDocumentaryRulebook(dur)
   : seedanceNarrativeRulebook(dur);
@@ -38321,7 +38662,11 @@ ${sampleText}`;
   // POV 는 '나' 가 화면에 서는 것과 내 대사가 남의 입에 붙는 것, 두 군데서 깨진다.
   //   그래서 시점 조항에 몸과 목소리 조항을 언제나 함께 붙인다.
   const camStyle = isPov
-   ? `${POV_CAMERA_STYLE[v.camera] || POV_CAMERA_STYLE.eyes} ${POV_SELF_RULE(v.povGender)} ${POV_BODY_RULE} ${POV_SPEECH_RULE}`
+   ? `${POV_CAMERA_STYLE[v.camera] || POV_CAMERA_STYLE.eyes} ${POV_SELF_RULE(v.povGender)} ${POV_BODY_RULE_FOR((() => {
+    const hm = /^\s*VIEWER HANDS:\s*(.+)$/im.exec(genPrompt);
+    const hv = hm ? hm[1].trim().replace(/^[<\[]|[>\]]$/g, '') : '';
+    return (!hv || /^none\b/i.test(hv)) ? '' : hv;
+   })())} ${POV_SPEECH_RULE}`
    : (DOCU_CAMERA_STYLE[v.camera] || DOCU_CAMERA_STYLE.handheld)
     + (isInterview ? ` ${DOCU_INTERVIEW_RULE} ${DOCU_CAMERA_UNSEEN}` : '');
   // ★ 클로드가 자리표시자를 그대로 내놓는다고 가정하지 않는다. 자기 말로 풀어 쓰면
@@ -38344,7 +38689,8 @@ ${sampleText}`;
  //   '인물마다 신원 스틸이 붙어 있다' 를 전제로 쓰여 있다 — 다큐는 스틸 없이 앞 클립만
  //   붙일 수 있어서 얼굴의 출처가 사라진다. 인물 단위로 한 문장을 더 얹어 갈라 둔다.
  const prevClipUrl = (isTake && v.prevClip && v.prevClip.dataUrl) ? v.prevClip.dataUrl : '';
- if (prevClipUrl) {
+ // 정확히 모드는 영상 레퍼런스를 함께 보내지 못한다 — 앞 클립 조항도 붙이지 않는다
+ if (prevClipUrl && !frameExact) {
   const cntCharRefs = (v.refs?.character || []).filter(r => r && r.kind === 'image' && !r.pending).length;
   finalPrompt += `\n\n${PROJECT_VIDEO_CONT_RULE_FOR(cntCharRefs >= 2)}`;
   finalPrompt += '\n\nFACES, PER PERSON. Anyone who has their own reference still takes face, hair and build'
@@ -38353,24 +38699,57 @@ ${sampleText}`;
    + '\nWHO IS HERE is decided by this prompt alone. Someone who walked out in the last seconds of Video 1 is'
    + ' not here unless this prompt brings them back, and nobody appears merely because they were in Video 1.';
  }
+ if (frameLines.length) finalPrompt += `\n\n${frameLines.join('\n')}`;
+ // v1143: 오브제 시트의 크기 자가 '내 손' · 없던 사람으로 새어 나오지 않게
+ if (!frameExact && (v.refs?.object || []).some(r => r && !r.pending && r.kind === 'image')) finalPrompt += `\n\n${SCALE_FIGURE_RULE}`;
  // v1126: 본문의 괄호를 정리하고 사운드 두 줄을 앞뒤로 붙인다
  finalPrompt = soundChannelize(finalPrompt);
  finalPrompt = `${PROJECT_SOUND_RULE}\n\n${finalPrompt}\n\n${PROJECT_FINAL_LINE}`;
  // v789: 피드백 재생성 시 이전 결과 영상을 레퍼런스로 동반 (상한 3개·15초 안에서)
  // 피드백 재생성이 있으면 그쪽이 [Video1] 을 가져간다 — 자리가 겹치지 않게
- const vidsForRun = [
+ const vidsForRun = frameExact ? [] : [
   ...(opts.baseVideoUrl ? [opts.baseVideoUrl] : []),
   ...(prevClipUrl && !opts.baseVideoUrl ? [prevClipUrl] : []),
   ...vidList,
  ].slice(0, arkRefMax(tier, 'videos'));
- const sent = { images: imgList.length, videos: vidsForRun.length, audios: audioList.length, voices: voiceNamed.slice() };
+ {
+  const srcOf = (r) => liveCharSrc(r) || r.srcUrl || `data:${r.mimeType};base64,${r.base64}`;
+  const nameOfImg = (src) => {
+   if (src === frameStart) return '시작 프레임';
+   if (src === frameEnd) return '끝 프레임';
+   for (const g of GROUPS) for (const r of (v.refs[g.key] || [])) {
+    if (!r || r.pending) continue;
+    const how = /^asset:\/\//.test(String(liveCharSrc(r) || r.srcUrl || '')) ? '자산'
+     : r.charId ? '캐릭터 원본' : r.derived ? '파생 시트'
+     : r.via === 'file' ? '파일 — 저장된 캐릭터와 다른 파일' : r.via === 'sheet' ? '툴 시트' : '시트 · 업로드 원본';
+    if (r.kind === 'image' && srcOf(r) === src) return `${r.refName} (${g.label} · ${how})`;
+    if (r.costume && `data:${r.costume.mimeType};base64,${r.costume.base64}` === src) return `${r.refName}의 의상`;
+   }
+   return '알 수 없음';
+  };
+  contentNames = ['프롬프트',
+   ...(frameExact ? [frameStart, frameEnd].filter(Boolean).map(nameOfImg) : imgList.map(nameOfImg)),
+   ...vidsForRun.map((_, k) => `영상 ${k + 1}`),
+   ...audioList.map((_, k) => `보이스 ${k + 1}`)];
+ }
+ const sent = { images: imgList.length, videos: vidsForRun.length, audios: audioList.length, voices: voiceNamed.slice(),
+  frames: frameExact ? 'exact' : (frameStart || frameEnd) ? 'keyframe' : '' };
  up(p => ({ ...p, jobs: p.jobs.map(j => (j.id === jobId ? { ...j, sent } : j)) }));
- const url = await callSeedanceVideo({ prompt: finalPrompt, duration: dur, resolution: res, aspectRatio: asp, generateAudio: true, images: imgList, videos: vidsForRun, audios: audioList, tier });
+ // 정확히 모드: 화면비는 시작 그림을 따른다(문서 — ratio 는 adaptive 여야 한다)
+ const url = await callSeedanceVideo({ prompt: finalPrompt, duration: dur, resolution: res, aspectRatio: frameExact ? 'adaptive' : asp, generateAudio: true, images: imgList, videos: vidsForRun, audios: audioList, tier,
+  firstFrame: frameExact ? frameStart : null, endFrame: frameExact ? (frameEnd || null) : null });
  // v789: 영상 비용은 callSeedanceVideo가 실제 토큰으로 기록한다. 여기서는 프롬프트 변환에 쓴 Claude 비용만 적립.
  try { if (!opts.directPrompt) recordCreditUsage(estimateClaudeCost(adaptModel, (situation.length + 2000), genPrompt.length), 'claude', { workCat: 'video' }); } catch {}
- up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, phase: '', resultUrl: url } : j), selectedUrl: p.selectedUrl || url }));
+ up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, phase: '받아두는 중' } : j) }));
+ const vKept = await keepGenResult(isPov ? 'video-pov' : isDocu ? 'video-documentary' : 'video-narrative', jobId, url, 'mp4');   // v1133
+ up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, phase: '', ...vKept } : j), selectedUrl: p.selectedUrl || vKept.resultUrl }));
  // v741: 완료 알람은 중앙(progressItems 상태 전이)에서 발송 — 중복 제거
- } catch (e) { up(p => ({ ...p, error: `영상 생성 실패: ${e.message}`, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, phase: '', error: e.message } : j) })); }
+ } catch (e) {
+  let msg = String((e && e.message) || e);
+  const cm = /content\[(\d+)\]/.exec(msg);
+  if (cm && contentNames[Number(cm[1])]) msg += `\n→ content[${cm[1]}] = ${contentNames[Number(cm[1])]}`;
+  up(p => ({ ...p, error: `영상 생성 실패: ${msg}`, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, phase: '', error: msg } : j) }));
+ }
  };
  // v643: 피드백 = 선택 영상의 Seedance 프롬프트를 룰북 규칙 유지하며 Claude가 의도 반영해 다시 다듬어 재생성
  const doFeedback = async () => {
@@ -38393,7 +38772,7 @@ ${sampleText}`;
  } catch (e) { up({ feedbackBusy: false, error: `피드백 처리 실패: ${e.message}` }); }
  };
  const loadJob = (job) => up(p => ({ ...p, situation: job.params?.situation ?? '', aspect: job.params?.aspect ?? '16:9', resolution: job.params?.resolution ?? '480p', refs: job.params?.refsSnapshot ? JSON.parse(JSON.stringify(job.params.refsSnapshot)) : { situation: [], character: [], space: [], object: [] }, selectedUrl: job.resultUrl || null, feedbackOpen: false, feedback: '', camera: job.params?.camera ?? p.camera, povGender: job.params?.povGender ?? p.povGender }));
- const newFootage = () => up({ situation: '', aspect: '16:9', resolution: '480p', refs: { situation: [], character: [], space: [], object: [] }, selectedUrl: null, feedbackOpen: false, feedback: '', error: '', fillTarget: null, prevClip: null });
+ const newFootage = () => up({ situation: '', aspect: '16:9', resolution: '480p', refs: { situation: [], character: [], space: [], object: [] }, selectedUrl: null, feedbackOpen: false, feedback: '', error: '', fillTarget: null, prevClip: null, startFrame: null, endFrame: null });
  return (
  <div className="fade-in" style={{ maxWidth: 1240, margin: '0 auto', padding: '0 8px' }}>
  <div style={{ marginBottom: 22, textAlign: 'center' }}>
@@ -38410,7 +38789,7 @@ ${sampleText}`;
  <div className="card" style={{ padding: 16, position: 'relative' }}>
  <div style={{ width: '100%', aspectRatio: '16 / 9', background: 'var(--bg-secondary)', borderRadius: 8, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
  {v.selectedUrl ? (<video src={v.selectedUrl} controls autoPlay loop style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }} />)
- : (<div style={{ color: 'var(--text-quaternary)', textAlign: 'center' }}><Film size={36} strokeWidth={1.2} /><div className="meta" style={{ marginTop: 8 }}>{anyLoading ? '생성 중… 완료되면 생성기록에서 바로 확인할 수 있어요' : '생성된 15초 영상이 여기에 표시됩니다'}</div></div>)}
+ : (<div style={{ color: 'var(--text-quaternary)', textAlign: 'center' }}><Film size={36} strokeWidth={1.2} /><div className="meta" style={{ marginTop: 8 }}>{anyLoading ? '생성 중… 완료되면 생성기록에서 바로 확인할 수 있어요' : `생성된 ${vDur}초 영상이 여기에 표시됩니다`}</div></div>)}
  </div>
  {v.selectedUrl && (<button className="btn btn-secondary btn-sm" style={{ position: 'absolute', top: 26, right: 26 }} onClick={() => dlVideo(v.selectedUrl, 'narrative_15s')}><Download size={12} /> 다운로드</button>)}
  {v.selectedUrl && selectedJob && (<button className={v.feedbackOpen ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'} style={{ position: 'absolute', bottom: 26, right: 26 }} onClick={() => up(p => ({ ...p, feedbackOpen: !p.feedbackOpen }))}><Edit3 size={12} /> 피드백</button>)}
@@ -38447,6 +38826,7 @@ ${sampleText}`;
   <div className="micro" style={{ color: 'var(--text-quaternary)', marginBottom: 3 }}>이 영상에 전송된 레퍼런스</div>
   <div className="micro" style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
    이미지 <strong>{sn.images}</strong> · 영상 <strong>{sn.videos}</strong> · 보이스 <strong>{sn.audios}</strong>
+   {sn.frames && <span> · 프레임 <strong>{sn.frames === 'exact' ? '정확히' : '키프레임'}</strong></span>}
    {sn.voices && sn.voices.length > 0 && <span style={{ color: 'var(--green-700)' }}> — {sn.voices.join(' · ')}</span>}
   </div>
   {noVoice && (
@@ -38484,13 +38864,13 @@ ${sampleText}`;
  <video src={job.resultUrl} muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
  <div className="ff-hover-btns" style={{ position: 'absolute', bottom: 4, right: 4, display: 'flex', gap: 4 }}>
  <button onClick={(e) => { e.stopPropagation(); dlVideo(job.resultUrl, 'narrative_15s'); }} title="다운로드" style={iconBtn}><Download size={11} /></button>
- <button onClick={(e) => { e.stopPropagation(); up(p => ({ ...p, jobs: p.jobs.filter(j => j.id !== job.id), selectedUrl: p.selectedUrl === job.resultUrl ? null : p.selectedUrl })); }} title="삭제" style={iconBtn}><X size={11} /></button>
+ <button onClick={(e) => { e.stopPropagation(); genForget(job); up(p => ({ ...p, jobs: p.jobs.filter(j => j.id !== job.id), selectedUrl: p.selectedUrl === job.resultUrl ? null : p.selectedUrl })); }} title="삭제" style={iconBtn}><X size={11} /></button>
  </div>
  {job.params?.feedback && <span style={{ position: 'absolute', top: 4, left: 4, fontSize: 8, background: 'rgba(63,175,185,0.85)', color: '#fff', padding: '1px 4px', borderRadius: 4 }}>피드백</span>}
  </>
  )}
  </div>
- <div className="micro" style={{ marginTop: 3, fontSize: 9, color: 'var(--text-quaternary)', textAlign: 'center' }}>{job.params?.resolution} · 15초</div>
+ <div className="micro" style={{ marginTop: 3, fontSize: 9, color: 'var(--text-quaternary)', textAlign: 'center' }}>{job.params?.resolution} · {job.params?.duration || vDur}초</div>
  </div>
  );
  })}
@@ -38567,6 +38947,99 @@ ${sampleText}`;
  ))}
  </div>
  </>)}
+ {/* v1132: POV 시작 · 끝 프레임 — 보내는 방식을 고른다 */}
+ {isPov && (() => {
+ const slot = (key, label) => {
+  const f = v[key];
+  const inputId = `pov-${key}`;
+  const pick = (files) => {
+   const x = Array.from(files || []).find(y => /^image\//.test(y.type));
+   if (!x) return;
+   const fr = new FileReader();
+   fr.onload = () => up({ [key]: { name: x.name, dataUrl: String(fr.result || '') } });
+   fr.readAsDataURL(x);
+  };
+  return (
+   <div style={{ flex: 1, minWidth: 0 }}>
+    <div className="micro" style={{ marginBottom: 4, color: 'var(--text-secondary)', fontWeight: 700 }}>{label}</div>
+    {f ? (
+     <div style={{ position: 'relative' }}>
+      <RefZoom src={f.previewUrl || f.dataUrl} label={`${label} 프레임`}>
+       <img src={f.previewUrl || f.dataUrl} alt="" style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', borderRadius: 8,
+        border: '1px solid var(--green-700)', display: 'block', cursor: 'zoom-in' }} />
+      </RefZoom>
+      <button type="button" title="빼기" onClick={() => up({ [key]: null })}
+       style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', border: 'none', cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--text-primary)', color: 'var(--bg-primary)' }}>
+       <X size={10} />
+      </button>
+     </div>
+    ) : (
+     <button type="button" className="ff-refadd" disabled={busy}
+      onClick={() => document.getElementById(inputId)?.click()}
+      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('is-dragover'); }}
+      onDragLeave={(e) => e.currentTarget.classList.remove('is-dragover')}
+      onDrop={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('is-dragover'); pick(e.dataTransfer.files); }}
+      style={{ width: '100%', aspectRatio: '16/9', borderRadius: 8, border: '1.5px dashed var(--border)', background: 'var(--bg-secondary)',
+       color: 'var(--text-tertiary)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center',
+       justifyContent: 'center', gap: 2, fontSize: 10.5 }}>
+      <Plus size={13} />이미지 · 드래그
+     </button>
+    )}
+    {f && (() => {
+     // v1146: 실사 인물이 든 프레임은 인증 자산으로 등록해야 레퍼런스로 들어간다
+     const busy = v.frameAssetBusy === key;
+     if (f.assetId) return (
+      <div className="micro" title={`asset://${f.assetId}`}
+       style={{ marginTop: 3, textAlign: 'center', fontSize: 9, fontWeight: 800, color: 'var(--green-700)' }}>✓ 인증 자산</div>
+     );
+     return (
+      <button type="button" className="btn btn-secondary btn-sm"
+       style={{ marginTop: 3, width: '100%', height: 22, fontSize: 9.5, padding: 0, justifyContent: 'center' }}
+       disabled={!!v.frameAssetBusy}
+       title="이 그림을 ModelArk 인증 자산으로 등록합니다. 실사 인물이 있으면 등록해야 레퍼런스로 들어갑니다."
+       onClick={() => (f.assetPendingId ? recheckFrameAsset(key) : registerFrameAsset(key))}>
+       {busy ? (v.frameAssetPhase || '등록 중') : f.assetPendingId ? '⏳ 등록 확인' : '인증 자산으로 등록'}
+      </button>
+     );
+    })()}
+    <input id={inputId} type="file" accept="image/*" style={{ display: 'none' }}
+     onChange={(e) => { pick(e.target.files); e.target.value = ''; }} />
+   </div>
+  );
+ };
+ const mode = v.frameMode || 'exact';
+ const any = !!(v.startFrame || v.endFrame);
+ return (<>
+  <div className="meta" style={{ fontWeight: 600, margin: '12px 0 6px' }}>시작 · 끝 프레임
+   <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}> · 선택</span>
+  </div>
+  <div style={{ display: 'flex', gap: 8 }}>{slot('startFrame', '시작')}{slot('endFrame', '끝')}</div>
+  <div className="micro" style={{ marginTop: 5, lineHeight: 1.5, color: 'var(--text-quaternary)' }}>
+   실사 인물이 있는 그림은 <strong>인증 자산으로 등록</strong>해야 레퍼런스로 들어갑니다. 등록 전에는 '실제 인물' 로 거부됩니다.
+  </div>
+  {any && (<>
+   <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+    {[{ id: 'exact', label: '정확히', desc: '그 그림 그대로 시작 · 끝' }, { id: 'keyframe', label: '레퍼런스 유지', desc: '다른 레퍼런스와 함께' }].map(m => (
+     <button key={m.id} type="button" onClick={() => up({ frameMode: m.id })} disabled={busy}
+      className={mode === m.id ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+      style={{ flex: 1, height: 'auto', padding: '6px 8px', flexDirection: 'column', gap: 1 }}>
+      <span style={{ fontWeight: 700 }}>{m.label}</span>
+      <span style={{ fontSize: 9, opacity: 0.75 }}>{m.desc}</span>
+     </button>
+    ))}
+   </div>
+   <div className="micro" style={{ marginTop: 6, lineHeight: 1.55,
+    color: (mode === 'exact' && v.startFrame) ? 'var(--state-warning)' : 'var(--text-quaternary)' }}>
+    {mode === 'exact'
+     ? (v.startFrame
+       ? '시작 · 끝 그림이 그대로 나옵니다. 대신 이 방식에서는 인물 · 공간 · 오브제 레퍼런스 이미지와 앞 클립이 전송되지 않고, 화면비는 시작 그림을 따릅니다. 보이스는 그대로 갑니다.'
+       : '정확히 방식은 시작 프레임이 있어야 합니다. 끝 프레임만 있으면 레퍼런스 유지 방식으로 보냅니다.')
+     : '시작 · 끝 그림을 레퍼런스로 싣고 "여기서 시작해 여기서 끝난다" 고 적습니다. 다른 레퍼런스는 그대로 가지만, 그림과 완전히 같게 시작하지 않을 수 있습니다.'}
+   </div>
+  </>)}
+ </>);
+ })()}
  <div className="meta" style={{ fontWeight: 600, margin: '12px 0 6px' }}>이전 클립
  <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}> · 선택 · 이어서 찍는 화면</span>
  </div>
@@ -38664,11 +39137,30 @@ ${sampleText}`;
   <Mic size={8} />보이스
  </span>
  )}
+ {/* v1136: 성별 — 눌러서 없음 → 남 → 여 로 돌린다 */}
+ {g.key === 'character' && r.kind === 'image' && (() => {
+  const gd = r.gender || '';
+  const lab = gd === 'male' ? '남' : gd === 'female' ? '여' : '?';
+  const col = gd === 'male' ? '#2563eb' : gd === 'female' ? '#db2777' : 'var(--text-quaternary)';
+  return (
+   <button type="button" onClick={(e) => { e.stopPropagation(); cycleGender(g.key, i); }}
+    title={gd ? `${r.refName} — ${lab}자로 지정됨 (눌러서 바꿉니다)`
+     : `${r.refName} 의 성별이 정해지지 않았습니다 — 눌러서 지정하세요.\n상황 묘사에 드러나지 않으면 목소리와 인칭이 영상마다 뒤집힐 수 있습니다.`}
+    style={{ position: 'absolute', bottom: 3, left: 3, zIndex: 5, width: 16, height: 16, borderRadius: 4, padding: 0,
+     cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+     border: `1px solid ${gd ? col : 'var(--border)'}`, background: 'rgba(255,255,255,0.92)', color: col,
+     fontSize: 9, fontWeight: 800, lineHeight: 1 }}>
+    {lab}
+   </button>
+  );
+ })()}
  <div className="ff-genimg-ov" style={{ borderRadius: 8, fontSize: 9, padding: 3, textAlign: 'center', wordBreak: 'break-all' }}><span style={{ fontFamily: 'SF Mono, monospace', fontWeight: 700, color: '#7EDCE2' }}>@{r.refName}</span></div>
  </div>
  <button onClick={() => rmRef(g.key, i)} title="제거" style={{ position: 'absolute', top: -6, right: -6, width: 16, height: 16, borderRadius: '50%', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--state-error)', color: '#fff', zIndex: 2 }}><X size={9} /></button>
  <input type="text" value={r.refName} onChange={(e) => renameRef(g.key, i, e.target.value.replace(/[@\s]/g, ''))} style={{ width: '100%', marginTop: 3, padding: '2px 3px', fontSize: 9, textAlign: 'center', border: '1px solid var(--border)', borderRadius: 5, background: 'var(--bg-primary)', color: 'var(--text-secondary)', boxSizing: 'border-box', fontFamily: 'SF Mono, monospace' }} />
- {r.isCharacter && !r.noCostume && (() => {
+ {/* v1134: 인물 칸의 이미지면 어디서 왔든 의상을 붙일 수 있다 — 툴의 인물 시트 · 업로드 · 대기 칸 포함.
+     이미 옷을 입은 것(인물+의상 시트 · 2D/3D 캐릭터 · 배우 자산)은 noCostume 이라 숨는다. */}
+ {g.key === 'character' && r.kind === 'image' && !r.noCostume && (() => {
  const pool = costumePool();
  const pk = `${g.key}:${i}`;
  const open = v.costumePickFor === pk;
@@ -38676,7 +39168,10 @@ ${sampleText}`;
  <div style={{ position: 'relative', marginTop: 3 }}>
  {r.costume ? (
  <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '2px', border: '1px solid var(--green-700)', borderRadius: 5, background: 'rgba(63,175,185,0.08)' }}>
- <img src={`data:${r.costume.mimeType};base64,${r.costume.base64}`} alt="의상" style={{ width: 16, height: 16, objectFit: 'cover', borderRadius: 3, display: 'block', flexShrink: 0 }} />
+ {/* v1135: 마우스를 올리면 확대 */}
+ <RefZoom src={`data:${r.costume.mimeType};base64,${r.costume.base64}`} label={r.costume.label || '의상'}>
+ <img src={`data:${r.costume.mimeType};base64,${r.costume.base64}`} alt="의상" style={{ width: 16, height: 16, objectFit: 'cover', borderRadius: 3, display: 'block', flexShrink: 0, cursor: 'zoom-in' }} />
+ </RefZoom>
  <span style={{ fontSize: 8, color: 'var(--green-500)', fontWeight: 700, flex: 1, minWidth: 0, overflow: 'hidden' }}>의상</span>
  <button onClick={() => detachCostumeN(g.key, i)} title="의상 제거" style={{ width: 11, height: 11, border: 'none', background: 'transparent', color: 'var(--text-quaternary)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><X size={8} /></button>
  </div>
@@ -38700,10 +39195,12 @@ ${sampleText}`;
  <Plus size={13} /><span style={{ fontSize: 7 }}>업로드</span>
  </button>
  {pool.map((c, ci) => (
- <button key={ci} onClick={() => { attachCostumeN(g.key, i, c); up({ costumePickFor: null }); }} title={c.label}
+ <RefZoom key={ci} src={c.url} label={c.label}>
+ <button onClick={() => { attachCostumeN(g.key, i, c); up({ costumePickFor: null }); }} title={c.label}
  style={{ width: 50, height: 50, padding: 0, border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', cursor: 'pointer', background: 'var(--bg-secondary)' }}>
  <img src={c.url} alt={c.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
  </button>
+ </RefZoom>
  ))}
  </div>
  {pool.length === 0 && (
@@ -38730,9 +39227,20 @@ ${sampleText}`;
  )}
  <input id={`narr-file-${g.key}`} type="file" accept="image/*,video/*" multiple style={{ display: 'none' }} onChange={(e) => { addFiles(g.key, e.target.files); e.target.value = ''; }} />
  </div>
- {v.refSource === 'tool' && (
- <div style={{ marginTop: 6 }}><ToolImageGrid pool={groupPool(g.key)} onPick={(u) => (fillSlot(g.key) >= 0 ? fillPendingFromUrl(g.key, fillSlot(g.key), u) : addToolImg(g.key, u))} busy={busy || totalImgs() >= 9} /></div>
- )}
+ {v.refSource === 'tool' && (<>
+ <div style={{ marginTop: 6 }}><ToolImageGrid pool={groupPool(g.key)} onPick={(u) => pickToolImg(g.key, u)} busy={busy || totalImgs() >= 9} /></div>
+ {g.key === 'character' && (() => {
+  const hidden = (sheetWsData.history || []).filter(h => !h.loading && h.url && h.params?.derived
+   && NARR_POOL_SHEETS.character[h.params?.sheetType || ''] && !sheetCharOf(h.url)?.assetId);
+  if (!hidden.length) return null;
+  return (
+   <div className="micro" style={{ marginTop: 6, lineHeight: 1.55, color: 'var(--state-warning)' }}>
+    자산 등록이 안 된 인물+의상 시트 {hidden.length}장은 뺐습니다 — 그대로 보내면 '실제 인물' 로 거부됩니다.
+    턴어라운드 시트 화면에서 <strong>캐릭터로 저장 · 자산 등록</strong>을 하면 여기에 나타납니다.
+   </div>
+  );
+ })()}
+ </>)}
  {v.refSource === 'character' && g.key !== 'character' && (
  <div className="micro" style={{ marginTop: 6, color: 'var(--text-quaternary)', padding: '6px 0', textAlign: 'center' }}>
  캐릭터는 <strong>인물</strong> 레퍼런스에만 첨부할 수 있습니다. (오브제·공간·상황은 툴에서/업로드 사용)
@@ -38792,6 +39300,20 @@ ${sampleText}`;
  <img src={characterImgSrc(c)} alt={c.name}
  style={{ width: '100%', aspectRatio: '16 / 9', objectFit: 'cover', display: 'block' }} />
  <div className="micro" style={{ padding: '2px 3px', fontSize: 9, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+ {/* v1139: 자산 상태 — 파생 캐릭터는 등록이 끝나야 영상에 쓸 수 있다 */}
+ {(c.assetId || c.derived) && (
+  <div className="micro" style={{ padding: '0 3px 2px', fontSize: 8.5, fontWeight: 700, whiteSpace: 'nowrap',
+   color: c.assetId ? 'var(--green-700)' : 'var(--state-warning)' }}>
+   {c.assetId ? '✓ 자산' : c.assetPendingId ? '⏳ 등록 확인' : '등록 필요'}
+  </div>
+ )}
+ {/* v1138: 보이스가 붙은 캐릭터 */}
+ {c.voice && (
+  <div title={`보이스: ${c.voice.name}`} className="micro" style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '0 3px 3px',
+   fontSize: 8.5, fontWeight: 700, color: 'var(--green-700)', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+   <Mic size={8} style={{ flexShrink: 0 }} /><span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.voice.name}</span>
+  </div>
+ )}
  </button>
  ))}
  </div>
@@ -39088,7 +39610,8 @@ illustrated look. Keep the same aspect ratio and the same subject placement as
  const url = (raw || []).map(x => (x && typeof x === 'object' && x.url) ? x.url : x).filter(Boolean)[0];
  if (!url) throw new Error('결과 이미지를 받지 못했습니다.');
  try { recordCreditUsage(estimateImageCost(imageModel, 'high', 1), 'image', { workCat: 'video' }); } catch {}
- up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, resultUrl: url } : j), selectedUrl: p.selectedUrl || url, selectedKind: p.selectedUrl ? p.selectedKind : 'image' }));
+ const vKept = await keepGenResult('video-vfx', jobId, url, 'png');   // v1133
+ up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, ...vKept } : j), selectedUrl: p.selectedUrl || vKept.resultUrl, selectedKind: p.selectedUrl ? p.selectedKind : 'image' }));
  // v741: 완료 알람은 중앙(progressItems 상태 전이)에서 발송 — 중복 제거
  } catch (e) { up(p => ({ ...p, error: `배경 교체 실패: ${e.message}`, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, error: e.message } : j) })); }
  } else {
@@ -39134,7 +39657,9 @@ reacts consistently with [Video]'s camera motion.
 Style: photorealistic, cinematic, seamless integration.${v.bgPrompt.trim() ? `\n\n[Additional instruction]\n${v.bgPrompt.trim()}` : ''}`;
  const url = await callSeedanceVideo({ prompt, duration: dur, resolution: res, aspectRatio: v.bgSourceAspect || '16:9', generateAudio: true, images: [`data:${v.bgStartFrame.mimeType};base64,${v.bgStartFrame.base64}`], videos: [v.bgSourceVideo.dataUrl] });
  // v789: 영상 비용은 callSeedanceVideo가 실제 completion_tokens로 기록한다 — 여기서 또 적립하면 이중 계상.
- up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, resultUrl: url } : j), selectedUrl: p.selectedUrl || url, selectedKind: p.selectedUrl ? p.selectedKind : 'video' }));
+ up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, phase: '받아두는 중' } : j) }));
+ const vKept = await keepGenResult('video-vfx', jobId, url, 'mp4');   // v1133
+ up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, phase: '', ...vKept } : j), selectedUrl: p.selectedUrl || vKept.resultUrl, selectedKind: p.selectedUrl ? p.selectedKind : 'video' }));
  // v741: 완료 알람은 중앙(progressItems 상태 전이)에서 발송 — 중복 제거
  } catch (e) { up(p => ({ ...p, error: `배경 교체 실패: ${e.message}`, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, error: e.message } : j) })); }
  }
@@ -39179,7 +39704,9 @@ Style: photorealistic, cinematic, seamless integration.${v.bgPrompt.trim() ? `\n
  if (useRef) prompt += `\n\nUse the provided reference image [Image1] as a visual guide for the appearance and style of the added elements — match its look, but do not copy it wholesale or let it alter the original subjects.`;
  const url = await callSeedanceVideo({ prompt, duration: dur, resolution: res, aspectRatio: asp, generateAudio: true, images, videos: [v.crowdVideo.dataUrl] });
  // v789: 영상 비용은 callSeedanceVideo가 실제 completion_tokens로 기록한다 — 여기서 또 적립하면 이중 계상.
- up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, resultUrl: url } : j), selectedUrl: p.selectedUrl || url, selectedKind: p.selectedUrl ? p.selectedKind : 'video' }));
+ up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, phase: '받아두는 중' } : j) }));
+ const vKept = await keepGenResult('video-vfx', jobId, url, 'mp4');   // v1133
+ up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, phase: '', ...vKept } : j), selectedUrl: p.selectedUrl || vKept.resultUrl, selectedKind: p.selectedUrl ? p.selectedKind : 'video' }));
  // v741: 완료 알람은 중앙(progressItems 상태 전이)에서 발송 — 중복 제거
  } catch (e) { up(p => ({ ...p, error: `요소 추가 실패: ${e.message}`, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, error: e.message } : j) })); }
  };
@@ -39229,7 +39756,9 @@ AUDIO:
  // v846: 배우 자산이면 asset:// 를 보낸다 — dataUrl(12시간 URL)로 보내면 신뢰 자산으로 인정되지 않는다
  const url = await callSeedanceVideo({ prompt, duration: dur, resolution: res, aspectRatio: asp, generateAudio: true, images, videos: [v.elVideo.assetUri || v.elVideo.dataUrl] });
  // v789: 영상 비용은 callSeedanceVideo가 실제 completion_tokens로 기록한다 — 여기서 또 적립하면 이중 계상.
- up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, resultUrl: url } : j), selectedUrl: p.selectedUrl || url, selectedKind: p.selectedUrl ? p.selectedKind : 'video' }));
+ up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, phase: '받아두는 중' } : j) }));
+ const vKept = await keepGenResult('video-vfx', jobId, url, 'mp4');   // v1133
+ up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, phase: '', ...vKept } : j), selectedUrl: p.selectedUrl || vKept.resultUrl, selectedKind: p.selectedUrl ? p.selectedKind : 'video' }));
  // v741: 완료 알람은 중앙(progressItems 상태 전이)에서 발송 — 중복 제거
  } catch (e) { up(p => ({ ...p, error: `요소 변경 실패: ${e.message}`, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, error: e.message } : j) })); }
  };
@@ -39287,7 +39816,9 @@ AUDIO:
  // v846: 배우 자산이면 asset:// 를 보낸다 — dataUrl(12시간 URL)로 보내면 신뢰 자산으로 인정되지 않는다
  const url = await callSeedanceVideo({ prompt, duration: dur, resolution: res, aspectRatio: asp, generateAudio: true, images, videos: [v.sfxVideo.assetUri || v.sfxVideo.dataUrl] });
  // v789: 영상 비용은 callSeedanceVideo가 실제 completion_tokens로 기록한다 — 여기서 또 적립하면 이중 계상.
- up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, resultUrl: url } : j), selectedUrl: p.selectedUrl || url, selectedKind: p.selectedUrl ? p.selectedKind : 'video' }));
+ up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, phase: '받아두는 중' } : j) }));
+ const vKept = await keepGenResult('video-vfx', jobId, url, 'mp4');   // v1133
+ up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, phase: '', ...vKept } : j), selectedUrl: p.selectedUrl || vKept.resultUrl, selectedKind: p.selectedUrl ? p.selectedKind : 'video' }));
  // v741: 완료 알람은 중앙(progressItems 상태 전이)에서 발송 — 중복 제거
  } catch (e) { up(p => ({ ...p, error: `특수효과 실패: ${e.message}`, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, error: e.message } : j) })); }
  };
@@ -39334,7 +39865,7 @@ AUDIO:
  {job.kind === 'video' ? <video src={job.resultUrl} muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <img src={job.resultUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
  <div className="ff-hover-btns" style={{ position: 'absolute', bottom: 4, right: 4, display: 'flex', gap: 4 }}>
  <button onClick={(e) => { e.stopPropagation(); dlOut(job.resultUrl, job.kind); }} title="다운로드" style={iconBtn}><Download size={11} /></button>
- <button onClick={(e) => { e.stopPropagation(); up(p => ({ ...p, jobs: p.jobs.filter(j => j.id !== job.id), selectedUrl: p.selectedUrl === job.resultUrl ? null : p.selectedUrl })); }} title="삭제" style={iconBtn}><X size={11} /></button>
+ <button onClick={(e) => { e.stopPropagation(); genForget(job); up(p => ({ ...p, jobs: p.jobs.filter(j => j.id !== job.id), selectedUrl: p.selectedUrl === job.resultUrl ? null : p.selectedUrl })); }} title="삭제" style={iconBtn}><X size={11} /></button>
  </div>
  <span style={{ position: 'absolute', top: 4, left: 4, fontSize: 8, background: 'rgba(0,0,0,0.6)', color: '#fff', padding: '1px 4px', borderRadius: 4 }}>{job.kind === 'video' ? '영상' : '이미지'}</span>
  </>
@@ -39726,7 +40257,9 @@ AUDIO:
    up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, phase: '영상 생성 중', generatedPrompt: finalPrompt } : j) }));
    const url = await callSeedanceVideo({ prompt: finalPrompt, duration: sDur, resolution: sRes, aspectRatio: sAsp,
     generateAudio: true, tier: 'video25', images: imgList, videos: vidList, audios: audioList });
-   up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, phase: '', resultUrl: url } : j), selectedUrl: p.selectedUrl || url }));
+   up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, phase: '받아두는 중' } : j) }));
+   const vKept = await keepGenResult('video-extra', jobId, url, 'mp4');   // v1133
+   up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, phase: '', ...vKept } : j), selectedUrl: p.selectedUrl || vKept.resultUrl }));
   } catch (e) {
    up(p => ({ ...p, error: `생성 실패: ${e.message}`, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, phase: '', error: e.message } : j) }));
   }
@@ -40229,7 +40762,9 @@ AUDIO:
  targetFps: v.interpolate ? v.targetFps : null, h264: v.h264, srcSec: src.durationSec,
  });
  try { recordCreditUsage(cost, 'video', { workCat: 'video' }); } catch {}
- up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, phase: '', resultUrl: url } : j), selectedUrl: p.selectedUrl || url }));
+ up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, phase: '받아두는 중' } : j) }));
+ const vKept = await keepGenResult('video-upscale', jobId, url, 'mp4');   // v1133
+ up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, phase: '', ...vKept } : j), selectedUrl: p.selectedUrl || vKept.resultUrl }));
  } catch (e) {
  up(p => ({ ...p, error: `업스케일 실패: ${e.message}`, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, phase: '', error: e.message } : j) }));
  }
@@ -40322,7 +40857,7 @@ AUDIO:
  <video src={job.resultUrl} muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
  <div className="ff-hover-btns" style={{ position: 'absolute', bottom: 4, right: 4, display: 'flex', gap: 4 }}>
  <button onClick={(e) => { e.stopPropagation(); handleDownloadUpscale(job); }} title="영상 저장" style={iconBtn}><Download size={11} /></button>
- <button onClick={(e) => { e.stopPropagation(); up(p => ({ ...p, jobs: p.jobs.filter(x => x.id !== job.id), selectedUrl: p.selectedUrl === job.resultUrl ? null : p.selectedUrl })); }} title="기록 삭제" style={iconBtn}><X size={11} /></button>
+ <button onClick={(e) => { e.stopPropagation(); genForget(job); up(p => ({ ...p, jobs: p.jobs.filter(x => x.id !== job.id), selectedUrl: p.selectedUrl === job.resultUrl ? null : p.selectedUrl })); }} title="기록 삭제" style={iconBtn}><X size={11} /></button>
  </div>
  </>
  )}

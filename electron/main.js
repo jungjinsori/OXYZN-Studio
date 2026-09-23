@@ -639,13 +639,18 @@ function enforceGenCap() {
     if (n) console.info(`[gen] 상한(8GB) 초과 — 오래된 ${n}개 ${(freed / 1048576).toFixed(0)}MB 정리`)
   } catch {}
 }
-const GEN_EXT_OK = ['png', 'jpg', 'jpeg', 'webp', 'mp4', 'mp3', 'wav']
+const GEN_EXT_OK = ['png', 'jpg', 'jpeg', 'webp', 'mp4', 'mov', 'webm', 'mp3', 'wav']
 ipcMain.handle('gen-save', async (event, payload) => {
-  const { ws, id, url } = payload || {}
+  const { ws, id, url, ext: extHint } = payload || {}
   if (!url || !/^https?:\/\//i.test(String(url))) return { success: false, error: '내려받을 주소가 아닙니다.' }
   const safeId = String(id || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80) || `g${Date.now()}`
   let ext = String(String(url).split('?')[0].split('.').pop() || '').toLowerCase()
-  if (!GEN_EXT_OK.includes(ext)) ext = 'png'
+  // v1133: 주소가 확장자로 끝나지 않으면 부르는 쪽이 알려 준 확장자를 쓴다(영상은 mp4).
+  //   예전에는 무조건 png 로 저장해서, 영상을 받아 두면 그림 확장자로 남았다.
+  if (!GEN_EXT_OK.includes(ext)) {
+    const hint = String(extHint || '').toLowerCase()
+    ext = GEN_EXT_OK.includes(hint) ? hint : 'png'
+  }
   const dest = path.join(genDir(ws), `${safeId}.${ext}`)
   try {
     if (fs.existsSync(dest)) {
@@ -655,6 +660,16 @@ ipcMain.handle('gen-save', async (event, payload) => {
     const bytes = await downloadTo(String(url), dest)
     enforceGenCap()
     return { success: true, path: dest, bytes }
+  } catch (e) { return { success: false, error: String(e && e.message || e) } }
+})
+// v1133: 툴에서 생성 기록을 지우면 받아 둔 파일도 지운다. 생성 폴더(userData/gen) 안만 허용한다.
+ipcMain.handle('gen-delete', (event, payload) => {
+  try {
+    const root = path.resolve(path.join(app.getPath('userData'), 'gen'))
+    const full = path.resolve(String((payload && payload.path) || ''))
+    if (!full.toLowerCase().startsWith(root.toLowerCase() + path.sep)) return { success: false, error: '생성 폴더 밖의 경로입니다.' }
+    if (fs.existsSync(full)) fs.unlinkSync(full)
+    return { success: true }
   } catch (e) { return { success: false, error: String(e && e.message || e) } }
 })
 ipcMain.handle('gen-check', (event, paths) => {
@@ -674,7 +689,7 @@ ipcMain.handle('local-read', async (event, payload) => {
     const buf = fs.readFileSync(full)
     const ext = path.extname(full).slice(1).toLowerCase()
     const MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp',
-      mp4: 'video/mp4', mp3: 'audio/mpeg', wav: 'audio/wav' }
+      mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm', mp3: 'audio/mpeg', wav: 'audio/wav' }
     return { success: true, base64: buf.toString('base64'), mime: MIME[ext] || 'application/octet-stream', bytes: buf.length }
   } catch (e) { return { success: false, error: String(e && e.message || e) } }
 })
@@ -1383,6 +1398,29 @@ app.whenReady().then(() => {
         const full = localReadablePath(raw)
         if (!full) return new Response('forbidden', { status: 403 })
         if (!fs.existsSync(full)) return new Response('not found', { status: 404 })
+        // v1133: 영상은 부분 요청(Range)을 직접 받아 준다. <video> 는 탐색하거나 이어 받을 때
+        //   206 을 기대하는데, 파일을 통째로만 돌려주면 탐색이 안 되거나 재생이 멈춘다.
+        //   생성 영상을 로컬로 받아 두면서 미리보기가 모두 이 길을 탄다.
+        const vext = path.extname(full).slice(1).toLowerCase()
+        const VIDEO_MIME = { mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm' }
+        if (VIDEO_MIME[vext]) {
+          const { Readable } = require('stream')
+          const size = fs.statSync(full).size
+          const range = req.headers.get('range')
+          if (range) {
+            const m = /bytes=(\d*)-(\d*)/.exec(range) || []
+            let start = m[1] ? parseInt(m[1], 10) : NaN
+            let end = m[2] ? parseInt(m[2], 10) : NaN
+            if (Number.isNaN(start)) { start = Math.max(0, size - (Number.isNaN(end) ? size : end)); end = size - 1 }
+            if (Number.isNaN(end) || end >= size) end = size - 1
+            if (start >= size || start > end) return new Response(null, { status: 416, headers: { 'Content-Range': `bytes */${size}` } })
+            return new Response(Readable.toWeb(fs.createReadStream(full, { start, end })), { status: 206, headers: {
+              'Content-Type': VIDEO_MIME[vext], 'Content-Length': String(end - start + 1),
+              'Content-Range': `bytes ${start}-${end}/${size}`, 'Accept-Ranges': 'bytes' } })
+          }
+          return new Response(Readable.toWeb(fs.createReadStream(full)), { status: 200, headers: {
+            'Content-Type': VIDEO_MIME[vext], 'Content-Length': String(size), 'Accept-Ranges': 'bytes' } })
+        }
         return net.fetch(pathToFileURL(full).toString())
       } catch (e) {
         return new Response(String(e && e.message || e), { status: 500 })

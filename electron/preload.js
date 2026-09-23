@@ -36,6 +36,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   assetSave: (payload) => ipcRenderer.invoke('asset-save', payload),
   assetRead: (payload) => ipcRenderer.invoke('asset-read', payload),
   assetDelete: (payload) => ipcRenderer.invoke('asset-delete', payload),
+  genDelete: (payload) => ipcRenderer.invoke('gen-delete', payload),
   assetUsage: (kind) => ipcRenderer.invoke('asset-usage', kind),
   // v976: 생성 결과를 앱 데이터 폴더에 받아 둔다 (히스토리를 되살리기 위해)
   genSave: (payload) => ipcRenderer.invoke('gen-save', payload),
