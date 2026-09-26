@@ -389,8 +389,8 @@ JSON 응답에 prompt 필드로 다음 구조의 텍스트를 담음:
 [Negative Prompt]
 다음 항목을 영어 콤마 나열로 출력. 컷 맥락에 맞는 추가 항목도 함께.
 - no dissolve transitions
-- no burned-in subtitles, no captions, no on-screen dialogue text
-- No BGM
+- 无字幕，画面上不出现任何字幕、说明文字或对白文字
+- 无 bgm，只生成对白、环境音和动作音
 - no duplicate characters in any single frame
 - no AI artifacts (extra fingers, distorted hands, melted faces)
 - ★ dialogue language: Korean only as written in the prompt (no foreign dubbing, no translation)
@@ -876,8 +876,10 @@ const EXTRA_IDENTITY_RULE = [
   'For each person their identity image is the ONLY source of face and body — face',
   'shape and its proportions, placement and size of the features, hairline, head',
   'shape, build. Reproduce; do not beautify, restyle, age, slim, widen, flatten or',
-  'reinterpret. Skin comes from that image too, at every shot size: an extreme',
-  'close-up shows the SAME skin as a wide, larger and not rougher. Add no acne,',
+  // v1169: 'extreme close-up' 이라는 말을 뺐다. 비하인드에 늘 붙는 조항이라
+  //   거리 규칙과 싸웠다 — 금지하려는 것을 이름으로 부르면 불러온다.
+  'reinterpret. Skin comes from that image too and reads the same at any distance —',
+  'nearer only means larger, never rougher. Add no acne,',
   'blemishes, enlarged pores, oily sheen or lines the image does not have.',
   'Where a wardrobe image is given for that person, it is the sole authority on what',
   'they wear there — match design, colour, pattern, fabric, fit and closures exactly.',
@@ -913,6 +915,26 @@ const EXTRA_CHALLENGE_CLAUSE = [
   '- 동작이 이 클립 길이보다 길면 처음부터 자연스럽게 끊기는 데까지만 한다.',
   '  빨리 감아 욱여넣지 않는다.',
   '- 카메라와 장소는 이 프롬프트가 정한 그대로다. 레퍼런스 영상의 촬영 방식을 따르지 않는다.',
+].join('\n');
+
+// v1169: 비하인드의 촬영 거리. 룰북에만 있던 것을 모델이 읽는 자리로 옮긴다.
+//   ★ 이 작업의 피사체는 배우의 얼굴이 아니라 '배우가 무엇에 둘러싸여
+//     있는가' 다. 그래서 거리는 취향이 아니라 이 작업의 정의다.
+const EXTRA_BEHIND_DISTANCE_RULE = [
+  'SHOOTING DISTANCE — a sketch of the set, filmed from across it.',
+  'The phone films from where the crew stands, at the edge of the floor, and it',
+  'stays back there for the whole take. It does not walk in on the actors.',
+  'Every person is framed head to foot and stands about half the frame height or',
+  'less. Set walls, lighting stands and diffusion, the cinema camera on its tripod,',
+  'the boom, monitors, cables and working crew share the frame with them the whole',
+  'time. What surrounds the actor is the subject of this footage; their face is one',
+  'small detail inside it.',
+  'Every moment of this clip is framed at least this wide — while the phone drifts,',
+  'pans, or follows, the actors stay small and whole in the frame.',
+  'Crew backs, light stands, tripod legs and flags cross the foreground and cover',
+  'part of the view; the phone holds its position through them rather than stepping',
+  'around for a clear look. Focus rests where the phone happens to land and at times',
+  'sits on the gear in front instead of on the actor.',
 ].join('\n');
 
 const EXTRA_BEHIND_RULEBOOK = (durationSec = 10, langLabel = 'Korean', hasChallenge = false) => {
@@ -989,7 +1011,7 @@ ${EXTRA_LANG_LINE(langLabel)}
 
 ## 마지막 줄
 프롬프트 맨 끝에 이 한 줄을 그대로 붙인다 —
-${PROJECT_FINAL_LINE} One continuous handheld phone take, no cuts.${hasChallenge ? EXTRA_CHALLENGE_CLAUSE : ''}`;
+${PROJECT_FINAL_LINE} One continuous handheld phone take, no cuts, filmed from across the set with every person head to foot.${hasChallenge ? EXTRA_CHALLENGE_CLAUSE : ''}`;
 };
 
 const EXTRA_INTERVIEW_RULEBOOK = (durationSec = 10, intervieweeLang = 'Korean', hasChallenge = false) => {
@@ -999,7 +1021,7 @@ const EXTRA_INTERVIEW_RULEBOOK = (durationSec = 10, intervieweeLang = 'Korean', 
 
 ## 절대 규칙
 - 출력은 영어 산문. 머리말 · 제목 줄 · 코드펜스 금지. 바로 본문으로 시작한다.
-- 길이 ${sec}초. 단일 컷이다 — 컷 전환은 없다. "Cut to" 를 쓰지 않는다.
+- 길이 ${sec}초. 같은 자리를 두세 앵글로 잡는다 — 뒤의 카메라 항목대로.
 - 사용자가 적지 않은 말을 지어내지 않는다. 대사는 큰따옴표 안에 그대로 둔다.
 
 ## 화면에 누가 있는가 — 가장 자주 틀리는 지점
@@ -1009,18 +1031,25 @@ const EXTRA_INTERVIEW_RULEBOOK = (durationSec = 10, intervieweeLang = 'Korean', 
   화면 밖에 앉은 인터뷰어 쪽 — 을 보고 말한다.
 - 인터뷰어의 질문이 대본에 있으면 화면 밖 목소리로만 들린다.
 
-## 카메라 — 완전 고정
-- 삼각대에 얹은 고정 카메라. 팬 · 틸트 · 달리 · 줌 · 핸드헬드 흔들림 전부 없다.
-  프레임은 ${sec}초 동안 1픽셀도 움직이지 않는다.
-- 인터뷰 표준 화면: 가슴 위가 들어오는 미디엄 클로즈업, 인물이 화면 중앙에서
-  살짝 비켜 앉고 시선이 향하는 쪽에 여백이 남는다.
+## 카메라 — 같은 자리를 두세 앵글로
+- 삼각대에 얹은 카메라다. 한 앵글 안에서는 팬 · 틸트 · 달리 · 줌 · 핸드헬드
+  흔들림이 전부 없다. 움직여서 변화를 주는 것이 아니라 앵글을 바꾼다.
+- 같은 사람이 같은 방 같은 의자에 앉아 있는 것을 두세 개의 세팅으로 잡는다.
+  ★ 컷은 많아야 두 번이고, 각 앵글이 전체 길이의 3분의 1 이상을 가져간다 —
+    끝에 짧은 꼬리가 붙으면 안 된다. 말이 끊기는 자리에서만 자른다.
+- 컷어웨이 · 인서트는 없다. 인터뷰는 그 사람에게 머문다.
+- 포트레이트 렌즈로 가슴 위가 들어온다. 인물은 화면 중앙에서 비껴 앉고
+  시선이 향하는 쪽에 여백이 남는다.
+- 카메라는 눈높이이거나 살짝 아래에 있고, 시선축에서 벗어나 있다.
 - 얕은 심도로 배경이 부드럽게 풀린다. 이건 휴대폰이 아니라 제대로 된 카메라다.
 
 ## 장소
 - 촬영 현장 한켠이나 대기실처럼 자연스러운 곳. 스튜디오 무대가 아니다.
-- 배경에 그 공간의 물건이 보이되 어수선하지 않다 — 의자, 옷걸이에 걸린 의상,
-  장비 케이스, 거울, 화분. 초점 밖에서 조용히 있는다.
-- 조명은 부드럽게 한쪽에서 들어온다.
+- 배경은 이 사람에 대해 무언가를 말하는 방의 일부다 — 의자, 옷걸이에 걸린 의상,
+  장비 케이스, 거울, 화분. 어수선하지 않고 초점 밖에서 조용히 있는다.
+- 조명: 인물이 향하는 쪽에서 렌즈로부터 약 45도 떨어진 부드러운 키라이트,
+  반대쪽에 그보다 약한 필, 뒤에서 인물을 배경에서 떼어 주는 빛(림라이트나
+  화면 안의 조명 하나), 눈에 캐치라이트. 배경은 얼굴보다 한두 스톱 어둡다.
 
 ## 인물
 - 인터뷰이는 배우 본인으로 앉아 있다. 상황이 극중 의상을 말하면 그대로,
@@ -1053,7 +1082,7 @@ ${EXTRA_LANG_LINE(intervieweeLang)}
 
 ## 마지막 줄
 프롬프트 맨 끝에 이 한 줄을 그대로 붙인다 —
-${PROJECT_FINAL_LINE} Locked-off tripod shot, one continuous take, no cuts. The interviewer is never visible.${hasChallenge ? EXTRA_CHALLENGE_CLAUSE : ''}`;
+${PROJECT_FINAL_LINE} Tripod setups only — the frame never moves inside a shot. The interviewer is never visible.${hasChallenge ? EXTRA_CHALLENGE_CLAUSE : ''}`;
 };
 
 // v1128: 상황 묘사에서 '영상 레퍼런스로 걸 대상' 을 뽑는다. 프로젝트 작업의 추출과 같은
@@ -1174,8 +1203,8 @@ const DOCU_CAMERA_STYLE = {
 };
 
 // 카메라를 사물로 묘사하면 모델이 그것을 화면 안에 놓는다(바디가 잡혀 나왔다).
-// ★ 인터뷰일 때만 붙인다. 홈비디오 · 셀프캠은 인물이 캠코더를 들고 있는 것이 형식의 일부다.
-const DOCU_CAMERA_UNSEEN = 'All of this says where the viewer is; it is not an object in the scene.'
+// v1172: 인터뷰 전용이 됐다 — 다큐 · POV 는 인물이 캠코더를 들고 있는 것이 형식의 일부다.
+const INTERVIEW_CAMERA_UNSEEN = 'All of this says where the viewer is; it is not an object in the scene.'
  + ' The camera does not stand inside the frame. A glimpse of it in a mirror or a window is fine — real footage does that.';
 
 // v1147: 시간 표시를 컷 · 정지로 읽어 구간마다 자세를 굳히던 것. 한 테이크로 가는
@@ -1188,9 +1217,11 @@ const TAKE_MOTION_RULE = 'CONTINUOUS MOTION: the time marks are a clock, not cut
  + ' one unbroken shot: it never cuts and never jumps to another angle, though it may zoom in or out. Anyone with no'
  + ' action written is still breathing and shifting. Stillness only where this prompt says someone stops.';
 
-// 인터뷰 조항. 상황 묘사에 '인터뷰' 가 있으면 카메라 종류와 무관하게 붙는다.
+// 인터뷰 조항 — 화면 · 조명 · 컷.
+// v1172: 다큐 탭에서 글자로 걸리던 것을 부가콘텐츠 인터뷰의 본체로 옮겼다.
 //   고정 카메라 조항을 그대로 쓰면 광각 · 정중앙 · 렌즈 응시가 되는데, 그것은 감시 카메라의 구도다.
-const DOCU_INTERVIEW_RULE = 'INTERVIEW SETUP: portrait lens, framed from the chest up, the subject placed'
+//   이 조항은 룰북이 아니라 코드가 붙인다 — 모델이 읽는 자리에 있어야 한다.
+const INTERVIEW_SETUP_RULE = 'INTERVIEW SETUP: portrait lens, framed from the chest up, the subject placed'
  + ' off-centre with looking room on the side they face. They look at the interviewer beside the lens, never into it.'
  + ' Camera at eye level or a little below, off the eyeline axis. Shallow depth of field, and the background is a'
  + ' part of the room that says something about this person.'
@@ -5553,7 +5584,27 @@ const PROJECT_VIDEO_EDIT_RULE = [
 //   목록 밖 소리가 사라졌다 — 액션씬이 무성영화가 됐다.
 //   부정은 문서가 예시로 준 토큰(No BGM · no subtitles)만 쓴다. 금지어를 늘리는 쪽은
 //   막다른 길이다 — 이름으로 부르면 그것이 호출된다(v1040 의 whoosh).
-const PROJECT_SOUND_RULE = 'SOUND: {} dialogue and <Foley — all diegetic sound in this scene>. No BGM.';
+// v1170: 모든 영상 작업의 사운드 부정 지시를 이 한 줄로 모은다.
+//   근거 ① 2.5 제시어 가이드 「负向控制」 — 음효 · 배경음악(bgm) · 대사를 각각
+//     따로 끌 수 있다고 못 박고, 표준 어법으로 「无 bgm，只生成环境音和动作音」 을 준다.
+//   근거 ② 채널 기호표(음악 （） · 음효 <> · 대사 {})의 예시가 전부 중국어이고,
+//     음효 예시는 <远处传来狗叫声> 처럼 범주 이름이 아니라 사건 하나다.
+//   ★ 'diegetic' 을 뺐다. 공식 문서에 한 번도 나오지 않는 단어이고, 이 단어를 쓰는
+//     실사용자 자료는 전부 구체적인 소리 이름을 함께 나열한다 — 단어 하나에 경계를
+//     맡기는 용법은 어디에도 없다. <Foley — all diegetic sound in this scene> 은
+//     음효 채널에 범주 이름을 넣은 것이라 문서 용법과 정면으로 어긋나 있었다.
+//   ★ 문서 예시에는 대사가 빠져 있다. 그대로 베끼면 대사까지 사라지므로, 문서가
+//     셋을 따로 끈다고 한 것에 맞춰 대사를 살려 적는다(对白).
+const SOUND_NEG_CN = '无 bgm，只生成对白、环境音和动作音。';
+// v1171: 자막 부정. 「负向控制」 가 검증 범위로 든 두 축이 자막과 오디오라,
+//   한쪽만 문서 표기로 바꾸면 같은 줄 안에서 표기가 갈린다.
+//   자막 채널은 【】 이고, 여기서 막는 것은 '화면에 찍히는 글자' 다.
+const SUBTITLE_NEG_CN = '无字幕，画面上不出现任何字幕、说明文字或对白文字。';
+
+// v1170: VFX 는 새로 만드는 작업이 아니라 원본을 보존하는 작업이다 —
+//   '생성' 이 아니라 '유지' 라고 적는다. 부정 표기만 위와 맞춘다.
+const VFX_AUDIO_RULE = 'AUDIO: keep the original audio of [Video] exactly as it is and add nothing on top of it. 无 bgm，只保留原视频的对白、环境音和动作音。';
+const PROJECT_SOUND_RULE = 'SOUND: dialogue goes in {}. ' + SOUND_NEG_CN;
 
 // 마지막에 읽는 줄. 자막 금지는 문서가 인정하는 다른 한 축이라 여기 같이 둔다.
 // v1143: 오브제 시트에는 크기를 재는 회색 손(소형) · 사람 실루엣(대형)이 그려져 있다.
@@ -5565,8 +5616,7 @@ const SCALE_FIGURE_RULE = 'SIZE RULERS: an object reference image may show a fla
  + ' hand or a person in this scene and it belongs to no one. Take only the object and its true size from it; no'
  + ' extra hand and no extra person appear because of it.';
 
-const PROJECT_FINAL_LINE = 'FINAL: no subtitles, no captions, no dialogue text on screen. No BGM.'
- + ' The soundtrack is dialogue and Foley — only sound made where this scene happens.';
+const PROJECT_FINAL_LINE = 'FINAL: ' + SUBTITLE_NEG_CN + ' ' + SOUND_NEG_CN;   // v1171
 
 // v1126: 본문 정리. ① 소괄호를 대괄호로 — 대괄호는 채널이 아니고, [Image 1] 은
 //   arkRefTokens 가 'Image 1' 로 펴 준다. ② 큰따옴표 대사를 대사 채널로 배선한다.
@@ -38954,9 +39004,8 @@ ${sampleText}`;
  genPrompt = String(await callClaude(rulebook, userMsg, { model: adaptModel, maxTokens: 2000, workCat: 'video' }) || '').replace(/```/g, '').trim();
  if (!genPrompt) throw new Error('프롬프트 생성 결과가 비었습니다.');
  if (isTake) {
-  // 인터뷰 조항은 카메라 종류와 무관하다. 고정 카메라 조항을 그대로 쓰면 광각 · 정중앙 ·
-  //   렌즈 응시가 되는데, 그것은 감시 카메라의 구도다.
-  const isInterview = /인터뷰|interview/i.test(situation);
+  // v1172: 인터뷰는 부가콘텐츠 탭으로 옮겼다. 여기서 글자로 걸어 조항을 바꾸지 않는다 —
+  //   다큐에 '인터뷰' 라는 말이 나온다고 해서 그 클립이 인터뷰 형식인 것은 아니다.
   // POV 는 '나' 가 화면에 서는 것과 내 대사가 남의 입에 붙는 것, 두 군데서 깨진다.
   //   그래서 시점 조항에 몸과 목소리 조항을 언제나 함께 붙인다.
   // v1147: 움직임이 구간 경계에서 끊기지 않게 — 다큐 · POV 공통
@@ -38968,8 +39017,7 @@ ${sampleText}`;
     const hv = hm ? hm[1].trim().replace(/^[<\[]|[>\]]$/g, '') : '';
     return (!hv || /^none\b/i.test(hv)) ? '' : hv;
    })(), v.camera === 'device')} ${POV_SPEECH_RULE}`
-   : (DOCU_CAMERA_STYLE[v.camera] || DOCU_CAMERA_STYLE.handheld)
-    + (isInterview ? ` ${DOCU_INTERVIEW_RULE} ${DOCU_CAMERA_UNSEEN}` : ''));
+   : (DOCU_CAMERA_STYLE[v.camera] || DOCU_CAMERA_STYLE.handheld));
   // ★ 클로드가 자리표시자를 그대로 내놓는다고 가정하지 않는다. 자기 말로 풀어 쓰면
   //   치환이 아무 일도 하지 않고 카메라 조항이 통째로 빠진다 — 있으면 쓰고, 없으면 붙인다.
   if (genPrompt.includes('<CAMERA_STYLE>')) genPrompt = genPrompt.split('<CAMERA_STYLE>').join(camStyle);
@@ -40035,7 +40083,9 @@ color temperature, and ambient tone onto the subject, add contact shadows and
 edge blending so the subject sits believably in the scene, while the background
 reacts consistently with [Video]'s camera motion.
 
-Style: photorealistic, cinematic, seamless integration.${v.bgPrompt.trim() ? `\n\n[Additional instruction]\n${v.bgPrompt.trim()}` : ''}`;
+Style: photorealistic, cinematic, seamless integration.
+
+${VFX_AUDIO_RULE}${v.bgPrompt.trim() ? `\n\n[Additional instruction]\n${v.bgPrompt.trim()}` : ''}`;
  const url = await callSeedanceVideo({ prompt, duration: dur, resolution: res, aspectRatio: v.bgSourceAspect || '16:9', generateAudio: true, images: [`data:${v.bgStartFrame.mimeType};base64,${v.bgStartFrame.base64}`], videos: [v.bgSourceVideo.dataUrl] });
  // v789: 영상 비용은 callSeedanceVideo가 실제 completion_tokens로 기록한다 — 여기서 또 적립하면 이중 계상.
  up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, phase: '받아두는 중' } : j) }));
@@ -40081,6 +40131,7 @@ Style: photorealistic, cinematic, seamless integration.${v.bgPrompt.trim() ? `\n
  const densIdx = Math.max(0, CROWD_DENSITY.findIndex(d => d.key === v.crowdDensity));
  const densWord = rb.density[densIdx] || rb.density[2];
  let prompt = `${VFX_SOURCE_LOCK}\n\n[DENSITY]: ${densWord}\n\n${CROWD_LOCK}\n\n${rb.body}`;
+ prompt += `\n\n${VFX_AUDIO_RULE}`;   // v1170
  if (v.crowdConcept.trim()) prompt += `\n\n[Additional detail] ${v.crowdConcept.trim()}`;
  if (useRef) prompt += `\n\nUse the provided reference image [Image1] as a visual guide for the appearance and style of the added elements — match its look, but do not copy it wholesale or let it alter the original subjects.`;
  const url = await callSeedanceVideo({ prompt, duration: dur, resolution: res, aspectRatio: asp, generateAudio: true, images, videos: [v.crowdVideo.dataUrl] });
@@ -40131,9 +40182,7 @@ CONSISTENCY:
 - Keep the object temporally stable across all frames (no flicker/morphing).
 - Fully remove the original ⟪TARGET⟫ — no ghosting or leftover outline.
 
-AUDIO:
-- Keep the original audio (dialogue, ambient/diegetic sound) unchanged.
-- No background music. Do not add or generate any music track.${refBlock}`;
+${VFX_AUDIO_RULE}${refBlock}`;
  // v846: 배우 자산이면 asset:// 를 보낸다 — dataUrl(12시간 URL)로 보내면 신뢰 자산으로 인정되지 않는다
  const url = await callSeedanceVideo({ prompt, duration: dur, resolution: res, aspectRatio: asp, generateAudio: true, images, videos: [v.elVideo.assetUri || v.elVideo.dataUrl] });
  // v789: 영상 비용은 callSeedanceVideo가 실제 completion_tokens로 기록한다 — 여기서 또 적립하면 이중 계상.
@@ -40191,9 +40240,7 @@ CONTINUITY ACROSS CUTS:
 - Preserve the effect's state and progression continuously across cuts, adapting its position, scale, and angle to each new shot's framing of the subject.
 - Match look, color, and intensity of the effect consistently in every shot.
 
-AUDIO:
-- Keep the original audio (dialogue, ambient/diegetic sound) unchanged.
-- No background music. Do not add or generate any music track.${refBlock}`;
+${VFX_AUDIO_RULE}${refBlock}`;
  // v846: 배우 자산이면 asset:// 를 보낸다 — dataUrl(12시간 URL)로 보내면 신뢰 자산으로 인정되지 않는다
  const url = await callSeedanceVideo({ prompt, duration: dur, resolution: res, aspectRatio: asp, generateAudio: true, images, videos: [v.sfxVideo.assetUri || v.sfxVideo.dataUrl] });
  // v789: 영상 비용은 callSeedanceVideo가 실제 completion_tokens로 기록한다 — 여기서 또 적립하면 이중 계상.
@@ -40630,6 +40677,12 @@ AUDIO:
     { model: 'claude-opus-5', maxTokens: 3200, workCat: 'video' }) || '').replace(/```/g, '').trim();   // v1122
    if (!body) throw new Error('프롬프트 생성 결과가 비었습니다.');
    let finalPrompt = body;
+   // v1169: 비하인드의 거리. 정체성 조항 '뒤' 에 오도록 먼저 붙인다 —
+   //   같은 프롬프트 안에서 뒤에 오는 쪽이 앞의 샷 크기 언급을 눌러 준다.
+   if (!sInt) finalPrompt = `${EXTRA_BEHIND_DISTANCE_RULE}\n\n${finalPrompt}`;
+   // v1172: 인터뷰의 화면 · 조명 · 컷. 룰북에만 두면 Claude 가 어떻게 옮기느냐에
+   //   달리는데, 이 셋은 인터뷰를 인터뷰로 만드는 값이라 코드가 못 박는다.
+   if (sInt) finalPrompt = `${INTERVIEW_SETUP_RULE} ${INTERVIEW_CAMERA_UNSEEN}\n\n${finalPrompt}`;
    if (outfitPairs.length) finalPrompt = `${EXTRA_IDENTITY_RULE}\n${outfitPairs.join('\n')}\n\n${finalPrompt}`;
    else if (hasPerson) finalPrompt = `${EXTRA_IDENTITY_RULE}\n\n${finalPrompt}`;
    if (placePairs.length) finalPrompt = `${EXTRA_LOCATION_RULE}\n${placePairs.join('\n')}\n\n${finalPrompt}`;
@@ -40708,7 +40761,7 @@ AUDIO:
   <div className="fade-in" style={{ maxWidth: 1240, margin: '0 auto', padding: '0 8px' }}>
    <div style={{ marginBottom: 22, textAlign: 'center' }}>
     <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-0.01em' }}>부가콘텐츠</h2>
-    <p className="meta" style={{ color: 'var(--text-tertiary)', marginTop: 5 }}>촬영 현장 비하인드와 제작 인터뷰를 만듭니다. 컷 전환 없는 단일 컷입니다.</p>
+    <p className="meta" style={{ color: 'var(--text-tertiary)', marginTop: 5 }}>촬영 현장 비하인드와 제작 인터뷰를 만듭니다. 비하인드는 단일 컷, 인터뷰는 같은 자리를 두세 앵글로 잡습니다.</p>
     <div style={{ height: 3, marginTop: 16, borderRadius: 3, background: 'linear-gradient(to right, transparent, var(--green-500), transparent)' }} />
    </div>
 
@@ -40789,7 +40842,7 @@ AUDIO:
 
    <div className="card" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
     <div style={{ display: 'flex', gap: 8 }}>
-     {[{ id: 'behind', label: '비하인드', desc: '촬영장 스케치 · 폰카 핸드헬드' }, { id: 'interview', label: '인터뷰', desc: '준비된 인터뷰 · 카메라 고정' }].map(m => (
+     {[{ id: 'behind', label: '비하인드', desc: '촬영장 스케치 · 폰카 핸드헬드' }, { id: 'interview', label: '인터뷰', desc: '준비된 인터뷰 · 삼각대 두세 앵글' }].map(m => (
       <button key={m.id} type="button" onClick={() => up({ mode: m.id })}
        style={{ flex: 1, padding: '12px 14px', borderRadius: 10, cursor: 'pointer', textAlign: 'left',
         background: v.mode === m.id ? 'rgba(34,197,94,0.12)' : 'transparent',
