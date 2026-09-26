@@ -902,8 +902,31 @@ const EXTRA_LOCATION_RULE = [
   'Hour and light come from this prompt: the same room, lit for the moment described.',
 ].join('\n');
 
+// v1179: 앞 클립에서 무엇을 가져오고 무엇을 가져오지 않는지.
+//   ★ 'THIS IS A NEW VIDEO' 가 빠지면 ARK 가 이 요청을 '영상 이어붙이기' 로
+//     분류해 화면비를 거부한다(프로젝트 작업에서 겪었다 — v1046).
+const EXTRA_CONTINUITY_RULE =
+  'CONTINUITY WITH THE EARLIER CLIP: the reference named below is an earlier clip of this same interview,'
+  + ' filmed in the same session minutes before.'
+  + ' Take from it the room, the wall behind and what stands against it, the chair, where the person sits in'
+  + ' the frame, the lens height and the lighting. Their wardrobe, hair and grooming carry on from it unchanged.'
+  + ' THIS IS A NEW VIDEO, not an extension of it. None of its footage is re-used, and nobody repeats what'
+  + ' they did or said in it.'
+  + ' Take no identity from it — faces and bodies come from the identity images, never from this clip.'
+  + ' A new angle on the same seat is fine; a new room is not.';
+
 const EXTRA_LANG_LINE = (label) =>
   `The spoken lines are in ${label}. Say ONLY what is inside the double quotes, in ${label} — mouth, jaw and lip-sync follow those words exactly. No other language underneath, no dub over a different original. The language changes only the words, never the people: faces, hair, build and wardrobe still come from the reference images. Korean names keep the pronunciation the written form asks for; Korean elsewhere in this prompt is crew direction and is never spoken.`;
+
+// v1175: 인터뷰는 한 클립에 두 언어가 있다. EXTRA_LANG_LINE 은 '대사는 전부
+//   이 언어' 라고 못 박는 글이라 인터뷰어의 질문까지 끌고 간다 — 그래서 따로 둔다.
+//   화면 밖 목소리는 언제나 한국어다. 고른 언어는 답하는 사람에게만 걸린다.
+const INTERVIEW_LANG_RULE = (label) =>
+  'LANGUAGE — two languages in one clip, and they do not mix.'
+  + ' The off-screen interviewer always asks in Korean. That never changes, whatever language the answers are in.'
+  + ` The person on screen answers in ${label}; their mouth, jaw and lip-sync follow those ${label} words exactly.`
+  + ' Neither voice is dubbed over the other language and no line is translated into the other one.'
+  + ' Korean elsewhere in this prompt is crew direction and is never spoken.';
 
 const EXTRA_CHALLENGE_CLAUSE = [
   '',
@@ -1014,6 +1037,52 @@ ${EXTRA_LANG_LINE(langLabel)}
 ${PROJECT_FINAL_LINE} One continuous handheld phone take, no cuts, filmed from across the set with every person head to foot.${hasChallenge ? EXTRA_CHALLENGE_CLAUSE : ''}`;
 };
 
+// v1176: 대사 뽑기. 큰따옴표가 없어도 '입 밖으로 나오는 말' 을 골라낸다.
+const EXTRA_DLG_EXTRACT_SYS = [
+  "아래 글에서 '실제로 입 밖으로 나오는 말' 만 골라낸다.",
+  '',
+  '[대사로 보는 것]',
+  '- 큰따옴표 안의 말.',
+  '- 이름 뒤에 콜론이 오는 줄 — 김피디: 어떠셨어요?  ← 콜론 뒤가 대사다.',
+  '- 줄표나 따옴표로 시작하는 줄 — — 어떠셨어요?  /  ‘어떠셨어요?’',
+  "- '~라고 말한다 · 묻는다 · 대답한다 · 외친다' 앞에 오는 문장.",
+  '- 대본처럼 화자와 말이 줄로 나뉘어 있는 것.',
+  '',
+  '[대사가 아닌 것]',
+  '- 지문 · 상황 묘사 · 카메라 지시 · 자막으로 넣으라는 글.',
+  '- 속으로 생각하는 말, 회상 속의 말, 글로 적힌 것을 읽는 묘사.',
+  '- 사용자가 우리에게 하는 주문(예: 10초로 만들어줘).',
+  '',
+  '[적는 법]',
+  '- line 은 원문 그대로다. 글자 하나 바꾸지 않는다 — 말끝 · 말줄임표 · 물음표 · 띄어쓰기 그대로.',
+  '- 이름 뒤 콜론으로 적혀 있으면 이름은 who 로, 콜론 뒤만 line 으로 가른다.',
+  '- 큰따옴표로 감싸 있으면 따옴표는 빼고 안의 말만 line 에 담는다.',
+  '- 글에 나오는 차례대로 낸다. 한 줄에 두 마디가 있으면 두 개로 나눈다.',
+  '- 누가 말하는지 글에 없으면 who 는 빈 문자열이다. 지어내지 않는다.',
+  '',
+  '출력은 JSON 배열 하나뿐이다. 설명 · 머리말 · 코드펜스 금지.',
+  '[{\"who\":\"말하는 사람 이름 또는 빈 문자열\",\"line\":\"원문 그대로\"}]',
+  '대사가 하나도 없으면 [] 만 출력한다.',
+].join('\n');
+
+// v1176: 뽑아낸 대사에 큰따옴표를 둘러 준다. 이 뒤의 모든 단계(룰북 · 프롬프트
+//   작성 · soundChannelize 의 대사 채널 배선)가 큰따옴표를 보고 움직이므로,
+//   표시를 여기서 한 번 맞춰 두면 그 아래는 손댈 데가 없다.
+//   ★ 사용자가 적은 글 자체는 바꾸지 않는다 — 모델에 보낼 사본만 손본다.
+const extraQuoteDialogue = (text, dlg) => {
+  let out = String(text || '');
+  // 긴 것부터 — 짧은 말이 긴 말 안에 들어 있을 때 따옴표가 겹치지 않게 한다
+  const lines = [...new Set((dlg || []).map(x => String(x && x.line || '').trim()).filter(Boolean))]
+    .sort((a, b) => b.length - a.length);
+  for (const ln of lines) {
+    const i = out.indexOf(ln);
+    if (i < 0) continue;                                   // 글이 그 사이 바뀌었으면 건너뛴다
+    if (out[i - 1] === '"' && out[i + ln.length] === '"') continue;   // 이미 감싸여 있다
+    out = out.slice(0, i) + '"' + ln + '"' + out.slice(i + ln.length);
+  }
+  return out;
+};
+
 const EXTRA_INTERVIEW_RULEBOOK = (durationSec = 10, intervieweeLang = 'Korean', hasChallenge = false) => {
   const sec = Math.max(4, Math.round(Number(durationSec) || 10));
   return `사용자가 준 인터뷰 대본을 '제작 인터뷰' 영상 프롬프트로 옮긴다.
@@ -1071,10 +1140,10 @@ const EXTRA_INTERVIEW_RULEBOOK = (durationSec = 10, intervieweeLang = 'Korean', 
   해당 번호가 이미 치환되어 들어온다. 번호를 새로 지어내지 않는다.
 
 ## 언어
-- 인터뷰어(화면 밖 목소리)는 한국어로 묻는다.
-- 인터뷰이는 ${intervieweeLang} 로 답한다.
-${EXTRA_LANG_LINE(intervieweeLang)}
-- 두 언어가 한 클립에 같이 있어도 된다. 질문은 한국어, 답은 ${intervieweeLang} 다.
+- ★ 인터뷰어(화면 밖 목소리)는 언제나 한국어로 묻는다. 인터뷰이 언어를 무엇으로
+  골랐든 바뀌지 않는다. 질문은 한국어 원문 그대로 큰따옴표 안에 둔다.
+- 인터뷰이만 ${intervieweeLang} 로 답한다.
+${INTERVIEW_LANG_RULE(intervieweeLang)}
 
 ## 괄호와 소리
 - 소괄호 ( ) 를 쓰지 않는다 — Seedance 에서 소괄호는 음악 채널이다. 부연·시각은 대괄호 [ ] 로.
@@ -6611,6 +6680,13 @@ const ProjectTimeIcon = ({ time, size = 13 }) => {
 };
 
 const PROJECT_REF_SOURCES = {
+ // v1173: 목소리만 가져오는 자리. 보이스는 캐릭터와 배우에 붙어 있으므로
+ //   그 둘만 낸다 — 시트 · 업로드는 그림이라 여기서는 뜻이 없다.
+ voices: [
+  { id: 'character', label: '캐릭터' },
+  { id: 'actor', label: '배우' },
+  { id: 'upload', label: '업로드' },   // v1175: 오디오 파일만
+ ],
  characters: [
  { id: 'character', label: '캐릭터' },
  { id: 'sheet', label: '인물 시트', sheetTypes: ['character', 'character_closeup', 'character_costume'] },
@@ -8641,6 +8717,30 @@ const CLAUDE_PRICING = {
  'sonnet-4-5': { input: 3.0, output: 15.0 },
  'opus-4-5': { input: 15.0, output: 75.0 },
 };
+
+// v1184: 캐시를 걸 만한 길이인가. 최소 단위(약 1,024토큰)에 못 미치면
+//   캐시가 만들어지지 않으므로 쓰기 할증만 무는 손해가 된다.
+//   한국어는 1자당 1~2토큰이라 2,500자를 기준으로 둔다.
+// v1186: 클립 프롬프트 전용 모델. 기본은 Opus 5 이고, 견줘 볼 때만 바꾼다.
+//   개발자도구 콘솔에서 —
+//     localStorage.setItem('oxyzn_clip_prompt_model', 'claude-opus-5-5')   // 바꾸기
+//     localStorage.removeItem('oxyzn_clip_prompt_model')                   // 되돌리기
+//   바꾼 뒤 새로고침하면 적용된다. 생성 기록의 promptModel 로 어느 것이었는지 남는다.
+const clipPromptModel = () => {
+  try { return localStorage.getItem('oxyzn_clip_prompt_model') || 'claude-opus-5'; }
+  catch { return 'claude-opus-5'; }
+};
+
+const CLAUDE_CACHE_MIN_CHARS = 2500;
+// v1185: 한 번 거부되면 그 뒤로는 시도하지 않는다 — 호출마다 400 을 한 번씩
+//   맞고 다시 보내면 느려지기만 한다. 앱을 다시 켜면 초기화된다.
+const CLAUDE_CACHE_OFF = { on: false };
+
+// 캐시 단가 — 쓰기는 기본가의 1.25배, 읽기는 0.1배.
+//   기록을 정확히 남기려면 이 둘을 따로 세야 한다. 안 그러면 캐시가
+//   듣고 있는데도 비용이 그대로인 것처럼 보인다.
+const CLAUDE_CACHE_WRITE_MULT = 1.25;
+const CLAUDE_CACHE_READ_MULT = 0.1;
 
 const getClaudePricing = (model) => {
  const m = (model || '').toLowerCase();
@@ -11742,7 +11842,12 @@ const callClaude = async (systemPrompt, userMessage, options = {}) => {
  body: JSON.stringify({
  model: options.model || 'claude-sonnet-4-5',
  max_tokens: options.maxTokens || 2500,
- system: systemPrompt,
+ // v1184: 긴 시스템 프롬프트는 캐시에 올린다. 룰북은 클립마다 같은 글이라
+ //   두 번째 호출부터 입력값이 읽기 단가로 떨어진다.
+ //   noCache 를 주면 그냥 문자열로 보낸다(캐시가 말썽일 때의 도피로).
+ system: (!options.noCache && !CLAUDE_CACHE_OFF.on && String(systemPrompt || '').length >= CLAUDE_CACHE_MIN_CHARS)
+  ? [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }]
+  : systemPrompt,
  messages: [{ role: 'user', content: userMessage }],
  }),
  });
@@ -11851,6 +11956,13 @@ const callClaude = async (systemPrompt, userMessage, options = {}) => {
  `잠시 후 다시 시도해주세요. 계속 발생하면 status.anthropic.com을 확인해주세요.`
  );
  }
+ // v1185: 캐시 형식이 거부되면 캐시 없이 한 번 더 보낸다. 이 길목이 막히면
+ //   앱의 모든 글 작업이 함께 멈추므로, 비용보다 되는 쪽을 택한다.
+ if (response.status === 400 && !options.noCache && /cache/i.test(text)) {
+  console.warn('[claude] 캐시 형식이 거부됐습니다 — 캐시 없이 다시 보냅니다.', text.slice(0, 160));
+  try { CLAUDE_CACHE_OFF.on = true; } catch {}
+  return callClaude(systemPrompt, userMessage, { ...options, noCache: true });
+ }
  throw new Error(`API 오류 (${response.status}): ${text.slice(0, 200)}`);
  }
 
@@ -11859,7 +11971,16 @@ const callClaude = async (systemPrompt, userMessage, options = {}) => {
  try {
  const u = data.usage || {};
  const pricing = getClaudePricing(options.model || 'claude-sonnet-4-5');
- const cost = ((u.input_tokens || 0) / 1e6) * pricing.input + ((u.output_tokens || 0) / 1e6) * pricing.output;
+ // v1184: 캐시 토큰은 단가가 다르다. 한 덩어리로 세면 캐시가 듣고 있는지
+ //   기록만 봐서는 알 수가 없다 — 세 가지를 따로 센다.
+ const cw = u.cache_creation_input_tokens || 0;   // 캐시에 올린 분 (1.25배)
+ const cr = u.cache_read_input_tokens || 0;       // 캐시에서 읽은 분 (0.1배)
+ const cost = ((u.input_tokens || 0) / 1e6) * pricing.input
+  + (cw / 1e6) * pricing.input * CLAUDE_CACHE_WRITE_MULT
+  + (cr / 1e6) * pricing.input * CLAUDE_CACHE_READ_MULT
+  + ((u.output_tokens || 0) / 1e6) * pricing.output;
+ // 캐시가 실제로 듣고 있는지는 이 줄로 확인한다
+ if (cw || cr) { try { console.log(`[claude] 캐시 — 올림 ${cw} · 읽음 ${cr} · 새 입력 ${u.input_tokens || 0} 토큰`); } catch {} }
  // v734: 호출부가 options.workCat으로 작업 대분류(plan/image/video/sound/etc)를 지정 가능 — 미지정 시 'etc'
  recordCreditUsage(cost, 'claude', { workCat: options.workCat || 'etc' });
  } catch {}
@@ -17861,6 +17982,11 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
   mode: 'behind',            // 'behind' | 'interview'
   situation: '',             // 비하인드=상황묘사 / 인터뷰=인터뷰 대본
   lang: 'ko',                // 비하인드 대사 · 인터뷰이 언어 (인터뷰어는 한국어 고정)
+  // v1173: 인터뷰어 보이스. 화면에 안 나오므로 목소리만 든다 — { url, name, from }
+  interviewerVoice: null,
+  dlg: null,                 // v1176: 뽑아낸 대사 [{ who, line }] — 큰따옴표가 없어도 잡는다
+  // v1179: 인터뷰 콘티뉴이티 — 앞 클립 { url, name, kind:'video'|'image', jobId }
+  contRef: null,
   duration: 10, aspect: '9:16', resolution: '720p',
  dlgTr: null, trLoading: false,
  step: 'write', extracting: false, preview: null,
@@ -17873,6 +17999,9 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
  const extraJobSeq = useRef(0);
  const [extraRefSuggest, setExtraRefSuggest] = useState(null);
  const extraTaRef = useRef(null);
+ // v1180: 콘티뉴이티 그림 올리기. 워크스페이스가 IIFE 라 그 안에서 훅을 부르면
+ //   탭을 열 때만 훅이 늘어나 React #310 으로 죽는다 — 여기서 만든다.
+ const contUploadRef = useRef(null);
  
  const [videoNarrativeData, setVideoNarrativeData] = useState({
  situation: '', // 상황 묘사(시나리오 원문 등)
@@ -19794,7 +19923,7 @@ const projectRefLiveSrc = (item) => {
  //   한도는 상한일 뿐이라 올려 둬도 안 쓴 만큼은 청구되지 않는다.
  const writePrompt = async (extra) => {
    const ask = (mt) => callClaude(PROJECT_VIDEO_PROMPT_SYS, extra ? `${user}\n\n${extra}` : user, {
-     model: 'claude-opus-5', maxTokens: mt, workCat: 'video',
+     model: clipPromptModel(), maxTokens: mt, workCat: 'video',   // v1186
    });
    let raw;
    try { raw = await ask(3600); }
@@ -20005,6 +20134,7 @@ const projectRefLiveSrc = (item) => {
  clipGenNo: genNo, genSeq: genNo,
  // v1162: 초안으로 뽑았으면 그 id 를 들고 있어야 1080p 최종을 만들 수 있다
  clipIsDraft: isDraft, clipDraftTaskId: isDraft ? draftTaskId : '', clipDraftAt: isDraft ? clipTs : 0,
+ promptModel: clipPromptModel(),   // v1186: 어느 모델이 쓴 프롬프트인지
  };
  setProjectData(p => {
  const segments = p.segments.map(g => (g.id === segId ? { ...g, ...clipPatch } : g));
@@ -20313,6 +20443,25 @@ const projectRefLiveSrc = (item) => {
  },
  onCancel: () => setPromptDialog(null),
  });
+ };
+
+ // v1175: 목소리 업로드. 그림이 아니라 소리라 저장 경로도 쓰임새도 달라서
+ //   이미지 쪽과 섞지 않고 따로 둔다. 고른 결과는 onPick 이 받는다.
+ const handleVoiceUpload = (file) => {
+  if (!file) return;
+  if (!/^audio\//.test(file.type || '')) {
+   try { showToast('오디오 파일만 넣을 수 있습니다.', 'error'); } catch {}
+   return;
+  }
+  const fr = new FileReader();
+  fr.onload = () => {
+   const nm = (file.name || '업로드').replace(/\.[^.]+$/, '').slice(0, 24);
+   if (projectRefPicker && projectRefPicker.onPick) {
+    projectRefPicker.onPick({ name: nm, voiceUrl: String(fr.result || ''), voiceName: nm, source: 'upload' });
+   }
+   setProjectRefPicker(null);
+  };
+  fr.readAsDataURL(file);
  };
 
  const handleProjectRefUpload = (file, sceneKey, kind, targetId, slot = 'asset') => {
@@ -20982,6 +21131,43 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  // eslint-disable-next-line react-hooks/exhaustive-deps
  }, []);
 
+ // v1183: 입력 칸이 글 길이를 따라 늘어난다.
+ //   칸마다 JSX 를 고치는 대신 여기서 한 번에 맡는다 — 새로 생기는 칸도
+ //   자동으로 걸리고, 되돌릴 때도 이 자리만 보면 된다.
+ //   늘리고 싶지 않은 칸은 data-ff-nogrow="1" 을 달면 빠진다.
+ useEffect(() => {
+  // 끝없이 늘어나면 그것대로 못 쓴다 — 화면 높이의 70% 에서 멈추고 그때부터 스크롤
+  const capPx = () => Math.max(160, Math.round(window.innerHeight * 0.7));
+  const fit = (el, force) => {
+   if (!el || el.tagName !== 'TEXTAREA' || el.dataset.ffNogrow === '1') return;
+   const val = el.value || '';
+   // 글자 수가 그대로면 다시 재지 않는다 — 400ms 마다 전부 재면 화면이 버벅인다
+   if (!force && el.dataset.ffLen === String(val.length) && el.dataset.ffH === el.style.height) return;
+   const cap = capPx();
+   el.style.height = 'auto';
+   const want = el.scrollHeight + (el.offsetHeight - el.clientHeight);   // 테두리 두께를 더한다
+   const h = Math.min(want, cap);
+   el.style.height = `${h}px`;
+   el.style.overflowY = want > cap ? 'auto' : 'hidden';
+   el.dataset.ffLen = String(val.length);
+   el.dataset.ffH = el.style.height;
+  };
+  const onInput = (e) => fit(e.target);
+  // 캡처 단계에서 듣는다 — 중간에서 멈추는 칸이 있어도 놓치지 않는다
+  document.addEventListener('input', onInput, true);
+  // 값이 코드로 바뀌는 경우(불러오기 · 번역 · 되돌리기)는 input 이 안 난다.
+  //   그래서 느리게 한 번씩 훑는다. 글자 수가 같으면 그냥 지나가므로 값싸다.
+  const tick = setInterval(() => { document.querySelectorAll('textarea').forEach(el => fit(el)); }, 400);
+  // 창 크기가 바뀌면 상한도 바뀐다
+  const onResize = () => document.querySelectorAll('textarea').forEach(el => fit(el, true));
+  window.addEventListener('resize', onResize);
+  return () => {
+   document.removeEventListener('input', onInput, true);
+   clearInterval(tick);
+   window.removeEventListener('resize', onResize);
+  };
+ }, []);
+
  // 바뀌면 2초 뒤에 담는다. 복원이 끝나기 전에는 쓰지 않는다(빈 상태로 덮어쓰지 않게).
  useEffect(() => {
  if (!sessionRestored.current) return;
@@ -21182,7 +21368,7 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  break;
  case 'video-extra':
   setExtraData({
-   mode: 'behind', situation: '', lang: 'ko', draft: false,   // v1164
+   mode: 'behind', situation: '', lang: 'ko', draft: false, interviewerVoice: null, dlg: null, contRef: null,   // v1179
    duration: 10, aspect: '9:16', resolution: '720p',
  dlgTr: null, trLoading: false,
  step: 'write', extracting: false, preview: null,
@@ -23682,12 +23868,15 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  // 프롬프트 토큰을 ModelArk 표기로 변환 (@Image1 / [Image1] → Image 1)
  content.push({ type: 'text', text: arkRefTokens(prompt) });
 
+ // v1182: 레퍼런스는 프레임과 함께 간다. 프레임이 있다고 얼굴 · 의상을
+ //   버릴 이유가 없다 — 프레임은 첫 컷과 끝 컷의 그림이고, 레퍼런스는 누구인가다.
+ //   ★ 순서가 중요하다. 프롬프트의 Image 1 은 첫 번째 reference_image 여야 하므로
+ //     레퍼런스를 먼저 싣고 프레임을 뒤에 붙인다.
+ for (const u of imageUrls) content.push(asImageEntry(u, 'reference_image'));
  if (firstFrame) {
  // v1132: 프레임도 공개 주소로 올려 보낸다 — data URL 을 그대로 실으면 요청이 413 으로 막힌다(v1000)
  content.push(asImageEntry(await asPublicUrl(firstFrame, '시작 프레임'), 'first_frame'));
  if (endFrame) content.push(asImageEntry(await asPublicUrl(endFrame, '끝 프레임'), 'last_frame'));
- } else {
- for (const u of imageUrls) content.push(asImageEntry(u, 'reference_image'));
  }
  for (const u of videoUrls) content.push({ type: 'video_url', video_url: { url: u }, role: 'reference_video' });
  // v773: 오디오 레퍼런스 — 최대 3개, 이미지/영상이 하나도 없으면 단독 입력 불가라 생략
@@ -23698,12 +23887,22 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  //   가리킨다. 호출부가 미리 올려 넘기므로 보통 여기서 실패하지 않지만,
  //   실패하면 어느 번호가 비었는지 남긴다.
  try { audioUrls.push(await asPublicUrl(au, '보이스 레퍼런스')); }
- catch (e) { console.warn(`[ark] 보이스 레퍼런스 ${audioUrls.length + 1}번을 올리지 못했습니다 — 이 클립의 Audio 번호가 밀립니다.`, e?.message); }
+ catch (e) {
+ // v1181: 여기서 하나 빠지면 뒤의 Audio 번호가 전부 한 칸씩 밀려
+ //   프롬프트가 가리키는 사람과 실제 목소리가 어긋난다. 반드시 보이게 한다.
+ const m = `보이스 ${audioUrls.length + 1}번을 올리지 못했습니다 — 이 클립의 Audio 번호가 밀려 목소리가 엉뚱한 사람에게 붙을 수 있습니다.`;
+ console.warn('[ark] ' + m, e?.message);
+ try { showToast(m, 'error'); } catch {}
+ }
  }
  if (audioUrls.length && (imageUrls.length || videoUrls.length || firstFrame)) {
  for (const u of audioUrls) content.push({ type: 'audio_url', audio_url: { url: u }, role: 'reference_audio' });
  } else if (audioUrls.length) {
- console.warn('[ark] 이미지·영상 레퍼런스가 없어 보이스 레퍼런스를 보내지 못했습니다 — 프롬프트의 Audio 번호는 가리킬 것이 없습니다.');
+ // v1181: ModelArk 는 오디오만 단독으로 받지 않는다(v773). 조용히 버리면
+ //   목소리가 왜 다른지 알 길이 없다 — 화면에 띄우고 기록에도 남긴다.
+ const msg = `보이스 ${audioUrls.length}개를 보내지 못했습니다 — 인물 그림이나 영상 레퍼런스가 하나도 없으면 목소리만 따로 보낼 수 없습니다. 인물 레퍼런스를 하나 걸어주세요.`;
+ console.warn('[ark] ' + msg);
+ try { showToast(msg, 'error'); } catch {}
  }
 
  // ── 출력 스펙 ──
@@ -31904,7 +32103,9 @@ ${sampleText}`;
  {projectRefPicker && (() => {
  const { sceneKey, kind, source, targetId, targetName, slot = 'asset' } = projectRefPicker;
  const isCostume = slot === 'costume';
- const kindLabel = isCostume ? '의상' : (PROJECT_REF_KINDS.find(x => x.k === kind)?.label || '');
+ const isVoice = kind === 'voices';   // v1175: 소리만 받는 창
+ const kindLabel = isCostume ? '의상' : kind === 'voices' ? '보이스'   // v1173
+  : (PROJECT_REF_KINDS.find(x => x.k === kind)?.label || '');
  const sources = PROJECT_REF_SOURCES[isCostume ? 'costume' : kind] || [];
  const cur = sources.find(x => x.id === source) || sources[0];
  // 지금 고르고 있는 대상이 인물 시트인지 — 의상 탭을 낼지 정한다
@@ -32013,7 +32214,9 @@ ${sampleText}`;
  {sc.label}
  </button>
  ))}
- {!targetId && (
+ {/* v1174: onPick 으로 빌려 쓰는 창(부가콘텐츠 · 보이스)에는 이 버튼이 뜻이 없다.
+     sceneKey 가 없어서 누르면 없는 씬에 이름을 다는 셈이 된다. */}
+ {!targetId && !projectRefPicker.onPick && (
  <button type="button" className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }}
  onClick={() => { close(); projectRefAddByName(sceneKey, kind); }}>
  이름만 직접 입력
@@ -32052,18 +32255,23 @@ ${sampleText}`;
  })()}
  {source === 'upload' ? (
  <>
- <input ref={projectRefUploadRef} type="file" accept="image/*" style={{ display: 'none' }}
- onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; handleProjectRefUpload(f, sceneKey, kind, targetId, slot); }} />
+ <input ref={projectRefUploadRef} type="file" accept={isVoice ? 'audio/*' : 'image/*'} style={{ display: 'none' }}
+ onChange={(e) => { const f = e.target.files?.[0]; e.target.value = '';
+  if (isVoice) handleVoiceUpload(f); else handleProjectRefUpload(f, sceneKey, kind, targetId, slot); }} />
  <div className="upload-zone"
  onClick={() => projectRefUploadRef.current?.click()}
  onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('is-dragging'); }}
  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'copy'; e.currentTarget.classList.add('is-dragging'); }}
  onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('is-dragging'); }}
- onDrop={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('is-dragging'); handleProjectRefUpload(e.dataTransfer.files?.[0], sceneKey, kind, targetId, slot); }}
+ onDrop={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('is-dragging');
+  const df = e.dataTransfer.files?.[0];
+  if (isVoice) handleVoiceUpload(df); else handleProjectRefUpload(df, sceneKey, kind, targetId, slot); }}
  style={{ cursor: 'pointer' }}>
  <div className="upload-icon"><Upload size={26} color="var(--green-500)" strokeWidth={1.5} /></div>
- <h2 className="h2" style={{ marginBottom: 6 }}>이미지 파일</h2>
- <p className="meta mono-font" style={{ marginBottom: 0 }}>끌어다 놓거나 클릭 · 오른쪽 다운로드 탭에서 끌어와도 됩니다</p>
+ <h2 className="h2" style={{ marginBottom: 6 }}>{isVoice ? '오디오 파일' : '이미지 파일'}</h2>
+ <p className="meta mono-font" style={{ marginBottom: 0 }}>{isVoice
+  ? 'mp3 · wav · m4a · aac · ogg · flac — 끌어다 놓거나 클릭'
+  : '끌어다 놓거나 클릭 · 오른쪽 다운로드 탭에서 끌어와도 됩니다'}</p>
  </div>
  </>
  ) : items.length === 0 ? (
@@ -33975,9 +34183,9 @@ ${sampleText}`;
    <button type="button" className="btn btn-primary" style={{ marginTop: 8, width: '100%', justifyContent: 'center' }}
     disabled={!!projectGenJob || old}
     title={old ? '초안 id 는 7일까지만 쓸 수 있습니다 — 초안을 다시 뽑아주세요'
-     : '같은 프롬프트 · 레퍼런스 · 시드로 1080p 를 만듭니다. 초안은 이전 결과로 남습니다.'}
+     : '초안과 똑같은 영상을 1080p 로 만듭니다 — 프롬프트 · 레퍼런스 · 시드가 같아 구성이 바뀌지 않습니다. 업스케일이 아니라 새 생성이라 1080p 요금이 듭니다. 초안은 이전 결과로 남습니다.'}
     onClick={() => handleProjectFinalFromDraft(cur)}>
-    1080p 최종 만들기{old ? ' · 기간 지남' : ''}
+    1080p 로 변환{old ? ' · 기간 지남' : ''}
    </button>
   );
  })()}
@@ -38206,9 +38414,9 @@ ${sampleText}`;
   <button type="button" className="btn btn-secondary btn-sm"
    style={{ marginTop: 3, width: '100%', height: 22, fontSize: 9.5, padding: 0, justifyContent: 'center' }}
    disabled={(Date.now() - (job.draftAt || job.ts || 0)) > DRAFT_TTL}
-   title={(Date.now() - (job.draftAt || job.ts || 0)) > DRAFT_TTL ? '초안 id 는 7일까지만 쓸 수 있습니다' : '같은 프롬프트 · 레퍼런스 · 시드로 1080p 를 만듭니다'}
+   title={(Date.now() - (job.draftAt || job.ts || 0)) > DRAFT_TTL ? '초안 id 는 7일까지만 쓸 수 있습니다' : '초안과 똑같은 영상을 1080p 로 만듭니다 — 프롬프트 · 레퍼런스 · 시드가 같아 구성이 바뀌지 않습니다. 업스케일이 아니라 새 생성이라 1080p 요금이 듭니다.'}
    onClick={(e) => { e.stopPropagation(); runDraftFinal(setVideoCustomData, 'video-custom', job); }}>
-   1080p 최종
+   1080p 로 변환
   </button>
  )}
  </div>
@@ -38924,15 +39132,14 @@ ${sampleText}`;
  const frameEnd = isPov ? frameSrc(v.endFrame) : '';
  const frameExact = !!frameStart && (v.frameMode || 'exact') === 'exact';
  const frameLines = [];
- const droppedNames = [];
  if (frameExact) {
-  // 레퍼런스 이미지가 안 가므로, 번호로 가리키면 없는 그림을 가리키게 된다.
-  //   이미지 토큰을 걷고 본문의 @이름 은 평범한 말로 남긴다. 의상 지시도 같은 이유로 뺀다.
-  Object.keys(tokenMap).forEach(nm => { if (/^\[Image/.test(String(tokenMap[nm]))) { droppedNames.push(nm); delete tokenMap[nm]; } });
-  for (let k = manifest.length - 1; k >= 0; k -= 1) { if (/^\[Image/.test(String(manifest[k] || ''))) manifest.splice(k, 1); }
-  imgList.length = 0;
-  outfitDirectives.length = 0;
+  // v1182: 예전에는 여기서 이미지 토큰 · 매니페스트 · imgList · 의상 지시를 전부
+  //   비웠다. 그 아래 전송이 프레임을 실으면 레퍼런스를 안 보냈기 때문인데,
+  //   그쪽을 고쳤으므로 여기서도 버리지 않는다 — 프레임을 걸었다고 배우가
+  //   누구인지까지 잊을 이유가 없다.
   frameLines.push(`FRAMES: the take opens exactly on the start frame${frameEnd ? ' and arrives exactly at the end frame in its final moment' : ''}. Everything in between moves from one to the other in a single continuous take.`);
+  frameLines.push('The frames set the opening and closing composition only. Who these people are — face, body, hair and'
+   + ' wardrobe — still comes from the reference images, and it does not change between the two frames.');
  } else if (frameStart || frameEnd) {
   const addKey = (src, label) => {
    if (!src || imgN >= 9) return '';
@@ -38968,9 +39175,6 @@ ${sampleText}`;
  let situationText = situationClean;
  Object.keys(tokenMap).sort((a, b) => b.length - a.length).forEach(nm => { situationText = situationText.split(`@${nm}`).join(tokenMap[nm]); });
  [...new Set(pendingNames)].sort((a, b) => b.length - a.length)
-  .forEach(nm => { situationText = situationText.split(`@${nm}`).join(nm); });
- // v1132: 정확히 모드에서 이미지가 빠진 이름도 평범한 말로 남긴다
- [...new Set(droppedNames)].sort((a, b) => b.length - a.length)
   .forEach(nm => { situationText = situationText.split(`@${nm}`).join(nm); });
  const jobId = `vn_${Date.now()}_${(narrJobSeq.current += 1)}`;
  // v643: 입력 스냅샷(상황묘사·설정·레퍼런스 4종) 저장 → 썸네일 클릭 시 복원
@@ -39081,7 +39285,9 @@ ${sampleText}`;
    return '알 수 없음';
   };
   contentNames = ['프롬프트',
-   ...(frameExact ? [frameStart, frameEnd].filter(Boolean).map(nameOfImg) : imgList.map(nameOfImg)),
+   // v1182: 프레임을 걸어도 레퍼런스가 함께 간다 — 목록도 그대로 적는다
+   ...imgList.map(nameOfImg),
+   ...(frameExact ? [frameStart, frameEnd].filter(Boolean).map(nameOfImg) : []),
    ...vidsForRun.map((_, k) => `영상 ${k + 1}`),
    ...audioList.map((_, k) => `보이스 ${k + 1}`)];
  }
@@ -39268,9 +39474,9 @@ ${sampleText}`;
    disabled={anyLoading || (Date.now() - (job.draftAt || job.ts || 0)) > DRAFT_TTL_MS}
    title={(Date.now() - (job.draftAt || job.ts || 0)) > DRAFT_TTL_MS
     ? '초안 id 는 7일까지만 쓸 수 있습니다 — 초안을 다시 뽑아주세요'
-    : '같은 프롬프트 · 레퍼런스 · 시드로 1080p 를 만듭니다'}
+    : '초안과 똑같은 영상을 1080p 로 만듭니다 — 프롬프트 · 레퍼런스 · 시드가 같아 구성이 바뀌지 않습니다. 업스케일이 아니라 새 생성이라 1080p 요금이 듭니다.'}
    onClick={(e) => { e.stopPropagation(); runFinalFromDraft(job); }}>
-   1080p 최종
+   1080p 로 변환
   </button>
  )}
  </div>
@@ -39348,7 +39554,7 @@ ${sampleText}`;
  </button>
  {v.draft && (
   <div className="micro" style={{ marginTop: 5, lineHeight: 1.5, color: 'var(--text-quaternary)' }}>
-   480p 로만 뽑힙니다. 구도 · 컷 · 동작 · 의도를 확인한 뒤 생성기록에서 <strong>1080p 최종</strong>을 누르면
+   480p 로만 뽑힙니다. 구도 · 컷 · 동작 · 의도를 확인한 뒤 생성기록에서 <strong>1080p 로 변환</strong>을 누르면
    같은 프롬프트 · 레퍼런스 · 시드로 다시 만듭니다. 초안은 7일까지만 쓸 수 있습니다.
   </div>
  )}
@@ -40468,7 +40674,8 @@ ${VFX_AUDIO_RULE}${refBlock}`;
   up({ trLoading: true, error: '' });
   try {
    const sys = [
-    '아래 글에서 큰따옴표 안의 대사만 골라 ' + langCur.label + ' 로 옮긴다.',
+    // v1176: 큰따옴표가 없어도 잡는다. 이미 뽑아 둔 목록이 있으면 그것을 쓴다.
+    '아래 글에서 대사만 골라 ' + langCur.label + ' 로 옮긴다. 큰따옴표가 없어도 대사다 — 이름 뒤 콜론, 줄표, 대본 형식 전부 포함한다.',
     isInterview
      ? '★ 인터뷰다. 인터뷰어(묻는 쪽)의 말은 한국어 그대로 두고 tr 에도 원문을 그대로 적는다. 답하는 사람의 말만 옮긴다.'
      : '모든 대사를 옮긴다.',
@@ -40477,9 +40684,14 @@ ${VFX_AUDIO_RULE}${refBlock}`;
     '',
     '출력은 JSON 배열 하나뿐이다. 설명 · 머리말 · 코드펜스 금지.',
     '[{"who":"화자 이름 또는 빈 문자열","ko":"원문 그대로","tr":"옮긴 문장"}]',
-    '큰따옴표 안에 아무것도 없으면 빈 배열 [] 만 출력한다.',
+    '대사가 하나도 없으면 빈 배열 [] 만 출력한다.',
    ].join('\n');
-   const out = String(await callClaude(sys, situation, { model: 'claude-opus-5', maxTokens: 3000, workCat: 'video' }) || '');   // v1122
+   // v1176: 승인 단계에서 뽑아 둔 대사가 있으면 함께 보낸다 — 두 번 고르지 않는다
+   const picked = (v.dlg || []).length
+    ? '\n\n[이미 골라낸 대사 — 이 문장들만 옮기십시오]\n'
+      + v.dlg.map(x => (x.who ? x.who + ': ' : '') + x.line).join('\n')
+    : '';
+   const out = String(await callClaude(sys, situation + picked, { model: 'claude-opus-5', maxTokens: 3000, workCat: 'video' }) || '');   // v1122
    const m = /\[[\s\S]*\]/.exec(out);
    if (!m) throw new Error('대사를 찾지 못했습니다.');
    const arr = JSON.parse(m[0]);
@@ -40515,6 +40727,24 @@ ${VFX_AUDIO_RULE}${refBlock}`;
   setSingleDownloadsOpen(true);
   if (pk === 'characters' && !actorAssetLib.loadedAt && !actorAssetLib.loading) loadActorAssets();
  };
+ // v1173: 인터뷰어는 화면에 나오지 않는다. 고른 항목에서 목소리만 가져오고
+ //   그림 · 자산 주소는 버린다. 보이스가 없는 항목이면 이유를 말하고 멈춘다.
+ const openInterviewerVoice = () => {
+  setProjectRefPicker({ kind: 'voices', source: 'character',
+   onPick: async (item) => {
+    if (!item.voiceUrl) {
+     up({ error: `${item.name || '이 항목'} 에는 보이스가 붙어 있지 않습니다. 자료 탭에서 보이스를 붙인 뒤 다시 골라주세요.` });
+     return;
+    }
+    // v1175: 업로드본은 파일로 옮긴다. data: 주소를 그대로 두면 세션을 저장할 때
+    //   통째로 떨어져 나가 다음에 열었을 때 보이스가 사라진다.
+    const vurl = item.source === 'upload' ? await storeUploadBytes(item.voiceUrl, 'itv') : item.voiceUrl;
+    up({ interviewerVoice: { url: vurl, name: item.voiceName || item.name || '인터뷰어',
+     from: item.source === 'upload' ? '업로드' : (item.name || '') }, error: '' });
+   } });
+  setSingleDownloadsOpen(true);
+  if (!actorAssetLib.loadedAt && !actorAssetLib.loading) loadActorAssets();
+ };
  const openCostumePicker = (idx) => {
   const srcs = PROJECT_REF_SOURCES.costume || [];
   setProjectRefPicker({ kind: 'characters', slot: 'costume', source: srcs[0]?.id || 'upload',
@@ -40532,8 +40762,24 @@ ${VFX_AUDIO_RULE}${refBlock}`;
   if (!situation) { up({ error: isInterview ? '인터뷰 대본을 입력하세요.' : '상황 묘사를 입력하세요.' }); return; }
   up({ extracting: true, error: '' });
   try {
-   const out = await callClaude(PROJECT_REF_EXTRACT_SYS, `[씬 key=x]\n${situation}`,
-    { model: 'claude-opus-5', maxTokens: 2400, workCat: 'video' });   // v1122
+   // v1176: 레퍼런스와 대사를 함께 뽑는다. 둘 다 같은 글을 읽는 일이라 나란히 돌린다.
+   const [out, dlgOut] = await Promise.all([
+    callClaude(PROJECT_REF_EXTRACT_SYS, `[씬 key=x]\n${situation}`,
+     { model: 'claude-opus-5', maxTokens: 2400, workCat: 'video' }),   // v1122
+    callClaude(EXTRA_DLG_EXTRACT_SYS,
+     (isInterview ? '[인터뷰 대본]\n' : '[상황 묘사]\n') + situation,
+     { model: 'claude-opus-5', maxTokens: 2400, workCat: 'video' }).catch(() => ''),
+   ]);
+   // 대사 뽑기가 실패해도 레퍼런스는 살린다 — 대사는 큰따옴표로 직접 적으면 된다
+   let dlg = null;
+   try {
+    const dm = /\[[\s\S]*\]/.exec(String(dlgOut || ''));
+    if (dm) {
+     const arr = JSON.parse(dm[0]);
+     if (Array.isArray(arr)) dlg = arr.map(x => ({ who: String(x && x.who || '').trim(), line: String(x && x.line || '').trim() }))
+      .filter(x => x.line);
+    }
+   } catch (e2) { console.warn('[부가콘텐츠] 대사를 읽지 못했습니다 —', e2?.message); }
    const parsed = parseJsonFromResponse(out);
    const sc = (Array.isArray(parsed?.scenes) ? parsed.scenes : [])[0] || {};
    const mk = (names, key) => [...new Set((names || []).map(x => String(x || '').trim()).filter(Boolean))]
@@ -40545,7 +40791,7 @@ ${VFX_AUDIO_RULE}${refBlock}`;
      const byName = new Map((p.refs[key] || []).filter(x => x.assetUrl || x.assetUri).map(x => [x.name, x]));
      return made.map(x => byName.get(x.name) || x);
     };
-    return { ...p, extracting: false, step: 'refs',
+    return { ...p, extracting: false, step: 'refs', dlg,   // v1176
      refs: { ...p.refs,
       character: keep('character', mk(sc.characters, 'ch')),
       space: keep('space', mk([sc.place].filter(Boolean), 'sp')),
@@ -40588,11 +40834,15 @@ ${VFX_AUDIO_RULE}${refBlock}`;
 
  // v1108: snap 을 주면 그 기록의 설정으로 돈다 — 재생성이 화면 값에 끌려가지 않게.
  const runGen = async (snap) => {
+  // v1178: 아래에서 src.* 로 읽는 것은 빠짐없이 여기 있어야 한다.
+  //   하나라도 빠지면 그 기능이 조용히 꺼진 채로 생성된다.
   const src = snap || { mode: v.mode, situation: v.situation, lang: v.lang,
-   duration: vDur, resolution: vRes, aspect: v.aspect, refs: v.refs, dlgTr: v.dlgTr };
+   duration: vDur, resolution: vRes, aspect: v.aspect, refs: v.refs, dlgTr: v.dlgTr,
+   draft: v.draft, interviewerVoice: v.interviewerVoice, dlg: v.dlg, contRef: v.contRef };
   const sInt = src.mode === 'interview';
   const sLangEn = (LANGS.find(x => x.id === src.lang) || LANGS[0]).en;
   const sDur = Math.min(Number(src.duration) || 10, vMaxSec);
+  const isDraft = !!src.draft;   // v1178b: 기록 · 예상 · 전송이 모두 이 값을 본다 — 맨 위에서 정한다
   const sRes = arkClampRes('video25', src.resolution);
   const sAsp = src.aspect || '9:16';
   const sRefs = src.refs || { character: [], space: [], object: [], challenge: [] };
@@ -40640,10 +40890,39 @@ ${VFX_AUDIO_RULE}${refBlock}`;
    vidList.push(cv);
    manifest.push('Video 1 = ' + (sChallenge.name || '챌린지') + ' (따라 할 동작의 출처)');
   }
+  // v1179: 인터뷰 콘티뉴이티. 영상이면 원본 주소 그대로 — 다시 인코딩하지 않는다.
+  const contRef = sInt ? src.contRef : null;
+  let hasCont = false;
+  if (contRef && contRef.url) {
+   if (contRef.kind === 'image') {
+    if (n < 12) {
+     n++; imgList.push(contRef.url); hasCont = true;
+     manifest.push(`Image ${n} = 앞 인터뷰 클립의 화면 (같은 방 · 같은 자리)`);
+    }
+   } else {
+    vidList.push(contRef.url); hasCont = true;
+    manifest.push(`Video ${vidList.length} = 앞 인터뷰 클립 (같은 방 · 같은 자리)`);
+   }
+  }
   // v1104: 인물에 붙은 목소리를 음색 레퍼런스로 함께 보낸다.
   //   2.5 는 오디오 10개까지 받지만 길이 합이 30.2초라 그쪽이 먼저 걸린다.
   const audioList = [], voiceLines = [];
   let voiceSec = 0;
+  // v1173: 인터뷰어 보이스 — 화면에 없는 목소리라 참조가 없으면 가장 엉뚱해진다
+  const itvVoice = sInt ? src.interviewerVoice : null;
+  if (itvVoice && itvVoice.url) {
+   let isec = null;
+   try { isec = await audioDurationOf(itvVoice.url); } catch { isec = null; }
+   const itake = Number.isFinite(isec) && isec > 0 ? isec : 10;
+   try {
+    const ipub = await falPublicUrl(itvVoice.url, '인터뷰어 보이스');
+    audioList.push(ipub); voiceSec += itake;
+    voiceLines.push('The off-screen interviewer speaks with the voice timbre of Audio 1.'
+     + ' That voice belongs to nobody on screen and is never lip-synced to any mouth —'
+     + ' it comes from beside the camera, a little off-mic, at the distance of someone'
+     + ' sitting just out of frame.');
+   } catch (e) { console.warn('[부가콘텐츠] 인터뷰어 보이스를 올리지 못했습니다 —', e?.message); }
+  }
   for (const r of (sRefs.character || [])) {
    if (!r.voiceUrl || audioList.length >= 3) continue;
    let sec = null;
@@ -40657,12 +40936,18 @@ ${VFX_AUDIO_RULE}${refBlock}`;
    } catch (e) { console.warn('[부가콘텐츠] 보이스를 올리지 못했습니다 —', r.name, e?.message); }
   }
   if (voiceLines.length) voiceLines.push('Nobody else uses these voices.');
-  let text = situation;
+  // v1176: 뽑아 둔 대사에 큰따옴표를 둘러서 보낸다. 룰북 · 프롬프트 작성 ·
+  //   대사 채널 배선이 전부 큰따옴표를 보고 움직인다.
+  let text = extraQuoteDialogue(situation, src.dlg);
   Object.keys(tokenMap).sort((a, b) => b.length - a.length).forEach(nm => { text = text.split(`@${nm}`).join(tokenMap[nm]); });
   const jobId = `xt_${Date.now()}_${(extraJobSeq.current += 1)}`;
-  const params = { mode: src.mode, situation, lang: src.lang, duration: sDur, resolution: sRes, aspect: sAsp,
-   dlgTr: src.dlgTr || null, refsSnapshot: JSON.parse(JSON.stringify(sRefs || {})) };
-  const estSec = estSecFor(durKeyVideo(sRes, sDur, false), estVideoGenSeconds(sRes, sDur) + 12);
+  // v1178: 초안은 480p 로 나간다 — 기록에도 실제로 나간 값을 적는다
+  const params = { mode: src.mode, situation, lang: src.lang, duration: sDur,
+   resolution: isDraft ? '480p' : sRes, aspect: sAsp,
+   dlgTr: src.dlgTr || null, refsSnapshot: JSON.parse(JSON.stringify(sRefs || {})),
+   interviewerVoice: itvVoice || null, dlg: src.dlg || null, contRef: contRef || null };   // v1179
+  const genRes = isDraft ? '480p' : sRes;   // v1178b
+  const estSec = estSecFor(durKeyVideo(genRes, sDur, false), estVideoGenSeconds(genRes, sDur) + 12);
   up(p => ({ ...p, error: '', jobs: [{ id: jobId, version: extraJobSeq.current, loading: true, phase: '프롬프트 만드는 중', ts: Date.now(), estSec, params }, ...p.jobs] }));
   try {
    const hasCh = vidList.length > 0;
@@ -40682,7 +40967,9 @@ ${VFX_AUDIO_RULE}${refBlock}`;
    if (!sInt) finalPrompt = `${EXTRA_BEHIND_DISTANCE_RULE}\n\n${finalPrompt}`;
    // v1172: 인터뷰의 화면 · 조명 · 컷. 룰북에만 두면 Claude 가 어떻게 옮기느냐에
    //   달리는데, 이 셋은 인터뷰를 인터뷰로 만드는 값이라 코드가 못 박는다.
-   if (sInt) finalPrompt = `${INTERVIEW_SETUP_RULE} ${INTERVIEW_CAMERA_UNSEEN}\n\n${finalPrompt}`;
+   if (sInt) finalPrompt = `${INTERVIEW_SETUP_RULE} ${INTERVIEW_CAMERA_UNSEEN}\n\n${INTERVIEW_LANG_RULE(sLangEn)}\n\n${finalPrompt}`;
+   // v1179: 콘티뉴이티는 맨 앞에 — 이 클립이 '어디서 찍히는가' 를 먼저 정한다
+   if (hasCont) finalPrompt = `${EXTRA_CONTINUITY_RULE}\n\n${finalPrompt}`;
    if (outfitPairs.length) finalPrompt = `${EXTRA_IDENTITY_RULE}\n${outfitPairs.join('\n')}\n\n${finalPrompt}`;
    else if (hasPerson) finalPrompt = `${EXTRA_IDENTITY_RULE}\n\n${finalPrompt}`;
    if (placePairs.length) finalPrompt = `${EXTRA_LOCATION_RULE}\n${placePairs.join('\n')}\n\n${finalPrompt}`;
@@ -40690,7 +40977,6 @@ ${VFX_AUDIO_RULE}${refBlock}`;
    // v1126: 본문의 소괄호를 정리하고 사운드 조항을 앞에 붙인다(맨 끝 줄은 룰북이 붙인다)
    finalPrompt = `${PROJECT_SOUND_RULE}\n\n${soundChannelize(finalPrompt)}`;
    up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, phase: '영상 생성 중', generatedPrompt: finalPrompt } : j) }));
-   const isDraft = !!src.draft;   // v1164
    let draftTaskId = '';
    const url = await callSeedanceVideo({ prompt: finalPrompt, duration: sDur, resolution: isDraft ? '480p' : sRes, aspectRatio: sAsp,
     generateAudio: true, tier: 'video25', images: imgList, videos: vidList, audios: audioList,
@@ -40731,7 +41017,9 @@ ${VFX_AUDIO_RULE}${refBlock}`;
   up({ mode: j?.params?.mode || 'behind', situation: j?.params?.situation || '',
    lang: j?.params?.lang || 'ko', duration: j?.params?.duration || 10,
    resolution: j?.params?.resolution || '720p', aspect: j?.params?.aspect || '9:16',
-   dlgTr: j?.params?.dlgTr || null, refs, step: 'refs', error: '', preview: null });
+   dlgTr: j?.params?.dlgTr || null, refs, step: 'refs', error: '', preview: null,
+   interviewerVoice: j?.params?.interviewerVoice || null, dlg: j?.params?.dlg || null,
+   contRef: j?.params?.contRef || null });   // v1179
   try { showToast(n ? `레퍼런스 ${n}개를 불러왔습니다 (자산 ${withAsset}개)` : '레퍼런스 기록이 없습니다.', 'load'); } catch {}
  };
 
@@ -40767,7 +41055,9 @@ ${VFX_AUDIO_RULE}${refBlock}`;
 
    {/* v1111: 만든 것을 왼쪽에 세워 둔다. 아래에 쌓으면 스크롤을 내려야 보였다. */}
    <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-    <div style={{ width: 340, flexShrink: 0, position: 'sticky', top: 8 }}>
+    {/* v1177: 미리보기가 145px 두 줄이라 무엇이 나왔는지 보이지 않았다.
+        칸을 넓히고 한 줄로 세워 영상 한 편이 제 크기로 보이게 한다. */}
+    <div style={{ width: 460, flexShrink: 0, position: 'sticky', top: 8 }}>
      <div className="card" style={{ padding: 14 }}>
       <div className="meta" style={{ fontWeight: 700, marginBottom: 10 }}>
        만든 것 <span style={{ color: 'var(--text-quaternary)', fontWeight: 500 }}>{jobs.length ? `· ${jobs.length}` : ''}</span>
@@ -40775,17 +41065,24 @@ ${VFX_AUDIO_RULE}${refBlock}`;
       {!jobs.length && (
        <div className="meta" style={{ fontSize: 11, color: 'var(--text-quaternary)', padding: '18px 0', textAlign: 'center' }}>아직 없습니다</div>
       )}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(145px, 1fr))', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>   {/* v1177 */}
        {jobs.map(j => (
         <div key={j.id} style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
          {j.resultUrl
           ? <video src={j.resultUrl} controls style={{ width: '100%', display: 'block', background: '#000' }} />
-          : <div style={{ width: '100%', height: 86, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: 'var(--bg-subtle)', fontSize: 10.5, textAlign: 'center', padding: 6,
-              color: j.error ? 'var(--red-600)' : 'var(--text-quaternary)' }}>
-             {j.error ? '실패' : (j.phase || '대기 중')}
-            </div>}
-         <div style={{ padding: '6px 7px', fontSize: 10 }}>
+          : j.error
+           ? <div style={{ width: '100%', height: 86, display: 'flex', alignItems: 'center', justifyContent: 'center',
+               background: 'var(--bg-subtle)', fontSize: 10.5, textAlign: 'center', padding: 6, color: 'var(--red-600)' }}>실패</div>
+           /* v1177: 다른 작업과 같은 진행 표시 — 여기만 글자 한 줄이라 멈춘 것처럼 보였다 */
+           : <div style={{ width: '100%', padding: '18px 10px', background: 'var(--bg-subtle)', textAlign: 'center' }}>
+              <div style={{ display: 'flex', justifyContent: 'center' }}><LottieFx data={starMagicData} width={44} height={44} /></div>
+              <div className="micro" style={{ marginTop: 4, fontSize: 10, color: 'var(--text-tertiary)' }}>{j.phase || '생성 중'}</div>
+              <JobGauge job={j} style={{ marginTop: 6 }} />
+              <div className="micro" style={{ marginTop: 5, fontSize: 9.5, color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>
+               <JobTimer ts={j.ts} estSec={j.estSec} />
+              </div>
+             </div>}
+         <div style={{ padding: '8px 10px', fontSize: 11.5 }}>   {/* v1177: 넓어진 칸에 맞춘 글씨 */}
           <div style={{ fontWeight: 700, color: 'var(--text-secondary)' }}>
            v{j.version} · {j.params?.mode === 'interview' ? '인터뷰' : '비하인드'}
           </div>
@@ -40794,14 +41091,14 @@ ${VFX_AUDIO_RULE}${refBlock}`;
           </div>
           {j.isDraft && !j.loading && j.resultUrl && (
            <button type="button" className="btn btn-secondary btn-sm"
-           style={{ marginTop: 3, width: '100%', height: 22, fontSize: 9.5, padding: 0, justifyContent: 'center' }}
+           style={{ marginTop: 5, width: '100%', height: 26, fontSize: 11, padding: 0, justifyContent: 'center' }}
            disabled={(Date.now() - (j.draftAt || j.ts || 0)) > DRAFT_TTL}
-           title={(Date.now() - (j.draftAt || j.ts || 0)) > DRAFT_TTL ? '초안 id 는 7일까지만 쓸 수 있습니다' : '같은 프롬프트 · 레퍼런스 · 시드로 1080p 를 만듭니다'}
+           title={(Date.now() - (j.draftAt || j.ts || 0)) > DRAFT_TTL ? '초안 id 는 7일까지만 쓸 수 있습니다' : '초안과 똑같은 영상을 1080p 로 만듭니다 — 프롬프트 · 레퍼런스 · 시드가 같아 구성이 바뀌지 않습니다. 업스케일이 아니라 새 생성이라 1080p 요금이 듭니다.'}
            onClick={(e) => { e.stopPropagation(); runDraftFinal(setExtraData, 'video-extra', j); }}>
-           1080p 최종
+           1080p 로 변환
            </button>
           )}
-          <div style={{ color: 'var(--text-quaternary)', marginTop: 2, maxHeight: 26, overflow: 'hidden', lineHeight: 1.35 }}>{j.params?.situation}</div>
+          <div style={{ color: 'var(--text-quaternary)', marginTop: 3, maxHeight: 34, overflow: 'hidden', lineHeight: 1.4 }}>{j.params?.situation}</div>
           {j.error && <div style={{ color: 'var(--red-600)', marginTop: 3, lineHeight: 1.35 }}>{j.error}</div>}
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
            {j.resultUrl && (
@@ -40813,7 +41110,10 @@ ${VFX_AUDIO_RULE}${refBlock}`;
             <button type="button" title="이 기록의 설정 그대로 다시 뽑습니다"
              onClick={() => runGen({ mode: j.params?.mode, situation: j.params?.situation, lang: j.params?.lang,
               duration: j.params?.duration, resolution: j.params?.resolution, aspect: j.params?.aspect,
-              dlgTr: j.params?.dlgTr || null, refs: normRefs(j.params?.refsSnapshot) })}
+              dlgTr: j.params?.dlgTr || null, refs: normRefs(j.params?.refsSnapshot),
+              // v1178: 이 셋도 함께 되살린다 — 없으면 초안 · 인터뷰어 보이스 · 대사가 빠진 채 다시 뽑힌다
+              draft: !!j.isDraft, interviewerVoice: j.params?.interviewerVoice || null, dlg: j.params?.dlg || null,
+              contRef: j.params?.contRef || null })}
              style={{ fontSize: 10, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--text-tertiary)' }}>재생성</button>
            )}
            {!j.loading && (
@@ -40858,7 +41158,7 @@ ${VFX_AUDIO_RULE}${refBlock}`;
      <label className="meta" style={{ display: 'block', marginBottom: 6, fontWeight: 700 }}>
       {isInterview ? '인터뷰 대본' : '상황 묘사'}
      </label>
-     <textarea ref={extraTaRef} value={v.situation} onChange={e => up({ situation: e.target.value, dlgTr: null })}
+     <textarea ref={extraTaRef} value={v.situation} onChange={e => up({ situation: e.target.value, dlgTr: null, dlg: null })}
       placeholder={isInterview
        ? '예) 대기실 의자에 앉은 @인물1 에게 인터뷰어가 묻는다.\n인터뷰어: "이번 작품에서 가장 어려웠던 장면은 뭐였나요?"\n@인물1 이 잠시 생각하다 답한다. "성벽 위에서 찍은 장면이요."'
        : '예) @인물1 이 @공간1 세트에서 대사를 하다 웃음이 터져 NG를 낸다. 스태프들이 따라 웃고, 슬레이트를 든 스태프가 다시 준비한다.'}
@@ -40900,9 +41200,34 @@ ${VFX_AUDIO_RULE}${refBlock}`;
       <FFSelect value={v.aspect} onChange={x => up({ aspect: x })}
        options={[{ id: '9:16', label: '9:16 (세로)' }, { id: '16:9', label: '16:9 (가로)' }, { id: '1:1', label: '1:1 (정사각)' }]} />
      </div>
+     {/* v1173: 인터뷰어 보이스 — 얼굴은 안 나오니 목소리만 건다 */}
      {isInterview && (
-      <div className="meta" style={{ fontSize: 11, color: 'var(--text-quaternary)', paddingBottom: 9 }}>
-       인터뷰어는 한국어 · 화면에 나오지 않습니다
+      <div style={{ minWidth: 190 }}>
+       <label className="meta" style={{ display: 'block', marginBottom: 5, fontWeight: 700 }}>인터뷰어 보이스</label>
+       {v.interviewerVoice ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, height: 34, padding: '0 8px',
+         border: '1px solid var(--border-strong)', borderRadius: 8, background: 'var(--bg-input)' }}>
+         <Mic size={12} style={{ flexShrink: 0, color: 'var(--text-tertiary)' }} />
+         <span className="meta" style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap', fontWeight: 700 }}
+          title={v.interviewerVoice.from ? `${v.interviewerVoice.name} · ${v.interviewerVoice.from} 의 보이스` : v.interviewerVoice.name}>
+          {v.interviewerVoice.name}
+         </span>
+         <button type="button" className="btn btn-ghost btn-sm" style={{ padding: '0 5px' }}
+          onClick={openInterviewerVoice} title="다른 보이스로 바꿉니다">바꾸기</button>
+         <button type="button" className="btn btn-ghost btn-sm" style={{ padding: '0 5px', color: 'var(--state-error)' }}
+          onClick={() => up({ interviewerVoice: null })}>제거</button>
+        </div>
+       ) : (
+        <button type="button" className="btn btn-secondary" onClick={openInterviewerVoice}
+         style={{ height: 34, width: '100%', justifyContent: 'center' }}
+         title="캐릭터 · 배우에 붙어 있는 보이스를 가져옵니다. 얼굴은 쓰지 않습니다.">
+         <Mic size={12} /> 보이스 고르기
+        </button>
+       )}
+       <div className="meta" style={{ marginTop: 4, fontSize: 10.5, color: 'var(--text-quaternary)' }}>
+        한국어 · 화면에 나오지 않습니다{v.interviewerVoice ? '' : ' · 안 고르면 모델이 정합니다'}
+       </div>
       </div>
      )}
     </div>
@@ -40937,6 +41262,29 @@ ${VFX_AUDIO_RULE}${refBlock}`;
     </div>
    )}
 
+   {/* v1176: 무엇을 대사로 읽었는지 보여 준다. 잘못 잡혔으면 글을 고쳐 다시 뽑는다. */}
+   {v.step === 'refs' && v.dlg && (
+    <div className="card" style={{ padding: '14px 20px', marginTop: 14 }}>
+     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: v.dlg.length ? 10 : 0 }}>
+      <span className="meta" style={{ fontWeight: 700 }}>대사로 읽은 것</span>
+      <span className="meta" style={{ fontSize: 11, color: 'var(--text-quaternary)' }}>
+       {v.dlg.length ? `${v.dlg.length}줄 · 큰따옴표를 안 써도 잡습니다` : '이 글에는 대사가 없습니다 — 지문만 있는 영상이 됩니다'}
+      </span>
+     </div>
+     {v.dlg.length > 0 && (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+       {v.dlg.map((x, i) => (
+        <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'baseline', fontSize: 11.5, lineHeight: 1.6 }}>
+         <span className="meta" style={{ flexShrink: 0, minWidth: 54, fontWeight: 700,
+          color: x.who ? 'var(--text-tertiary)' : 'var(--text-quaternary)' }}>{x.who || '(누군가)'}</span>
+         <span style={{ color: 'var(--text-secondary)' }}>“{x.line}”</span>
+        </div>
+       ))}
+      </div>
+     )}
+    </div>
+   )}
+
    {v.step === 'refs' && needTr && (
     <div className="card" style={{ padding: '18px 20px', marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -40956,7 +41304,7 @@ ${VFX_AUDIO_RULE}${refBlock}`;
       </div>
      )}
      {v.dlgTr && v.dlgTr.length === 0 && (
-      <div className="meta" style={{ fontSize: 11.5, color: 'var(--text-quaternary)' }}>큰따옴표 안의 대사가 없습니다.</div>
+      <div className="meta" style={{ fontSize: 11.5, color: 'var(--text-quaternary)' }}>옮길 대사가 없습니다.</div>
      )}
      {v.dlgTr && v.dlgTr.length > 0 && (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -41001,6 +41349,65 @@ ${VFX_AUDIO_RULE}${refBlock}`;
    {v.step === 'refs' && (
    <div className="card" style={{ padding: '18px 20px', marginTop: 14, display: 'flex', flexDirection: 'column', gap: 14 }}>
     <div className="meta" style={{ fontWeight: 700 }}>레퍼런스 <span style={{ color: 'var(--text-quaternary)', fontWeight: 500 }}>· 이미지 최대 12장</span></div>
+    {/* v1179: 인터뷰를 여러 클립으로 나눌 때 방 · 자리 · 조명을 맞춘다 */}
+    {isInterview && (() => {
+     const prior = (v.jobs || []).filter(j => j.params?.mode === 'interview' && j.resultUrl && !j.loading).slice(0, 6);
+     return (
+      <div>
+       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7, flexWrap: 'wrap' }}>
+        <span className="meta" style={{ fontWeight: 700, fontSize: 12 }}>상황(콘티뉴이티)</span>
+        <span className="meta" style={{ fontSize: 11, color: 'var(--text-quaternary)' }}>
+         두 번째 클립부터 — 앞 클립을 걸면 같은 방 · 같은 자리 · 같은 조명으로 이어집니다
+        </span>
+       </div>
+       {v.contRef ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 8, borderRadius: 8,
+         border: '1px solid var(--green-500)', background: 'var(--bg-subtle)' }}>
+         {v.contRef.kind === 'image'
+          ? <img src={v.contRef.url} alt="" style={{ width: 104, height: 60, objectFit: 'cover', borderRadius: 5, background: '#000' }} />
+          : <video src={v.contRef.url} muted style={{ width: 104, height: 60, objectFit: 'cover', borderRadius: 5, background: '#000' }} />}
+         <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="meta" style={{ fontWeight: 700, fontSize: 11.5 }}>{v.contRef.name}</div>
+          <div className="meta" style={{ fontSize: 10.5, color: 'var(--text-quaternary)' }}>
+           {v.contRef.kind === 'image' ? '그림 한 장으로 방과 자리를 맞춥니다' : '영상 그대로 — 방 · 자리 · 조명 · 의상이 이어집니다'}
+          </div>
+         </div>
+         <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--state-error)' }}
+          onClick={() => up({ contRef: null })}>제거</button>
+        </div>
+       ) : (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+         {prior.length === 0 && (
+          <span className="meta" style={{ fontSize: 11, color: 'var(--text-quaternary)' }}>
+           걸 수 있는 앞 인터뷰 클립이 아직 없습니다
+          </span>
+         )}
+         {prior.map(j => (
+          <button key={j.id} type="button" title={`v${j.version} 을 이 클립의 기준으로 겁니다`}
+           onClick={() => up({ contRef: { url: j.resultUrl, name: `v${j.version} 인터뷰`, kind: 'video', jobId: j.id } })}
+           style={{ width: 104, padding: 0, border: '1px solid var(--border-strong)', borderRadius: 6,
+            background: 'var(--bg-secondary)', cursor: 'pointer', overflow: 'hidden' }}>
+           <video src={j.resultUrl} muted style={{ width: '100%', height: 60, objectFit: 'cover', display: 'block', background: '#000' }} />
+           <div className="meta" style={{ fontSize: 10, padding: '3px 4px' }}>v{j.version}</div>
+          </button>
+         ))}
+         <button type="button" className="btn btn-secondary btn-sm" onClick={() => contUploadRef.current?.click()}
+          title="앞 클립이 아니라 직접 찍은 그림으로 맞추고 싶을 때">그림 올리기</button>
+         <input ref={contUploadRef} type="file" accept="image/*" style={{ display: 'none' }}
+          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = '';
+           if (!f || !/^image\//.test(f.type || '')) return;
+           const fr = new FileReader();
+           fr.onload = async () => {
+            // 세션 저장에서 data: 가 떨어져 나가므로 파일로 남긴다(v1175 와 같은 이유)
+            const u = await storeUploadBytes(String(fr.result || ''), 'cont');
+            up({ contRef: { url: u, name: (f.name || '올린 그림').replace(/\.[^.]+$/, '').slice(0, 24), kind: 'image', jobId: '' } });
+           };
+           fr.readAsDataURL(f); }} />
+        </div>
+       )}
+      </div>
+     );
+    })()}
     {GROUPS.map(g => (
      <div key={g.key}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>

@@ -565,6 +565,9 @@ function assetDir(kind) {
 const ASSET_EXT = {
   'image/png': 'png', 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/webp': 'webp',
   'audio/mpeg': 'mp3', 'audio/mp3': 'mp3', 'audio/wav': 'wav', 'audio/x-wav': 'wav',
+  // v1175: 올려 받는 목소리 파일 — 확장자를 못 맞추면 .bin 으로 떨어져 형식을 잃는다
+  'audio/mp4': 'm4a', 'audio/x-m4a': 'm4a', 'audio/aac': 'aac',
+  'audio/ogg': 'ogg', 'audio/flac': 'flac', 'audio/x-flac': 'flac', 'audio/webm': 'weba',
   'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'webm', 'video/x-matroska': 'mkv',
 }
 // 라이브러리 폴더 밖은 절대 건드리지 않는다 (읽기·삭제 모두 이 검사를 통과해야 한다)
@@ -689,7 +692,8 @@ ipcMain.handle('local-read', async (event, payload) => {
     const buf = fs.readFileSync(full)
     const ext = path.extname(full).slice(1).toLowerCase()
     const MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp',
-      mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm', mp3: 'audio/mpeg', wav: 'audio/wav' }
+      mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm', mp3: 'audio/mpeg', wav: 'audio/wav',
+      m4a: 'audio/mp4', aac: 'audio/aac', ogg: 'audio/ogg', flac: 'audio/flac', weba: 'audio/webm' }   // v1175
     return { success: true, base64: buf.toString('base64'), mime: MIME[ext] || 'application/octet-stream', bytes: buf.length }
   } catch (e) { return { success: false, error: String(e && e.message || e) } }
 })
