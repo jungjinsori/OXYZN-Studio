@@ -1178,6 +1178,16 @@ const DOCU_CAMERA_STYLE = {
 const DOCU_CAMERA_UNSEEN = 'All of this says where the viewer is; it is not an object in the scene.'
  + ' The camera does not stand inside the frame. A glimpse of it in a mirror or a window is fine — real footage does that.';
 
+// v1147: 시간 표시를 컷 · 정지로 읽어 구간마다 자세를 굳히던 것. 한 테이크로 가는
+//   두 작업(다큐 · POV)에 함께 붙인다.
+const TAKE_TURN_SOUND_RULE = 'Only things in this place make sound. Moving the frame is silent: across a turn only'
+ + ' the balance of the same sounds changes, and the soundtrack never breaks.';
+
+const TAKE_MOTION_RULE = 'CONTINUOUS MOTION: the time marks are a clock, not cuts and not pauses. What moves at'
+ + ' one mark is still moving through the next — an approach keeps closing, a turn keeps turning. The whole take is'
+ + ' one unbroken shot: it never cuts and never jumps to another angle, though it may zoom in or out. Anyone with no'
+ + ' action written is still breathing and shifting. Stillness only where this prompt says someone stops.';
+
 // 인터뷰 조항. 상황 묘사에 '인터뷰' 가 있으면 카메라 종류와 무관하게 붙는다.
 //   고정 카메라 조항을 그대로 쓰면 광각 · 정중앙 · 렌즈 응시가 되는데, 그것은 감시 카메라의 구도다.
 const DOCU_INTERVIEW_RULE = 'INTERVIEW SETUP: portrait lens, framed from the chest up, the subject placed'
@@ -1211,6 +1221,16 @@ const seedanceDocumentaryRulebook = (durationSec = 15) => {
 - 시간 구간 표기는 컷이 아니라 한 테이크 안에서 시간이 흐른다는 표시다.
 - 카메라가 팬 · 틸트 · 이동으로 다른 것을 보게 되는 것은 된다. 끊어 붙이는 것만 안 된다.
 
+## ★ 움직임은 구간을 넘어 이어진다
+- 시간 구간은 시계일 뿐이다. 컷도 아니고 멈추는 지점도 아니다.
+- 한 구간에서 움직이기 시작한 것은 다음 구간에서도 계속 움직인다 — 다가오던 것은 멈추지 않고
+  계속 다가오고, 돌던 것은 계속 돈다. '다가온다' 를 한 구간에만 적고 다음 구간에서 다른 것을
+  적으면 그 사이에 멈춘 화면이 나온다.
+- 정지형 표현을 쓰지 않는다 — still · motionless · frozen · holds · locked · resting · poised.
+  대신 그 순간에 무엇이 계속 움직이는지 적는다: 숨, 어깨의 흔들림, 머리카락, 옷자락, 연기, 불꽃, 바람.
+- 동작이 적히지 않은 인물도 살아 있다. 가만히 앉아 있어도 숨을 쉬고 몸이 미세하게 움직인다.
+- 멈춤은 사용자가 '멈춘다 · 굳는다' 라고 적었을 때만 쓴다.
+
 ## 출력 형식
 [Reference]
 ① [Label] — @
@@ -1225,7 +1245,8 @@ const seedanceDocumentaryRulebook = (durationSec = 15) => {
 
 CAMERA: <CAMERA_STYLE>
 
-Audio: <그 자리에서 실제로 나는 소리 — 발소리 · 사물 · 공기 · 멀리서 오는 소리>
+Audio: <그 자리에서 실제로 나는 소리 — 발소리 · 사물 · 공기 · 멀리서 오는 소리.
+  카메라가 움직이는 것에는 소리를 달지 않는다. 같은 소리의 원근만 바뀐다>
 
 - 헤더는 [Reference] / [Notes] / [Take] / CAMERA / Audio 만.
 - CAMERA 줄의 <CAMERA_STYLE> 은 그대로 남긴다. 코드가 채운다.
@@ -1234,6 +1255,7 @@ Audio: <그 자리에서 실제로 나는 소리 — 발소리 · 사물 · 공�
 ## [Notes] 필수
 - 인물 일관성: "each person exactly their reference — face, hair and build identical throughout."
 - 컷 없음: "one continuous take, no cuts, no edits."
+- 끊기지 않는 움직임: "motion continues across every time mark — nobody holds a pose and nothing freezes between them."
 - 사실감: "amateur footage look — imperfect framing, the operator reacts a beat late, subjects sometimes drift out of frame and come back."
 - 연기: "people behave as if the camera is just there — no posing, no performing to the lens."
 - 복제 방지: "each person appears exactly once, no duplicated faces."
@@ -1250,47 +1272,87 @@ Audio: <그 자리에서 실제로 나는 소리 — 발소리 · 사물 · 공�
 
 // 두 가지 시점. 다큐의 '핸드헬드 / 고정' 자리에 그대로 들어간다.
 const POV_CAMERA_STYLE = {
- eyes: 'The frame is the eyes of the person telling this — there is no camera in this world.'
-  + ' Eye level, a natural human field of view, and the small constant sway of a living body: breathing,'
-  + ' weight shifting from foot to foot, the little settle at the end of every step. Turning the head is a pan,'
-  + ' looking up or down is a tilt, walking forward moves the whole frame forward with the rhythm of footfalls.'
-  + ' The eyes move the way people actually look — they land on a thing, hold long enough to see it, then move on:'
-  + ' the look goes first and the body follows a beat later. An occasional blink darkens the frame for an instant.'
-  + ' Nothing of a camera exists here — no lens flare from a device, no recording marks, no screen edge.',
- device: 'The person telling this is holding a phone or a small action camera up at their own eye line, and the'
-  + ' frame is what that device sees: a little wider than the eye, slight distortion toward the edges, the grip'
-  + ' shake of a hand, and the image swinging when the arm moves — wider and heavier than an eye would move,'
-  + ' overshooting a little on fast turns and settling back. Their holding arm and hand are often at the bottom'
-  + ' or side of frame, and the whole frame drops when they lower it. They keep it up the whole time.',
+ eyes: `The frame is this person's eyes — there is no camera in this world. Eye level, a narrow attentive view.`
+  + ` It never locks: it drifts with the breath and makes small shifts to a nearby eye, mouth or hand; a head turn`
+  + ` is a pan that settles back into that drift, the look going first and the body a beat later.`,
+ device: `While it is in the viewer's hand the view is what a small hand-held camera sees at eye line — a little`
+  + ` wider than the eye, slight bend at the edges, hand shake, the image swinging when the arm moves. The holding`
+  + ` hand and forearm sit at the frame edge, and the whole view drops when the arm lowers.`,
 };
 
 // ★ POV 가 깨지는 첫 번째 자리 — 모델이 '나' 를 3인칭으로 세운다.
 // v1141: 두 번째 자리 — 남이 하는 동작이 '내 손' 으로 넘어온다. 손은 기본적으로 닫는다.
-const POV_BODY_RULE_FOR = (hands) => {
- const head = 'WHOSE BODY THIS IS. The viewer is never seen from outside — no shot of their face, no shot of their'
-  + ' back, no reflection of them unless this prompt asks for one. Every object in this scene is handled only by the'
-  + ' person who is named doing it, with that person\'s own hands, in front of the viewer.'
-  + ' Whenever someone on screen handles an object, their hands and arms are in full view in the frame, across'
-  + ' from the viewer, and the object stays on their side, beyond the viewer\'s reach. While they act the frame'
-  + ' holds them from the chest up at eye level; a look down at a table or the floor is only a brief glance.';
+const POV_BODY_RULE_FOR = (hands, held) => {
+ const head = `The viewer's face is never seen, and while the camera is in their hand nothing of them is seen from`
+  + ` outside either. Every object is handled by the person named doing it, with`
+  + ` their own hands in full view across from the viewer, on their side and beyond the viewer's reach; while they`
+  + ` act the frame holds them chest-up at eye level.`;
  return hands
-  ? `${head} The viewer\'s own hands come into frame, rising from the bottom edge, only to do this: ${hands}. Nothing else is in their hands.`
-  : `${head} The viewer\'s hands do nothing in this take and never come into frame — the viewer only watches and listens.`;
+  ? `${head} The viewer's hands enter from the bottom edge only to do this: ${hands}. Nothing else is in them.`
+  : held
+   ? `${head} Apart from the hand holding the camera, the viewer's free hand stays out of frame — they only watch and listen.`
+   : `${head} The viewer's hands stay out of frame — the viewer only watches and listens.`;
 };
 
 // ★ 두 번째 자리 — 내 대사가 화면 안 사람 입에 붙어 버린다.
-const POV_SPEECH_RULE = 'WHO SPEAKS AND FROM WHERE. Lines spoken by the one telling this are heard from behind the'
- + ' frame — very close, breath-level, and not lip-synced to any mouth on screen. Everyone else is on screen and'
- + ' lip-synced. People speaking to them look straight into the frame, because that is where their eyes are.';
+const POV_STARTLE_RULE = 'STARTLE, SHOWN BY THE FRAME: when something appears close or lunges, the body flinches first and the frame goes with it — in under a third of a second it throws back and up by about a quarter turn, overshoots past the thing, smears into motion blur, then swings back and hunts for it, missing once before catching it off-centre. From there the frame keeps trembling with fast breath for the rest of the take, and never returns to a calm hold. The frame is one unbroken take through all of this: the thing grows in frame because it is coming closer or because the shot tightens, never because the frame cuts to another shot. The take never cuts and never jumps to a new angle.';
+
+const POV_SPEECH_RULE = 'WHO SPEAKS: only the people on screen, and their lines are lip-synced. The viewer makes no vocal sound at all — no dialogue, no gasp, no grunt, no scream, no whisper — unless a line in double quotes is written for them below; then it is heard from behind the frame, close and not lip-synced to any mouth. Their breathing stays faint under the room, never a performance. Whoever speaks to the viewer looks straight into the frame.';
+
+// v1150: 짧게, 그리고 앞쪽에. 긴 조항 속에 넣으면 묻힌다.
+const POV_FRAMING_LINE = 'FRAMING: medium close-up throughout. The person facing the viewer fills the frame from'
+ + ' the chest up, head about a third of the frame height. No wide establishing view of the room, no full-body'
+ + ' shot, nobody small in the distance. The room is seen only in pieces as the gaze moves.'
+ + ' ONE SHOT: the whole take is a single unbroken shot — it never cuts and never jumps to another angle.'
+ + ' Size changes only by zooming in or out.';
+
+// v1157: 기기를 든 시점에만 붙는다.
+const POV_DEVICE_RULE = 'HELD IN ONE HAND: the viewer holds the camera in one hand the whole time. That forearm'
+ + ' and hand sit at the edge of frame whenever it tilts their way, and the other hand is free to come into frame'
+ + ' and do things. The weight shows: the frame sags and is corrected, the horizon tips and is straightened,'
+ + ' steps jolt it, a fast turn overshoots and settles back.'
+ + ' FOCUS AND EXPOSURE: the lens hunts like an action camera — when the distance to what fills the frame changes,'
+ + ' the image softens for a moment and then snaps sharp, and brightness re-adjusts a beat late moving between'
+ + ' dark and light.'
+ + ' IF IT IS FUMBLED, DROPPED OR SET DOWN: the view tumbles with it and comes to rest where it lands, askew, and'
+ + ' from then until a hand lifts it again it lies still on the floor and belongs to no one — it does not pan,'
+ + ' tilt or follow. In that state the viewer is filmed from outside like anyone else, their face alone out of'
+ + ' frame. When a hand lifts it the view swings up and becomes their eyes again.';
+
+// v1160: 상황 묘사에 카메라를 놓치는 장면이 있을 때만, 맨 앞에서 한 번 더 못 박는다.
+//   뒤쪽 긴 조항 안에서는 앞의 '1인칭 내내' 에 진다.
+// v1161: 시점을 말하는 것이지 장면 속 물건이 아니다. 기기 시점일 때만 붙는다.
+const POV_UNSEEN_RULE = 'WHAT WE SEE THROUGH IS NOT IN THE SCENE: all of this says where the view is, not that an'
+ + ' object stands there. No camera body, phone, lens or screen appears in frame at any time — we are looking'
+ + ' through it, never at it. A glimpse in a mirror or a window is fine.';
+
+const POV_DROP_LINE = 'THE VIEW LEAVES THE HAND IN THIS TAKE. It is knocked loose, tumbles, and comes to rest low on the floor, tilted. From then until a hand lifts it again the view belongs to no one: it lies there without moving, panning or following, and simply sees whatever passes in front of it from that low angle. The person who lost it is now filmed from outside like anyone else — legs, back, arms, torso and what they do — with only their face out of frame, above the top edge or turned away. Nothing of what we see through is ever in the picture. It is still one unbroken shot: the fall, the floor and the moment a hand lifts the view back up all happen inside it, with no cut.';
 
 const POV_SELF_RULE = (gender) => {
  const g = gender === 'female' ? 'woman' : 'man';
- return `THE VIEWER is a ${g} — a different person from anyone on screen. If the viewer's hands ever come into`
-  + ` frame they are a ${g}'s. The viewer's voice, heard from behind the frame, is a ${g}'s voice.`;
+ return `The viewer is a ${g}, a different person from anyone on screen: hands that enter frame are a ${g}'s and`
+  + ` the voice behind the frame is a ${g}'s.`;
 };
 
-const seedancePovRulebook = (durationSec = 15) => {
+const seedancePovRulebook = (durationSec = 15, camera = 'eyes') => {
  const sec = Math.max(4, Math.round(Number(durationSec) || 15));
+ // v1157: 액션캠 시점일 때만 주는 문단. 맨눈이면 빈 문자열이다.
+ const deviceBlock = camera === 'device' ? `
+
+## ★ 이 영상은 '나' 가 손에 든 카메라로 찍는 것이다
+- ★ 카메라를 화면 속 물건으로 묘사하지 않는다. 우리는 그것을 '통해' 보는 것이지 '그것을' 보지 않는다.
+  본체 · 렌즈 · 화면이 프레임에 나오지 않는다. 거울 · 유리에 언뜻 비치는 것은 괜찮다.
+- 나는 한 손으로 그것을 들고 있다. 그 팔과 손이 화면 가장자리에 들어올 수 있다.
+  남은 한 손은 자유롭다 — 무언가를 집거나 밀거나 붙잡는 일은 그 손이 한다.
+- 손에 든 무게가 화면에 보인다. 화면이 조금 처졌다 올라오고, 수평이 기울었다 바로잡히고,
+  걸을 때마다 툭툭 흔들리고, 급히 돌리면 지나쳤다가 돌아온다.
+- 초점이 더듬는다. 화면을 채운 것까지의 거리가 바뀌면 잠깐 흐려졌다가 또렷해지고,
+  어두운 곳과 밝은 곳을 오갈 때 밝기가 한 박자 늦게 맞춰진다.
+- 카메라를 놓치거나 떨어뜨리거나 내려놓는 장면이 있으면, 화면이 같이 굴러 비스듬히 멈춘다.
+- ★ 그 뒤 구간은 '바닥에 떨어진 카메라가 보는 화면' 으로 쓴다. 더 이상 내 눈이 아니다 —
+  팬도 틸트도 없이 그 자리에서, 낮고 비스듬한 각도로 앞에서 벌어지는 일을 본다.
+  이때 나는 남처럼 밖에서 찍힌다 — 다리 · 등 · 팔 · 몸통과 내가 하는 일이 화면에 보인다.
+  얼굴만 화면 위로 잘리거나 돌아가 보이지 않는다. 누가 다시 집어 들면 그때부터 다시 내 눈이다.` : '';
  return `사용자가 '나' 를 중심으로 쓴 서술을 1인칭 시점샷(POV) 의 Seedance 영상 프롬프트로 옮긴다.
 화면은 곧 '나' 의 눈이다. 카메라를 든 사람도, 나를 바라보는 카메라도 없다.
 
@@ -1303,13 +1365,28 @@ const seedancePovRulebook = (durationSec = 15) => {
 - '고개를 돌린다 · 왼쪽을 보니' → 팬. '고개를 든다 · 내려다본다' → 틸트.
 - '다가간다 · 물러선다' → 프레임 전체가 앞뒤로 움직인다. 발소리의 리듬이 같이 간다.
 - '다가온다' → 대상이 프레임 안에서 커진다. 카메라는 그 자리에 있다.
+- '갑자기 나타난다 · 덮친다 · 놀란다' → 그 구간은 **카메라가 무엇을 하는지**로 적는다.
+  예: "[0:11–0:12] the frame throws back and up, overshooting past [Image3] into motion blur, then swings
+  back and finds him off-centre, shaking." 인물의 표정으로 적지 않는다 — 1인칭에는 내 얼굴이 없다.
+- ★ 놀람을 '화면이 커진다 · 확 당긴다 · 컷이 바뀐다' 로 쓰지 않는다. 대상이 커지는 것은 그것이
+  다가와서다. 프레임은 뒤로 물러나면서 흔들린다.
+- 놀란 뒤 구간은 계속 흔들리는 상태로 적는다. 다시 차분한 화면으로 돌아가지 않는다.
 - '내가 손을 뻗는다 · 내가 집는다' 처럼 '나' 가 주어일 때만 내 손과 팔뚝이 화면 아래에서 올라온다.
   주어가 다른 인물이면 그 인물의 손이다 — '@무당이 붓을 든다' 는 무당의 손이 붓을 드는 것이다.
-- 시선은 사람이 보는 속도로 움직인다. 한 곳에 잠깐 머물렀다가 옮기고, 급한 순간에만 빨라진다.
+- 시선은 사람이 보는 속도로 움직인다. 급한 순간에만 빨라진다.
+- ★ 구간마다 시선이 무엇을 하는지 적는다 — 무엇을 보고 있고, 그 안에서 어디로 조금씩 옮겨 가는지.
+  한 사람을 보는 동안에도 눈 · 입 · 손 · 촛불로 작은 이동이 있다. '가만히 본다' 로 끝내면 화면이 굳는다.
+- ★ 구간마다 맨 앞에 샷 사이즈를 적는다 — MCU(가슴 위) · CU(얼굴) · ECU(눈 · 입 · 손).
+  예: "[0:00–0:03] MCU on [Image1]: 그는 …". 기본은 MCU 이고, 가까워지면 CU · ECU 로 간다.
+  이 모델은 이 표기로 구도를 정한다. 렌즈 mm 로는 바뀌지 않는다.
+- ★ 공간 설명으로 구간을 시작하지 않는다. '어두운 신당 내부가 보인다' 로 열면 방 전체를 담는
+  넓은 구도가 된다. 사람과 그 앞의 것을 먼저 적고, 공간은 시선이 옮겨 갈 때 그 사이로 보인다.
+- ★ 앞에 앉은 사람은 가슴 위로 크게 잡힌다. 전신 샷 · 멀리 작게 보이는 구도는 쓰지 않는다.
 
 ## ★ 지켜야 하는 것
 - 컷이 없다. S1 · S2 로 나누지 않는다. 처음부터 끝까지 [Take] 하나다.
   시간 구간 표기는 컷이 아니라 한 테이크 안에서 시간이 흐른다는 표시다.
+- ★ 화면이 다른 각도로 튀지 않는다. 크기를 바꾸려면 줌인 · 줌아웃으로 쓴다 — 컷은 쓰지 않는다.
 - '나' 를 밖에서 보여주지 않는다. 내 얼굴 · 뒷모습 · 전신 샷은 없다.
   내 손은 상황 묘사에 '나' 가 손으로 하는 일이 적혀 있을 때만 나온다. 그 밖에는 화면에 들어오지 않는다.
 - ★ 화면 안 인물의 동작은 문장마다 그 인물의 번호로 시작한다 — '[Image1] lifts the brush'.
@@ -1336,6 +1413,18 @@ const seedancePovRulebook = (durationSec = 15) => {
 - 사운드·자막 부정 지시를 쓰지 않는다 — 코드가 붙인다.
 - 3000자 이내. 상단 제목 줄 금지. [Reference]로 바로 시작. 길이 ${sec}초.
 
+${deviceBlock}
+
+## ★ 움직임은 구간을 넘어 이어진다
+- 시간 구간은 시계일 뿐이다. 컷도 아니고 멈추는 지점도 아니다.
+- 한 구간에서 움직이기 시작한 것은 다음 구간에서도 계속 움직인다 — 다가오던 것은 멈추지 않고
+  계속 다가오고, 돌던 것은 계속 돈다. '다가온다' 를 한 구간에만 적고 다음 구간에서 다른 것을
+  적으면 그 사이에 멈춘 화면이 나온다.
+- 정지형 표현을 쓰지 않는다 — still · motionless · frozen · holds · locked · resting · poised.
+  대신 그 순간에 무엇이 계속 움직이는지 적는다: 숨, 어깨의 흔들림, 머리카락, 옷자락, 연기, 불꽃, 바람.
+- 동작이 적히지 않은 인물도 살아 있다. 가만히 앉아 있어도 숨을 쉬고 몸이 미세하게 움직인다.
+- 멈춤은 사용자가 '멈춘다 · 굳는다' 라고 적었을 때만 쓴다.
+
 ## 출력 형식
 [Reference]
 ① [Label] — @
@@ -1352,7 +1441,10 @@ CAMERA: <CAMERA_STYLE>
 
 VIEWER HANDS: <none — 또는 상황 묘사에 '나' 가 손으로 하는 일이 적혀 있으면 그 일을 영어로 짧게>
 
-Audio: <내 귀에 들리는 소리 — 내 호흡과 발소리는 가깝고 크게, 나머지는 거리만큼 멀게>
+Audio: <내 귀에 들리는 소리 — 그 자리의 소리만. 거리만큼 멀고 가깝게.
+  ★ 내 목소리는 적지 않는다. 신음 · 헐떡임 · 비명 · 감탄사도 목소리다. 상황 묘사에 '나' 의
+  대사가 큰따옴표로 적혀 있을 때만 그 말을 적는다. 내 호흡은 방 소리 아래로 아주 낮게.
+  화면이 움직이는 것에는 소리를 달지 않는다. 같은 소리가 가까워지고 멀어질 뿐이다>
 
 - 헤더는 [Reference] / [Notes] / [Take] / CAMERA / VIEWER HANDS / Audio 만.
 - CAMERA 줄의 <CAMERA_STYLE> 은 그대로 남긴다. 코드가 채운다.
@@ -1361,9 +1453,11 @@ Audio: <내 귀에 들리는 소리 — 내 호흡과 발소리는 가깝고 크
 - 인물 레퍼런스는 '내가 보는 사람들' 이다. 내 레퍼런스가 붙어 있어도 화면에 세우지 않는다.
 
 ## [Notes] 필수
-- 시점: "first-person point of view throughout — the frame is this person's eyes."
+- 시점: "the frame is this person's eyes while the camera is in their hand; if it leaves their hand it is a camera lying where it fell until someone picks it up."
+- 끊기지 않는 움직임: "motion continues across every time mark — nobody holds a pose and nothing freezes between them."
+- 시점 인물의 목소리: "the viewer makes no vocal sound — no gasp, grunt or scream — unless a quoted line is written for them."
 - 컷 없음: "one continuous take, no cuts, no edits."
-- 자기 노출 금지: "the viewpoint character is never shown from outside — no face, no back, no full body."
+- 자기 노출: "the viewpoint character's face is never shown; their body is seen from outside only while the camera is out of their hand."
 - 동작의 주인: "every action is done by the person named doing it; the viewer only watches unless the VIEWER HANDS line says otherwise."
 - 시선 교환: "anyone speaking to them looks directly into frame."
 - 복제 방지: "each person appears exactly once, no duplicated faces."
@@ -17691,6 +17785,7 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
  const posterWsJobSeq = useRef(0);
  // v633: 비디오 커스텀 워크스페이스 (T2V — 프롬프트+비율+품질+레퍼런스)
  const [videoCustomData, setVideoCustomData] = useState({
+ draft: false,   // v1164: 초안(480p) → 1080p 최종
  prompt: '',
  tier: 'video25', // v1061: 2.0 을 걷어냈다 — 영상은 Seedance 2.5 하나로 간다
  duration: 5, // 초 (4~티어 상한 · 1초 단위 슬라이더)
@@ -17712,6 +17807,7 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
  // v633: 비디오 내러티브(15s) 워크스페이스 — 상황묘사 → 룰북 프롬프트 → Seedance
  // v1100: 부가콘텐츠 — 비하인드 · 인터뷰. 단일 컷, 앞 클립 연결 없음, 프로젝트와 무관.
  const [extraData, setExtraData] = useState({
+  draft: false,   // v1164: 초안(480p) → 1080p 최종
   mode: 'behind',            // 'behind' | 'interview'
   situation: '',             // 비하인드=상황묘사 / 인터뷰=인터뷰 대본
   lang: 'ko',                // 비하인드 대사 · 인터뷰이 언어 (인터뷰어는 한국어 고정)
@@ -17736,6 +17832,7 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
  // 레퍼런스 4종: 상황(콘티뉴이티)/인물/공간/오브제 — 각 이미지 or 비디오
  refs: { situation: [], character: [], space: [], object: [] }, // 각 항목: { kind:'image'|'video', refName, name, base64?, mimeType?, dataUrl? }
  refSource: 'upload',
+ draft: false,   // v1163: 초안(480p) → 1080p 최종
  extracting: false,   // v1128: 레퍼런스 추출 중
  fillTarget: null,    // v1128: 지금 채우기를 기다리는 대기 칸 { key, i }
  // v641: 비차단 생성 — 생성기록(jobs) 스택
@@ -17753,6 +17850,7 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
   refs: { situation: [], character: [], space: [], object: [] }, refSource: 'upload',
   extracting: false, fillTarget: null,
   camera: 'eyes',   // 'eyes' | 'device'
+  draft: false,   // v1154: 초안(480p) 먼저 뽑고, 마음에 들면 그 id 로 1080p 최종
   povGender: 'male',   // 'male' | 'female' — 화면에 들어오는 손과 프레임 뒤의 목소리
   startFrame: null, endFrame: null,   // v1132: { name, dataUrl }
   frameMode: 'exact',   // 'exact' (first/last_frame) | 'keyframe' (레퍼런스로 싣는다)
@@ -17762,7 +17860,7 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
  const [videoDocuData, setVideoDocuData] = useState({
   situation: '', tier: 'video25', duration: 15, aspect: '16:9', resolution: '480p',
   refs: { situation: [], character: [], space: [], object: [] }, refSource: 'upload',
-  extracting: false, fillTarget: null,
+  extracting: false, fillTarget: null, draft: false,   // v1163
   camera: 'handheld',   // 'handheld' | 'fix'
   prevClip: null,       // { name, dataUrl } — 이어받을 앞 클립
   jobs: [], selectedUrl: null, feedbackOpen: false, feedback: '', error: '',
@@ -19010,6 +19108,58 @@ const projectRefLiveSrc = (item) => {
  }
  };
 
+ // v1162: 초안 클립을 1080p 최종으로 올린다. 프롬프트 · 레퍼런스 · 길이 · 화면비 · 시드는
+ //   모델이 초안에서 그대로 가져온다 — 다시 보내면 값이 같아도 오류다(문서).
+ //   프롬프트를 새로 쓰지 않으므로 Claude 비용도 들지 않는다.
+ const PROJECT_DRAFT_TTL = 7 * 24 * 3600 * 1000;
+ const handleProjectFinalFromDraft = async (seg) => {
+  if (!seg?.clipDraftTaskId || projectGenJob) return;
+  if (Date.now() - (seg.clipDraftAt || seg.clipTs || 0) > PROJECT_DRAFT_TTL) {
+   projectUp({ error: '이 초안은 7일이 지나 최종 생성에 쓸 수 없습니다. 초안을 다시 뽑아주세요.' });
+   return;
+  }
+  const t0 = Date.now();
+  setProjectGenJob({ segId: seg.id, phase: '1080p 최종 생성 중', ts: t0,
+   estSec: estSecFor(durKeyVideo('1080p', seg.sec, false), estVideoGenSeconds('1080p', seg.sec)) });
+  try {
+   const { url } = await callSeedanceFinalFromDraft(seg.clipDraftTaskId, {
+    onStatus: (st) => setProjectGenJob(j => (j && j.segId === seg.id
+     ? { ...j, phase: st === 'queued' ? '대기열에서 기다리는 중' : '영상 만드는 중' } : j)),
+   });
+   const clipTs = Date.now();
+   let clipFile = '';
+   setProjectGenJob(j => (j && j.segId === seg.id ? { ...j, phase: '클립 받아두는 중' } : j));
+   try {
+    const rs = await window.electronAPI?.clipSave?.({ projectId: projectDataRef.current.id || '', segId: seg.id, url, ts: clipTs });
+    if (rs?.success) clipFile = rs.path;
+   } catch (e2) { console.warn('[프로젝트] 최종 클립을 받아두지 못했습니다 —', e2?.message); }
+   setProjectData(p => ({ ...p, error: '', segments: p.segments.map(g => {
+    if (g.id !== seg.id) return g;
+    // 초안은 이전 결과로 남긴다 — 비교하고 되돌아갈 수 있어야 한다
+    const nos = projectGenNos(g);
+    const off = g.clipUrl ? 1 : 0;
+    const stamped = (g.takes || []).map((t, k) => ({ ...t, genNo: t.genNo || nos[k + off] || 0 }));
+    const prev = g.clipUrl
+     ? [{ url: g.clipUrl, file: g.clipFile || '', ts: g.clipTs || 0, prompt: g.prompt || '',
+        feedback: g.feedback || '', genNo: nos[0] || 0,
+        isDraft: true, draftTaskId: g.clipDraftTaskId || '', draftAt: g.clipDraftAt || 0 }]   // v1168
+     : [];
+    const genNo = Math.max(g.genSeq || 0, ...nos.map(n => n || 0)) + 1;
+    return { ...g, clipUrl: url, clipFile, clipTs, clipIsDraft: false, clipDraftTaskId: '', clipDraftAt: 0,
+     clipPubUrl: '',   // v1167: 480p 초안을 올려둔 사본을 버린다
+
+     clipGenNo: genNo, genSeq: genNo, takes: [...prev, ...stamped].slice(0, 8) };
+   }) }));
+   try { recordCreditUsage(estimateSeedance2Cost(seg.sec, '1080p', projectRatioOf(projectDataRef.current),
+    { tier: PROJECT_TIER_FOR(seg.kind) }), 'video', { workCat: 'video' }); } catch {}
+   try { showToast('1080p 최종을 만들었습니다.', 'load'); } catch {}
+  } catch (e) {
+   projectUp({ error: `최종 생성 실패: ${(e && e.message) || e}` });
+  } finally {
+   setProjectGenJob(null);
+  }
+ };
+
  // v909: 클립 저장 — 다른 작업과 같은 이름 규칙 · 확인 후 저장 · 아카이브 보관
  // v1125: genNo 를 주면 폴더를 세지 않고 그 번호로 짓는다(생성 순서 = 버전 번호)
  const handleProjectDownloadClip = async (seg, at, genNo = 0) => {
@@ -19061,6 +19211,13 @@ const projectRefLiveSrc = (item) => {
  // 순서대로 돌린다. 일시정지를 누르면 지금 것만 끝내고 멈춘다.
  const projectRunBatch = async (todo, scope) => {
  if (!todo.length) return;
+ // v1167: 초안 모드의 일괄 생성은 두 번째 클립에서 어차피 위 가드에 걸린다.
+ //   들어가기 전에 이유를 말해 준다 — 클립 하나씩 뽑고 최종으로 올리는 것이
+ //   초안을 쓰는 올바른 순서다.
+ if (projectDataRef.current.genDraft && todo.length > 1 && projectContVideoOn(projectDataRef.current)) {
+  projectUp({ error: '초안 모드에서는 일괄 생성을 하지 않습니다. 앞 클립을 1080p 최종으로 올려야 다음 클립이 그 화면을 이어받습니다 — 클립을 하나씩 뽑아주세요.' });
+  return;
+ }
  projectBatchStop.current = false;
  setProjectBatch({ scope, total: todo.length, done: 0, stopping: false });
  let stopped = false;
@@ -19104,7 +19261,10 @@ const projectRefLiveSrc = (item) => {
 
  const grp = projectGroupByScene(now.segments).find(x => x.items.some(it => it.seg.id === segId));
  const sceneKey = grp?.key || '_';
- const genRes = projectResOf(now);
+ // v1162: 초안이면 480p 로 나간다(문서 — 다른 해상도는 오류)
+ const isDraft = !!now.genDraft;
+ let draftTaskId = '';
+ const genRes = isDraft ? '480p' : projectResOf(now);
  const genRatio = projectRatioOf(now);
  const prev = idx > 0 ? now.segments[idx - 1] : null;
  // 앞 클립이 같은 씬인지. 씬이 바뀌면 장소가 바뀌므로 앞 씬의 프레임은
@@ -19117,6 +19277,16 @@ const projectRefLiveSrc = (item) => {
  const posInScene = Math.max(0, sceneItems.findIndex(it => it.seg.id === segId));
  const isSceneOpener = posInScene === 0;
  const fb = String(feedback || '').trim();
+
+ // v1167: 앞 클립이 아직 초안(480p)이면 여기서 멈춘다. 그대로 이어가면
+ //   480p 가 Video 1 으로 들어가고, 이 클립을 1080p 최종으로 올려도
+ //   그 참조는 바뀌지 않는다 — 초안 태스크의 레퍼런스를 모델이 그대로
+ //   가져오기 때문이다(다시 보내면 오류). 되돌리려면 재생성뿐이다.
+ const editingSelf = !!fb && !!seg.clipUrl;
+ if (!editingSelf && !noCont && prevSameScene && prev?.clipIsDraft && projectContVideoOn(now)) {
+  projectUp({ error: '앞 클립이 아직 초안(480p)입니다. 앞 클립을 1080p 최종으로 올린 뒤에 이 클립을 뽑아주세요 — 초안을 이어받으면 480p 화면이 이 클립의 최종에도 그대로 남습니다.' });
+  return false;
+ }
 
  setProjectGenJob({ segId, ts: Date.now(), estSec: 30, phase: '프롬프트 쓰는 중' });
  projectUp({ error: '' });
@@ -19731,6 +19901,7 @@ const projectRefLiveSrc = (item) => {
  // v904: 소리를 켠다. 배경음악 금지는 프롬프트의 고정 조항이 막는다 —
  //   끄면 대사까지 사라지므로 끌 이유가 없다(v1036: 토글을 없앴다).
  generateAudio: true,
+ draft: isDraft,   // v1162
  images: refImages,
  // v926: 원본 URL 그대로 (ModelArk 생성물이라 출처가 유지된다)
  //   v928: 고치기면 앞 클립이 아니라 '고칠 그 클립' 자신이 Video 1 이다
@@ -19738,7 +19909,8 @@ const projectRefLiveSrc = (item) => {
  audios,
  // v916: 큐에서 기다리는 중인지 만드는 중인지 보여준다. 15분 넘게 아무 표시가
  //   없으면 멈춘 것인지 알 수가 없다.
- onStatus: (st, i) => {
+ onStatus: (st, i, tid) => {
+ if (tid) draftTaskId = tid;   // v1162
  if (st === 'queued') T.queuedPolls++; else T.runPolls++;
  if (i === 0) mark('태스크 만들기(업로드 포함)');
  setProjectGenJob(j => (j && j.segId === segId
@@ -19766,10 +19938,14 @@ const projectRefLiveSrc = (item) => {
  const offBefore = seg.clipUrl ? 1 : 0;
  const genNo = Math.max(seg.genSeq || 0, ...nosBefore.map(n => n || 0)) + 1;
  const prevTake = seg.clipUrl
- ? [{ url: seg.clipUrl, file: seg.clipFile || '', ts: seg.clipTs || 0, prompt: seg.prompt || '', feedback: seg.feedback || '', genNo: nosBefore[0] || 0 }]
+ ? [{ url: seg.clipUrl, file: seg.clipFile || '', ts: seg.clipTs || 0, prompt: seg.prompt || '', feedback: seg.feedback || '', genNo: nosBefore[0] || 0,
+    isDraft: !!seg.clipIsDraft, draftTaskId: seg.clipDraftTaskId || '', draftAt: seg.clipDraftAt || 0 }]   // v1168
  : [];
  const clipPatch = {
  prompt: finalPrompt, clipUrl: url, clipFile, clipTs, feedback: fb,
+ // v1167: 올려둔 사본은 앞 세대의 것이다. 지우지 않으면 24시간 뒤
+ //   앞 클립 연결이 낡은 영상을 Video 1 으로 집는다.
+ clipPubUrl: '',
  // v998: 앞 클립 끝 상태 설명을 함께 남긴다. 자세가 어긋났을 때 '비전이 잘못
  //   읽었는지' 와 '프롬프트 쓰는 쪽이 잘못 해석했는지' 를 가르려면 이 글이
  //   있어야 한다. 없어서 이번(지설 서기→앉기) 진단이 반쯤만 가능했다.
@@ -19777,6 +19953,8 @@ const projectRefLiveSrc = (item) => {
  contNote: contNote || '',
  takes: [...prevTake, ...(seg.takes || []).map((t, k) => ({ ...t, genNo: t.genNo || nosBefore[k + offBefore] || 0 }))].slice(0, 8),
  clipGenNo: genNo, genSeq: genNo,
+ // v1162: 초안으로 뽑았으면 그 id 를 들고 있어야 1080p 최종을 만들 수 있다
+ clipIsDraft: isDraft, clipDraftTaskId: isDraft ? draftTaskId : '', clipDraftAt: isDraft ? clipTs : 0,
  };
  setProjectData(p => {
  const segments = p.segments.map(g => (g.id === segId ? { ...g, ...clipPatch } : g));
@@ -20920,7 +21098,7 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  case 'video-custom':
  setVideoCustomData({
  prompt: '', tier: 'video25', duration: 5, aspect: '16:9', resolution: '480p', refSource: 'upload',
- refs: [], jobs: [], selectedUrl: null, feedbackOpen: false, feedback: '', error: '',
+ refs: [], jobs: [], selectedUrl: null, draft: false, feedbackOpen: false, feedback: '', error: '',
  });
  setVideoRefSuggest(null);
  break;
@@ -20928,16 +21106,16 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  setVideoNarrativeData({
  situation: '', tier: 'video25', duration: 15, aspect: '16:9', resolution: '480p',
  refs: { situation: [], character: [], space: [], object: [] }, refSource: 'upload',
- extracting: false, fillTarget: null,
+ extracting: false, fillTarget: null, draft: false,
  jobs: [], selectedUrl: null, feedbackOpen: false, feedback: '', error: '',
  });
  setNarrRefSuggest(null);
  break;
- case 'video-pov':
+ case 'video-documentary':
  setVideoPovData({
  situation: '', tier: 'video25', duration: 15, aspect: '16:9', resolution: '480p',
  refs: { situation: [], character: [], space: [], object: [] }, refSource: 'upload',
- extracting: false, fillTarget: null, camera: 'eyes', povGender: 'male', prevClip: null,
+ extracting: false, fillTarget: null, camera: 'eyes', draft: false, povGender: 'male', prevClip: null,
  startFrame: null, endFrame: null, frameMode: 'exact',
  jobs: [], selectedUrl: null, feedbackOpen: false, feedback: '', error: '',
  });
@@ -20947,14 +21125,14 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  setVideoDocuData({
  situation: '', tier: 'video25', duration: 15, aspect: '16:9', resolution: '480p',
  refs: { situation: [], character: [], space: [], object: [] }, refSource: 'upload',
- extracting: false, fillTarget: null, camera: 'handheld', prevClip: null,
+ extracting: false, fillTarget: null, camera: 'handheld', prevClip: null, draft: false,
  jobs: [], selectedUrl: null, feedbackOpen: false, feedback: '', error: '',
  });
  setNarrRefSuggest(null);
  break;
  case 'video-extra':
   setExtraData({
-   mode: 'behind', situation: '', lang: 'ko',
+   mode: 'behind', situation: '', lang: 'ko', draft: false,   // v1164
    duration: 10, aspect: '9:16', resolution: '720p',
  dlgTr: null, trLoading: false,
  step: 'write', extracting: false, preview: null,
@@ -22772,6 +22950,60 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  return url;
  };
 
+ // v1154: 초안 task ID 로 1080p 최종을 만든다. 2.5 는 최종 해상도로 1080p 만 받는다.
+ //   프롬프트 · 레퍼런스 · 길이 · 화면비 · 시드 · 오디오 설정은 다시 보내지 않는다 —
+ //   값이 같아도 오류다(문서). 초안 ID 는 만든 지 7일까지만 쓸 수 있다.
+ const callSeedanceFinalFromDraft = async (draftTaskId, { onStatus } = {}) => {
+  const apiKey = arkKey();
+  const body = {
+   model: ARK_MODELS.video25,
+   content: [{ type: 'draft_task', draft_task: { id: String(draftTaskId || '') } }],
+   resolution: '1080p',
+   watermark: false,
+  };
+  const createRes = await fetch(`${ARK_BASE}/contents/generations/tasks`, {
+   method: 'POST',
+   headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+   body: JSON.stringify(body),
+  });
+  const createText = await createRes.text();
+  if (!createRes.ok) throw new Error(arkErrorMessage(createRes.status, createText));
+  let task = {};
+  try { task = JSON.parse(createText); } catch {}
+  const id = task?.id;
+  if (!id) throw new Error(`태스크 ID를 받지 못했습니다: ${createText.slice(0, 200)}`);
+  const url = await resumeArkVideoTask(id, { onStatus });
+  return { url, taskId: id };
+ };
+
+ // v1165: 초안으로 뽑은 기록을 1080p 최종으로 올린다(커스텀 · 부가콘텐츠 공용).
+ //   프롬프트 · 레퍼런스 · 길이 · 화면비 · 시드는 모델이 초안에서 그대로 가져온다.
+ const DRAFT_TTL = 7 * 24 * 3600 * 1000;
+ const runDraftFinal = async (setData, ws, job) => {
+  const tid = job && job.draftTaskId;
+  if (!tid) return;
+  const up2 = (patch) => setData(p => (typeof patch === 'function' ? patch(p) : { ...p, ...patch }));
+  if (Date.now() - (job.draftAt || job.ts || 0) > DRAFT_TTL) {
+   up2({ error: '이 초안은 7일이 지나 최종 생성에 쓸 수 없습니다. 초안을 다시 뽑아주세요.' });
+   return;
+  }
+  const fid = `fin_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  const fDur = Number(job.params?.duration) || 10;
+  const params = { ...(job.params || {}), resolution: '1080p', fromDraft: tid };
+  const estSec = estSecFor(durKeyVideo('1080p', fDur, false), estVideoGenSeconds('1080p', fDur));
+  up2(p => ({ ...p, error: '', jobs: [{ id: fid, loading: true, phase: '1080p 최종 생성 중', ts: Date.now(), estSec, params }, ...(p.jobs || [])] }));
+  try {
+   const { url } = await callSeedanceFinalFromDraft(tid);
+   up2(p => ({ ...p, jobs: (p.jobs || []).map(j => (j.id === fid ? { ...j, phase: '받아두는 중' } : j)) }));
+   const kept = await keepGenResult(ws, fid, url, 'mp4');
+   up2(p => ({ ...p, jobs: (p.jobs || []).map(j => (j.id === fid ? { ...j, loading: false, phase: '', ...kept } : j)), selectedUrl: kept.resultUrl }));
+   try { recordCreditUsage(estimateSeedance2Cost(fDur, '1080p', job.params?.aspect || '16:9', { tier: 'video25' }), 'video', { workCat: 'video' }); } catch {}
+  } catch (e) {
+   const msg = String((e && e.message) || e);
+   up2(p => ({ ...p, error: `최종 생성 실패: ${msg}`, jobs: (p.jobs || []).map(j => (j.id === fid ? { ...j, loading: false, phase: '', error: msg } : j)) }));
+  }
+ };
+
  // v633: Seedance 2.0 영상 생성 (멀티모달 레퍼런스 — 이미지≤9, 비디오≤3·합15초)
  // refs: { images: [dataURI...], videos: [dataURI...] }. 스키마 동적조회로 입력 키 탐색.
  // v746: fal CDN 업로드 — data URL을 공개 URL로 바꾼다.
@@ -23354,7 +23586,7 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  // v997: onStatus 가 파라미터 목록에 없었다. 폴링 루프가 try/catch 안에서 부르고 있어서
  //   ReferenceError 가 삼켜지고, '대기열에서 기다리는 중 / 영상 만드는 중' 표시가
  //   한 번도 갱신되지 않았다. 호출부는 v916 부터 넘기고 있었다.
- const callSeedanceVideo = async ({ prompt, duration = 15, resolution = '1080p', aspectRatio = '16:9', generateAudio = false, images = [], videos = [], audios = [], firstFrame = null, endFrame = null, tier = 'video25', onStatus }) => {
+ const callSeedanceVideo = async ({ prompt, duration = 15, resolution = '1080p', aspectRatio = '16:9', generateAudio = false, images = [], videos = [], audios = [], firstFrame = null, endFrame = null, tier = 'video25', draft = false, onStatus }) => {
  const apiKey = arkKey();
  const _t0 = Date.now(); // v791: 실제 소요시간 측정 (진행도 추정 학습용)
 
@@ -23428,7 +23660,9 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  // 티어가 못 내는 해상도를 달라고 하면 그 티어의 최대치로 내린다
  const maxRes = ARK_VIDEO_MAX_RES[tierKey] || '1080p';
  const wanted = ARK_VIDEO_RESOLUTIONS.includes(resolution) ? resolution : '720p';
- const res = ARK_VIDEO_RESOLUTIONS.indexOf(wanted) > ARK_VIDEO_RESOLUTIONS.indexOf(maxRes) ? maxRes : wanted;
+ const resBase = ARK_VIDEO_RESOLUTIONS.indexOf(wanted) > ARK_VIDEO_RESOLUTIONS.indexOf(maxRes) ? maxRes : wanted;
+ // v1154: 초안은 480p 만 된다 — 다른 해상도를 주면 오류다(문서). 비용 · 실측 기록도 이 값으로 남는다.
+ const res = draft ? '480p' : resBase;
  const ratio = ARK_VIDEO_RATIOS.includes(arkRatio(aspectRatio)) ? arkRatio(aspectRatio) : 'adaptive';
  const dur = Math.max(4, Math.min(ARK_VIDEO_MAX_SEC[tierKey] || 15, Math.round(Number(duration) || 5)));
  const body = {
@@ -23446,6 +23680,7 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  //   reference 는 ratio · duration 에 특별 제약이 없다(문서). 2.5 전용 파라미터이고,
  //   영상 레퍼런스가 없으면 애초에 이 분류가 일어나지 않으므로 그때만 보낸다.
  if (tierKey === 'video25' && videoUrls.length) body.omni_reference_task_type = 'reference';
+ if (draft) body.draft = true;   // v1154
 
  try {
  console.log(`[ark] ${model} — 이미지 ${imageUrls.length} / 영상 ${videoUrls.length} · ${res} ${ratio} ${dur}s`);
@@ -32950,11 +33185,18 @@ ${sampleText}`;
  <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
  {/* v927: 생성 해상도 — 프로젝트에 저장된다. */}
  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+ {/* v1162: 초안 — 480p 로 한 편을 먼저 보고, 마음에 드는 클립만 1080p 로 올린다 */}
+ <button type="button" onClick={() => projectUp({ genDraft: !d.genDraft })} disabled={!!projectGenJob}
+  className={d.genDraft ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
+  style={{ height: 26, padding: '0 9px', fontSize: 10.5 }}
+  title="초안: 480p 로 빠르고 싸게 확인하고, 클립마다 1080p 최종으로 올립니다. 초안은 7일까지 쓸 수 있습니다.">
+  초안 480p
+ </button>
  <span className="micro" style={{ color: 'var(--text-quaternary)' }}>해상도</span>
  <span style={{ width: 84 }}>
- <FFSelect value={projectResOf(d)} height={26} fontSize={11}
+ <FFSelect value={d.genDraft ? '480p' : projectResOf(d)} height={26} fontSize={11}
  options={PROJECT_RES_OPTIONS}
- disabled={!!projectGenJob}
+ disabled={!!projectGenJob || !!d.genDraft}
  onChange={(v) => projectUp({ genRes: v })} />
  </span>
  {/* v958: 화면비 — 프로젝트에 저장된다 */}
@@ -32970,8 +33212,8 @@ ${sampleText}`;
  const todo = d.segments.filter(g => projectCanGenerate(g) && !g.clipUrl);
  const over = d.segments.filter(g => !projectCanGenerate(g)).length;
  const c = todo.length ? formatCostDisplay(projectContVideoOn(d)
- ? projectGenCostOf(todo, projectResOf(d), projectRatioOf(d))
- : todo.reduce((a2, g2) => a2 + projectGenCost(g2, 0, projectResOf(d), projectRatioOf(d)), 0)) : null;
+ ? projectGenCostOf(todo, d.genDraft ? '480p' : projectResOf(d), projectRatioOf(d))
+ : todo.reduce((a2, g2) => a2 + projectGenCost(g2, 0, d.genDraft ? '480p' : projectResOf(d), projectRatioOf(d)), 0)) : null;
  return (
  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
  {c && !projectGenJob && (
@@ -32998,7 +33240,8 @@ ${sampleText}`;
  }
  return (
  <button type="button" className="btn btn-primary btn-sm"
- disabled={!todo.length || !!projectGenJob || !!projectBatch}
+ disabled={!todo.length || !!projectGenJob || !!projectBatch
+  || (!!d.genDraft && todo.length > 1 && projectContVideoOn(d))}   /* v1167 */
  onClick={() => handleProjectGenerateAll()}
  title={`${todo.length}개 클립 · ${c ? `${c.usd}(${c.krw})` : ''} · ${projectResOf(d)} ${projectRatioOf(d)}`
  + (over ? ` · 1회 상한을 넘는 구간 ${over}개는 건너뜁니다 (일반 30초 · 액션 15초)` : '')}>
@@ -33566,9 +33809,13 @@ ${sampleText}`;
  const stamped = (g2.takes || []).map((t, k) => ({ ...t, genNo: t.genNo || nos[k + off] || 0 }));
  const rest = stamped.filter((_, k) => k !== ti);
  const nowTake = g2.clipUrl
- ? [{ url: g2.clipUrl, file: g2.clipFile || '', ts: g2.clipTs || 0, prompt: g2.prompt || '', feedback: g2.feedback || '', genNo: nos[0] || 0 }]
+ ? [{ url: g2.clipUrl, file: g2.clipFile || '', ts: g2.clipTs || 0, prompt: g2.prompt || '', feedback: g2.feedback || '', genNo: nos[0] || 0,
+    isDraft: !!g2.clipIsDraft, draftTaskId: g2.clipDraftTaskId || '', draftAt: g2.clipDraftAt || 0 }]   // v1168
  : [];
  return { ...g2, clipUrl: tk.url, clipFile: tk.file || '', clipTs: tk.ts || Date.now(), prompt: tk.prompt || '',
+ // v1168: 초안 표시를 되살린다 — 이게 없으면 480p 를 다음 클립이 이어받는다
+ clipIsDraft: !!tk.isDraft, clipDraftTaskId: tk.draftTaskId || '', clipDraftAt: tk.draftAt || 0,
+ clipPubUrl: '',   // v1168: 올려둔 사본은 밀려난 클립의 것이다
  clipGenNo: stamped[ti]?.genNo || 0, genSeq: Math.max(g2.genSeq || 0, ...nos.map(n => n || 0)),
  feedback: tk.feedback || '', takes: [...nowTake, ...rest].slice(0, 8) };
  }) }));
@@ -33671,6 +33918,19 @@ ${sampleText}`;
  style={{ marginTop: 8, width: '100%', justifyContent: 'center' }}>
  <Download size={13} /> 이 클립 저장{projectVerLabel(projectGenNos(cur)[0]) ? ` · ${projectVerLabel(projectGenNos(cur)[0])}` : ''}
  </button>
+ {/* v1162: 초안으로 뽑은 클립이면 여기서 1080p 로 올린다 */}
+ {cur.clipIsDraft && cur.clipDraftTaskId && (() => {
+  const old = (Date.now() - (cur.clipDraftAt || cur.clipTs || 0)) > PROJECT_DRAFT_TTL;
+  return (
+   <button type="button" className="btn btn-primary" style={{ marginTop: 8, width: '100%', justifyContent: 'center' }}
+    disabled={!!projectGenJob || old}
+    title={old ? '초안 id 는 7일까지만 쓸 수 있습니다 — 초안을 다시 뽑아주세요'
+     : '같은 프롬프트 · 레퍼런스 · 시드로 1080p 를 만듭니다. 초안은 이전 결과로 남습니다.'}
+    onClick={() => handleProjectFinalFromDraft(cur)}>
+    1080p 최종 만들기{old ? ' · 기간 지남' : ''}
+   </button>
+  );
+ })()}
  <button type="button" className="btn btn-ghost btn-sm" onClick={() => projectUp({ step: 3 })}
  style={{ marginTop: 8, width: '100%', justifyContent: 'center' }}>
  레퍼런스 · 생성으로
@@ -37784,11 +38044,16 @@ ${sampleText}`;
  ? basePrompt
  : await polishGenPrompt(basePrompt, { model: adaptModel, workCat: 'video' });
  const prompt = assembleVidPrompt(polished);
- const url = await callSeedanceVideo({ prompt, duration: dur, resolution: res, aspectRatio: asp, generateAudio: true, images, videos: vidsForRun, audios, tier });
+ const isDraft = !!v.draft;   // v1164
+ let draftTaskId = '';
+ const url = await callSeedanceVideo({ prompt, duration: dur, resolution: isDraft ? '480p' : res, aspectRatio: asp, generateAudio: true, images, videos: vidsForRun, audios, tier,
+  draft: isDraft, onStatus: (st, i2, tid) => { if (tid) draftTaskId = tid; } });
  // v789: 영상 비용은 callSeedanceVideo가 실제 completion_tokens로 기록한다 — 여기서 또 적립하면 이중 계상.
  up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, phase: '받아두는 중' } : j) }));
  const vKept = await keepGenResult('video-custom', jobId, url, 'mp4');   // v1133
- up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, phase: '', ...vKept } : j), selectedUrl: p.selectedUrl || vKept.resultUrl }));
+ up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId
+  ? { ...j, loading: false, phase: '', ...vKept, ...(isDraft ? { isDraft: true, draftTaskId, draftAt: Date.now() } : {}) } : j),
+  selectedUrl: p.selectedUrl || vKept.resultUrl }));
  // v741: 완료 알람은 중앙(progressItems 상태 전이)에서 발송 — 중복 제거
  } catch (e) { up(p => ({ ...p, error: `영상 생성 실패: ${e.message}`, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, error: e.message } : j) })); }
  };
@@ -37884,7 +38149,18 @@ ${sampleText}`;
  </>
  )}
  </div>
- <div className="micro" style={{ marginTop: 3, fontSize: 9, color: 'var(--text-quaternary)', textAlign: 'center' }}>{job.params?.resolution} · {job.params?.duration}초</div>
+ <div className="micro" style={{ marginTop: 3, fontSize: 9, color: 'var(--text-quaternary)', textAlign: 'center' }}>
+  {job.params?.resolution} · {job.params?.duration}초{job.isDraft ? ' · 초안' : job.params?.fromDraft ? ' · 최종' : ''}
+ </div>
+ {job.isDraft && !job.loading && job.resultUrl && (
+  <button type="button" className="btn btn-secondary btn-sm"
+   style={{ marginTop: 3, width: '100%', height: 22, fontSize: 9.5, padding: 0, justifyContent: 'center' }}
+   disabled={(Date.now() - (job.draftAt || job.ts || 0)) > DRAFT_TTL}
+   title={(Date.now() - (job.draftAt || job.ts || 0)) > DRAFT_TTL ? '초안 id 는 7일까지만 쓸 수 있습니다' : '같은 프롬프트 · 레퍼런스 · 시드로 1080p 를 만듭니다'}
+   onClick={(e) => { e.stopPropagation(); runDraftFinal(setVideoCustomData, 'video-custom', job); }}>
+   1080p 최종
+  </button>
+ )}
  </div>
  );
  })}
@@ -38112,7 +38388,25 @@ ${sampleText}`;
  {/* 화면비 */}
  <div><div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>화면비</div><FFSelect value={v.aspect} onChange={(nv) => up({ aspect: nv })} options={VIDEO_ASPECTS} disabled={busy} height={32} fontSize={12} /></div>
  {/* 품질 — 티어가 낼 수 있는 해상도만 */}
- <div><div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>품질</div><div style={{ display: 'flex', gap: 6 }}>{vResOpts.map(rz => (<button key={rz} onClick={() => up({ resolution: rz })} disabled={busy} className={v.resolution === rz ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'} style={{ flex: 1, height: 32, padding: '0 8px', justifyContent: 'center' }}>{rz}</button>))}</div></div>
+ <div>
+ <div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>품질
+  {v.draft && <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}> · 초안은 480p 고정</span>}
+ </div>
+ <div style={{ display: 'flex', gap: 6 }}>
+ {vResOpts.map(rz => (
+  <button key={rz} onClick={() => up({ resolution: rz })} disabled={busy || (v.draft && rz !== '480p')}
+   title={v.draft && rz !== '480p' ? '초안 모드에서는 480p 만 만들 수 있습니다' : ''}
+   className={(v.draft ? '480p' : v.resolution) === rz ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+   style={{ flex: 1, height: 32, padding: '0 8px', justifyContent: 'center' }}>{rz}</button>
+ ))}
+ </div>
+ {/* v1165: 초안 — 480p 로 먼저 보고 1080p 로 올린다 */}
+ <button type="button" onClick={() => up({ draft: !v.draft })} disabled={busy}
+  className={v.draft ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+  style={{ marginTop: 6, width: '100%', justifyContent: 'center' }}>
+  {v.draft ? '초안 모드 · 켜짐' : '초안 모드 · 꺼짐'}
+ </button>
+ </div>
  {/* 길이 — 4초 ~ 티어 상한 */}
  <div>
  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}><span className="meta" style={{ fontWeight: 600 }}>길이</span><span className="meta" style={{ fontWeight: 700, color: 'var(--green-700)', fontVariantNumeric: 'tabular-nums' }}>{Math.min(v.duration, vMaxSec)}초</span></div>
@@ -38149,7 +38443,9 @@ ${sampleText}`;
  const vMaxSec = ARK_VIDEO_MAX_SEC[vTier];
  const vResOpts = arkResOptions(vTier);
  const vDur = Math.min(Number(v.duration) || 15, vMaxSec);
- const vRes = arkClampRes(vTier, v.resolution);
+ // v1156: 초안은 480p 만 된다 — 화면 · 비용도 그 값으로 맞춘다
+ const povDraft = !!v.draft;   // v1163: 세 작업 공통
+ const vRes = povDraft ? '480p' : arkClampRes(vTier, v.resolution);
  const cf = formatCostDisplay(estimateSeedance2Cost(vDur, vRes, v.aspect, { tier: vTier }));
  const GROUPS = [{ key: 'character', label: '인물' }, { key: 'object', label: '오브제' }, { key: 'space', label: '공간' }, { key: 'situation', label: '상황(콘티뉴이티)' }];
  const NAME_PREFIX = { character: '인물', object: '오브제', space: '공간', situation: '상황' };
@@ -38500,7 +38796,7 @@ ${sampleText}`;
  const activeIdx = narrRefSuggest?.active ?? 0;
  const findRef = (name) => { for (const g of GROUPS) { const r = (v.refs[g.key] || []).find(x => x.refName === name); if (r) return r; } return null; };
  const dlVideo = (url, tag) => { setConfirmDialog({ title: '영상 저장', message: '이 영상을 다운로드 폴더에 저장할까요?', confirmLabel: '저장', onConfirm: async () => { setConfirmDialog(null); /* v852: 작업 스냅샷 기준 (현재 화면 값이 아니라) */
- const _j = (v.jobs || []).find(j => j.resultUrl === url); const kw = await ffsKeyword(_j?.params?.situation ?? v.situation); const fname = (await ffsBuildName({ type: isPov ? 'POV' : isDocu ? '다큐' : '내러티브', parts: [kw, _j?.params?.resolution || v.resolution || '480p'], version: _j?.version })) + '.mp4'; try { const res = await fetch(url); const blob = await res.blob(); const objUrl = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = objUrl; a.download = fname; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(() => URL.revokeObjectURL(objUrl), 4000); try { showToast('영상을 저장했습니다.', 'load'); } catch {} } catch (err) { try { const a = document.createElement('a'); a.href = url; a.download = fname; a.target = '_blank'; document.body.appendChild(a); a.click(); document.body.removeChild(a); try { showToast('영상을 저장했습니다.', 'load'); } catch {} } catch (e2) { try { showToast('영상 저장 실패', 'error'); } catch {} } } } }); };
+ const _j = (v.jobs || []).find(j => j.resultUrl === url); const kw = await ffsKeyword(_j?.params?.situation ?? v.situation); const fname = (await ffsBuildName({ type: isPov ? 'POV' : isDocu ? '다큐' : '내러티브', parts: [kw, _j?.params?.resolution || v.resolution || '480p', _j?.isDraft ? '초안' : ''].filter(Boolean), version: _j?.version })) + '.mp4'; try { const res = await fetch(url); const blob = await res.blob(); const objUrl = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = objUrl; a.download = fname; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(() => URL.revokeObjectURL(objUrl), 4000); try { showToast('영상을 저장했습니다.', 'load'); } catch {} } catch (err) { try { const a = document.createElement('a'); a.href = url; a.download = fname; a.target = '_blank'; document.body.appendChild(a); a.click(); document.body.removeChild(a); try { showToast('영상을 저장했습니다.', 'load'); } catch {} } catch (e2) { try { showToast('영상 저장 실패', 'error'); } catch {} } } } }); };
  const jobTimeText = (job) => { const el = Math.max(0, Math.round((Date.now() - (job.ts || Date.now())) / 1000)); const rm = Math.max(0, (job.estSec || 60) - el); return `경과 ${el}초 · 잔여 ~${rm}초`; };
  // v641: 비차단 생성 — 프롬프트 생성 → 영상 생성을 하나의 job으로 추적. 미리보기·입력 잠기지 않음
  const runGen = async (opts = {}) => {
@@ -38529,7 +38825,9 @@ ${sampleText}`;
  // v1061: 2.0 을 걷어냈다. 옛 세션에 tier:'video' 가 저장돼 있어도 2.5 로 읽는다.
     const tier = 'video25';
  const dur = Math.min(Number(v.duration) || 15, ARK_VIDEO_MAX_SEC[tier]);
- const asp = v.aspect, res = arkClampRes(tier, v.resolution);
+ const asp = v.aspect;
+ // v1156: 초안은 480p 고정 — 예상 시간 · 비용 · 기록이 실제와 같아야 한다
+ const res = v.draft ? '480p' : arkClampRes(tier, v.resolution);
  // 레퍼런스 스냅샷
  const imgList = [], vidList = [], manifest = [], tokenMap = {};
  let imgN = 0, vidN = 0;
@@ -38650,7 +38948,7 @@ ${sampleText}`;
   ? `\n\n[인물 성별 — 지정됨] ${[...new Set(genderPairs)].join(' · ')}\n상황 묘사에서 다르게 읽혀도 이대로 쓴다. 인칭(he/she)과 목소리도 이 성별을 따른다.`
   : '';
  const userMsg = `아래 상황을 ${dur}초 Seedance 영상 프롬프트로 변환하세요.${manifestStr}${frameNote}${genderNote}\n\n[상황 묘사]\n${situationText}`;
- const rulebook = isPov ? seedancePovRulebook(dur)
+ const rulebook = isPov ? seedancePovRulebook(dur, v.camera)
   : isDocu ? seedanceDocumentaryRulebook(dur)
   : seedanceNarrativeRulebook(dur);
  genPrompt = String(await callClaude(rulebook, userMsg, { model: adaptModel, maxTokens: 2000, workCat: 'video' }) || '').replace(/```/g, '').trim();
@@ -38661,14 +38959,17 @@ ${sampleText}`;
   const isInterview = /인터뷰|interview/i.test(situation);
   // POV 는 '나' 가 화면에 서는 것과 내 대사가 남의 입에 붙는 것, 두 군데서 깨진다.
   //   그래서 시점 조항에 몸과 목소리 조항을 언제나 함께 붙인다.
-  const camStyle = isPov
-   ? `${POV_CAMERA_STYLE[v.camera] || POV_CAMERA_STYLE.eyes} ${POV_SELF_RULE(v.povGender)} ${POV_BODY_RULE_FOR((() => {
+  // v1147: 움직임이 구간 경계에서 끊기지 않게 — 다큐 · POV 공통
+  const camStyle = `${TAKE_MOTION_RULE} ${TAKE_TURN_SOUND_RULE} ` + (isPov
+   ? `${POV_CAMERA_STYLE[v.camera] || POV_CAMERA_STYLE.eyes}`
+   + `${v.camera === 'device' ? ` ${POV_DEVICE_RULE} ${POV_UNSEEN_RULE}` : ''}`
+   + ` ${POV_SELF_RULE(v.povGender)} ${POV_BODY_RULE_FOR((() => {
     const hm = /^\s*VIEWER HANDS:\s*(.+)$/im.exec(genPrompt);
     const hv = hm ? hm[1].trim().replace(/^[<\[]|[>\]]$/g, '') : '';
     return (!hv || /^none\b/i.test(hv)) ? '' : hv;
-   })())} ${POV_SPEECH_RULE}`
+   })(), v.camera === 'device')} ${POV_SPEECH_RULE}`
    : (DOCU_CAMERA_STYLE[v.camera] || DOCU_CAMERA_STYLE.handheld)
-    + (isInterview ? ` ${DOCU_INTERVIEW_RULE} ${DOCU_CAMERA_UNSEEN}` : '');
+    + (isInterview ? ` ${DOCU_INTERVIEW_RULE} ${DOCU_CAMERA_UNSEEN}` : ''));
   // ★ 클로드가 자리표시자를 그대로 내놓는다고 가정하지 않는다. 자기 말로 풀어 쓰면
   //   치환이 아무 일도 하지 않고 카메라 조항이 통째로 빠진다 — 있으면 쓰고, 없으면 붙인다.
   if (genPrompt.includes('<CAMERA_STYLE>')) genPrompt = genPrompt.split('<CAMERA_STYLE>').join(camStyle);
@@ -38704,7 +39005,11 @@ ${sampleText}`;
  if (!frameExact && (v.refs?.object || []).some(r => r && !r.pending && r.kind === 'image')) finalPrompt += `\n\n${SCALE_FIGURE_RULE}`;
  // v1126: 본문의 괄호를 정리하고 사운드 두 줄을 앞뒤로 붙인다
  finalPrompt = soundChannelize(finalPrompt);
- finalPrompt = `${PROJECT_SOUND_RULE}\n\n${finalPrompt}\n\n${PROJECT_FINAL_LINE}`;
+ finalPrompt = isPov
+  ? `${PROJECT_SOUND_RULE}\n\n${POV_FRAMING_LINE}\n\n${POV_STARTLE_RULE}`
+   + `${(v.camera === 'device' && /떨어뜨|떨어진|떨군|놓치|내려놓|drop/i.test(situation)) ? `\n\n${POV_DROP_LINE}` : ''}`
+   + `\n\n${finalPrompt}\n\n${PROJECT_FINAL_LINE}`
+  : `${PROJECT_SOUND_RULE}\n\n${finalPrompt}\n\n${PROJECT_FINAL_LINE}`;
  // v789: 피드백 재생성 시 이전 결과 영상을 레퍼런스로 동반 (상한 3개·15초 안에서)
  // 피드백 재생성이 있으면 그쪽이 [Video1] 을 가져간다 — 자리가 겹치지 않게
  const vidsForRun = frameExact ? [] : [
@@ -38732,17 +39037,23 @@ ${sampleText}`;
    ...vidsForRun.map((_, k) => `영상 ${k + 1}`),
    ...audioList.map((_, k) => `보이스 ${k + 1}`)];
  }
+ const isDraft = !!v.draft;   // v1163
+ let draftTaskId = '';
  const sent = { images: imgList.length, videos: vidsForRun.length, audios: audioList.length, voices: voiceNamed.slice(),
   frames: frameExact ? 'exact' : (frameStart || frameEnd) ? 'keyframe' : '' };
  up(p => ({ ...p, jobs: p.jobs.map(j => (j.id === jobId ? { ...j, sent } : j)) }));
  // 정확히 모드: 화면비는 시작 그림을 따른다(문서 — ratio 는 adaptive 여야 한다)
- const url = await callSeedanceVideo({ prompt: finalPrompt, duration: dur, resolution: res, aspectRatio: frameExact ? 'adaptive' : asp, generateAudio: true, images: imgList, videos: vidsForRun, audios: audioList, tier,
-  firstFrame: frameExact ? frameStart : null, endFrame: frameExact ? (frameEnd || null) : null });
+ const url = await callSeedanceVideo({ prompt: finalPrompt, duration: dur, resolution: isDraft ? '480p' : res, aspectRatio: frameExact ? 'adaptive' : asp, generateAudio: true, images: imgList, videos: vidsForRun, audios: audioList, tier,
+  firstFrame: frameExact ? frameStart : null, endFrame: frameExact ? (frameEnd || null) : null,
+  draft: isDraft, onStatus: (st, i, tid) => { if (tid) draftTaskId = tid; } });
  // v789: 영상 비용은 callSeedanceVideo가 실제 토큰으로 기록한다. 여기서는 프롬프트 변환에 쓴 Claude 비용만 적립.
  try { if (!opts.directPrompt) recordCreditUsage(estimateClaudeCost(adaptModel, (situation.length + 2000), genPrompt.length), 'claude', { workCat: 'video' }); } catch {}
  up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, phase: '받아두는 중' } : j) }));
  const vKept = await keepGenResult(isPov ? 'video-pov' : isDocu ? 'video-documentary' : 'video-narrative', jobId, url, 'mp4');   // v1133
- up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, phase: '', ...vKept } : j), selectedUrl: p.selectedUrl || vKept.resultUrl }));
+ up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId
+  ? { ...j, loading: false, phase: '', ...vKept, ...(isDraft ? { isDraft: true, draftTaskId, draftAt: Date.now(),
+   draftWs: isPov ? 'video-pov' : isDocu ? 'video-documentary' : 'video-narrative' } : {}) } : j),
+  selectedUrl: p.selectedUrl || vKept.resultUrl }));
  // v741: 완료 알람은 중앙(progressItems 상태 전이)에서 발송 — 중복 제거
  } catch (e) {
   let msg = String((e && e.message) || e);
@@ -38750,6 +39061,35 @@ ${sampleText}`;
   if (cm && contentNames[Number(cm[1])]) msg += `\n→ content[${cm[1]}] = ${contentNames[Number(cm[1])]}`;
   up(p => ({ ...p, error: `영상 생성 실패: ${msg}`, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, phase: '', error: msg } : j) }));
  }
+ };
+ // v1154: 초안으로 뽑은 것을 1080p 최종으로 올린다. 프롬프트 · 레퍼런스 · 길이 · 화면비 · 시드는
+ //   모델이 초안에서 그대로 가져온다 — 우리가 다시 보내면 값이 같아도 오류다(문서).
+ const DRAFT_TTL_MS = 7 * 24 * 3600 * 1000;   // 초안 id 는 7일까지만 쓸 수 있다
+ const runFinalFromDraft = async (job) => {
+  const tid = job && job.draftTaskId;
+  if (!tid) return;
+  if (Date.now() - (job.draftAt || job.ts || 0) > DRAFT_TTL_MS) {
+   up({ error: '이 초안은 7일이 지나 최종 생성에 쓸 수 없습니다. 초안을 다시 뽑아주세요.' });
+   return;
+  }
+  const fid = `vf_${Date.now()}_${(narrJobSeq.current += 1)}`;
+  const fDur = Number(job.params?.duration) || vDur;
+  const params = { ...(job.params || {}), resolution: '1080p', fromDraft: tid };
+  const estSec = estSecFor(durKeyVideo('1080p', fDur, false), estVideoGenSeconds('1080p', fDur));
+  up(p => ({ ...p, error: '', jobs: [{ id: fid, version: narrJobSeq.current, loading: true,
+   phase: '1080p 최종 생성 중', ts: Date.now(), estSec, params }, ...p.jobs] }));
+  try {
+   const { url } = await callSeedanceFinalFromDraft(tid);
+   up(p => ({ ...p, jobs: p.jobs.map(j => (j.id === fid ? { ...j, phase: '받아두는 중' } : j)) }));
+   const kept = await keepGenResult(job.draftWs || (isPov ? 'video-pov' : isDocu ? 'video-documentary' : 'video-narrative'), fid, url, 'mp4');
+   up(p => ({ ...p, jobs: p.jobs.map(j => (j.id === fid ? { ...j, loading: false, phase: '', ...kept } : j)),
+    selectedUrl: kept.resultUrl }));
+   // 최종은 이어받기 경로로 폴링해서 토큰을 못 받는다 — 문서 단가로 추정해 기록한다
+   try { recordCreditUsage(estimateSeedance2Cost(fDur, '1080p', job.params?.aspect || v.aspect, { tier: 'video25' }), 'video', { workCat: 'video' }); } catch {}
+  } catch (e) {
+   const msg = String((e && e.message) || e);
+   up(p => ({ ...p, error: `최종 생성 실패: ${msg}`, jobs: p.jobs.map(j => (j.id === fid ? { ...j, loading: false, phase: '', error: msg } : j)) }));
+  }
  };
  // v643: 피드백 = 선택 영상의 Seedance 프롬프트를 룰북 규칙 유지하며 Claude가 의도 반영해 다시 다듬어 재생성
  const doFeedback = async () => {
@@ -38870,7 +39210,21 @@ ${sampleText}`;
  </>
  )}
  </div>
- <div className="micro" style={{ marginTop: 3, fontSize: 9, color: 'var(--text-quaternary)', textAlign: 'center' }}>{job.params?.resolution} · {job.params?.duration || vDur}초</div>
+ <div className="micro" style={{ marginTop: 3, fontSize: 9, color: 'var(--text-quaternary)', textAlign: 'center' }}>
+  {job.params?.resolution} · {job.params?.duration || vDur}초{job.isDraft ? ' · 초안' : job.params?.fromDraft ? ' · 최종' : ''}
+ </div>
+ {/* v1154: 초안이면 여기서 1080p 최종으로 올린다 */}
+ {job.isDraft && !job.loading && job.resultUrl && (
+  <button type="button" className="btn btn-secondary btn-sm"
+   style={{ marginTop: 3, width: '100%', height: 22, fontSize: 9.5, padding: 0, justifyContent: 'center' }}
+   disabled={anyLoading || (Date.now() - (job.draftAt || job.ts || 0)) > DRAFT_TTL_MS}
+   title={(Date.now() - (job.draftAt || job.ts || 0)) > DRAFT_TTL_MS
+    ? '초안 id 는 7일까지만 쓸 수 있습니다 — 초안을 다시 뽑아주세요'
+    : '같은 프롬프트 · 레퍼런스 · 시드로 1080p 를 만듭니다'}
+   onClick={(e) => { e.stopPropagation(); runFinalFromDraft(job); }}>
+   1080p 최종
+  </button>
+ )}
  </div>
  );
  })}
@@ -38935,6 +39289,21 @@ ${sampleText}`;
  </button>
  ))}
  </div>
+ {/* v1163: 초안 — 내러티브 · 다큐 · POV 공통 */}
+ <div className="meta" style={{ fontWeight: 600, margin: '12px 0 6px' }}>초안
+  <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}> · 480p 로 먼저 보고 1080p 로 올리기</span>
+ </div>
+ <button type="button" onClick={() => up({ draft: !v.draft })} disabled={busy}
+  className={v.draft ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+  style={{ width: '100%', justifyContent: 'center' }}>
+  {v.draft ? '초안 모드 · 켜짐' : '초안 모드 · 꺼짐'}
+ </button>
+ {v.draft && (
+  <div className="micro" style={{ marginTop: 5, lineHeight: 1.5, color: 'var(--text-quaternary)' }}>
+   480p 로만 뽑힙니다. 구도 · 컷 · 동작 · 의도를 확인한 뒤 생성기록에서 <strong>1080p 최종</strong>을 누르면
+   같은 프롬프트 · 레퍼런스 · 시드로 다시 만듭니다. 초안은 7일까지만 쓸 수 있습니다.
+  </div>
+ )}
  {isPov && (<>
  <div className="meta" style={{ fontWeight: 600, margin: '12px 0 6px' }}>'나'
   <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}> · 화면에 들어오는 손과 목소리</span>
@@ -39327,7 +39696,19 @@ ${sampleText}`;
  {refNames.length > 0 && (<div className="meta" style={{ color: 'var(--text-tertiary)', marginTop: 8, fontSize: 11, lineHeight: 1.6 }}>상황 묘사에서 <strong style={{ color: 'var(--green-700)', fontFamily: 'SF Mono, monospace' }}>{'@이름'}</strong> 으로 레퍼런스를 지칭할 수 있습니다.</div>)}
  </div>
  <div><div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>화면비</div><FFSelect value={v.aspect} onChange={(nv) => up({ aspect: nv })} options={VIDEO_ASPECTS} disabled={busy} height={32} fontSize={12} /></div>
- <div><div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>품질</div><div style={{ display: 'flex', gap: 6 }}>{vResOpts.map(rz => (<button key={rz} onClick={() => up({ resolution: rz })} disabled={busy} className={v.resolution === rz ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'} style={{ flex: 1, height: 32, padding: '0 8px', justifyContent: 'center' }}>{rz}</button>))}</div></div>
+ <div>
+ <div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>품질
+  {povDraft && <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}> · 초안은 480p 고정</span>}
+ </div>
+ <div style={{ display: 'flex', gap: 6 }}>
+ {vResOpts.map(rz => (
+  <button key={rz} onClick={() => up({ resolution: rz })} disabled={busy || (povDraft && rz !== '480p')}
+   title={povDraft && rz !== '480p' ? '초안 모드에서는 480p 만 만들 수 있습니다' : ''}
+   className={vRes === rz ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+   style={{ flex: 1, height: 32, padding: '0 8px', justifyContent: 'center' }}>{rz}</button>
+ ))}
+ </div>
+ </div>
  {/* 길이 — 프롬프트도 이 길이에 맞춰 샷이 짜인다 */}
  <div>
  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}><span className="meta" style={{ fontWeight: 600 }}>길이</span><span className="meta" style={{ fontWeight: 700, color: 'var(--green-700)', fontVariantNumeric: 'tabular-nums' }}>{vDur}초</span></div>
@@ -40060,7 +40441,8 @@ AUDIO:
  };
  const vMaxSec = ARK_VIDEO_MAX_SEC.video25;
  const vDur = Math.min(Number(v.duration) || 10, vMaxSec);
- const vRes = arkClampRes('video25', v.resolution);
+ // v1166: 초안은 480p 만 된다 — 화면 · 비용 · 전송 모두 이 값으로
+ const vRes = v.draft ? '480p' : arkClampRes('video25', v.resolution);
  const chSec = ((v.refs.challenge || [])[0] || {}).sec || 0;
  const cf = formatCostDisplay(estimateSeedance2Cost(vDur, vRes, v.aspect, { tier: 'video25', hasVideoInput: chSec > 0, inputSec: chSec }));
  const cntImgs = (refs) => GROUPS.reduce((n, g) => n + (refs[g.key] || []).length, 0);
@@ -40255,11 +40637,16 @@ AUDIO:
    // v1126: 본문의 소괄호를 정리하고 사운드 조항을 앞에 붙인다(맨 끝 줄은 룰북이 붙인다)
    finalPrompt = `${PROJECT_SOUND_RULE}\n\n${soundChannelize(finalPrompt)}`;
    up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, phase: '영상 생성 중', generatedPrompt: finalPrompt } : j) }));
-   const url = await callSeedanceVideo({ prompt: finalPrompt, duration: sDur, resolution: sRes, aspectRatio: sAsp,
-    generateAudio: true, tier: 'video25', images: imgList, videos: vidList, audios: audioList });
+   const isDraft = !!src.draft;   // v1164
+   let draftTaskId = '';
+   const url = await callSeedanceVideo({ prompt: finalPrompt, duration: sDur, resolution: isDraft ? '480p' : sRes, aspectRatio: sAsp,
+    generateAudio: true, tier: 'video25', images: imgList, videos: vidList, audios: audioList,
+    draft: isDraft, onStatus: (st, i2, tid) => { if (tid) draftTaskId = tid; } });
    up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, phase: '받아두는 중' } : j) }));
    const vKept = await keepGenResult('video-extra', jobId, url, 'mp4');   // v1133
-   up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, phase: '', ...vKept } : j), selectedUrl: p.selectedUrl || vKept.resultUrl }));
+   up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId
+    ? { ...j, loading: false, phase: '', ...vKept, ...(isDraft ? { isDraft: true, draftTaskId, draftAt: Date.now() } : {}) } : j),
+    selectedUrl: p.selectedUrl || vKept.resultUrl }));
   } catch (e) {
    up(p => ({ ...p, error: `생성 실패: ${e.message}`, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, phase: '', error: e.message } : j) }));
   }
@@ -40349,7 +40736,18 @@ AUDIO:
           <div style={{ fontWeight: 700, color: 'var(--text-secondary)' }}>
            v{j.version} · {j.params?.mode === 'interview' ? '인터뷰' : '비하인드'}
           </div>
-          <div style={{ color: 'var(--text-quaternary)' }}>{j.params?.duration}초 · {j.params?.resolution}</div>
+          <div style={{ color: 'var(--text-quaternary)' }}>
+           {j.params?.duration}초 · {j.params?.resolution}{j.isDraft ? ' · 초안' : j.params?.fromDraft ? ' · 최종' : ''}
+          </div>
+          {j.isDraft && !j.loading && j.resultUrl && (
+           <button type="button" className="btn btn-secondary btn-sm"
+           style={{ marginTop: 3, width: '100%', height: 22, fontSize: 9.5, padding: 0, justifyContent: 'center' }}
+           disabled={(Date.now() - (j.draftAt || j.ts || 0)) > DRAFT_TTL}
+           title={(Date.now() - (j.draftAt || j.ts || 0)) > DRAFT_TTL ? '초안 id 는 7일까지만 쓸 수 있습니다' : '같은 프롬프트 · 레퍼런스 · 시드로 1080p 를 만듭니다'}
+           onClick={(e) => { e.stopPropagation(); runDraftFinal(setExtraData, 'video-extra', j); }}>
+           1080p 최종
+           </button>
+          )}
           <div style={{ color: 'var(--text-quaternary)', marginTop: 2, maxHeight: 26, overflow: 'hidden', lineHeight: 1.35 }}>{j.params?.situation}</div>
           {j.error && <div style={{ color: 'var(--red-600)', marginTop: 3, lineHeight: 1.35 }}>{j.error}</div>}
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
@@ -40432,8 +40830,17 @@ AUDIO:
        options={[5, 8, 10, 12, 15, 20, 25, 30].filter(x => x <= vMaxSec).map(x => ({ id: String(x), label: `${x}초` }))} />
      </div>
      <div style={{ minWidth: 110 }}>
-      <label className="meta" style={{ display: 'block', marginBottom: 5, fontWeight: 700 }}>해상도</label>
-      <FFSelect value={vRes} onChange={x => up({ resolution: x })} options={arkResOptions('video25').map(r => ({ id: r, label: r }))} />
+      <label className="meta" style={{ display: 'block', marginBottom: 5, fontWeight: 700 }}>해상도
+       {v.draft && <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}> · 초안 480p</span>}
+      </label>
+      <FFSelect value={vRes} onChange={x => up({ resolution: x })} disabled={!!v.draft}
+       options={arkResOptions('video25').map(r => ({ id: r, label: r }))} />
+      {/* v1166: 초안 — 480p 로 먼저 보고 1080p 로 올린다 */}
+      <button type="button" onClick={() => up({ draft: !v.draft })}
+       className={v.draft ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+       style={{ marginTop: 6, width: '100%', justifyContent: 'center' }}>
+       {v.draft ? '초안 모드 · 켜짐' : '초안 모드 · 꺼짐'}
+      </button>
      </div>
      <div style={{ minWidth: 110 }}>
       <label className="meta" style={{ display: 'block', marginBottom: 5, fontWeight: 700 }}>화면비</label>
