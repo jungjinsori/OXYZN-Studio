@@ -94,6 +94,67 @@ const extractMusicLyrics = (entry) => {
 // ─────────────────────────────────────────────────────────────
 // 시스템 프롬프트 — 모든 컷에 자동 적용되는 기본 룰북 (사용자 노출 X, 설정 탭에서만 수정)
 // ─────────────────────────────────────────────────────────────
+// v1196: 소리를 적는 법 — 모든 영상 작업(프로젝트 · 내러티브 · 다큐 · POV · 부가콘텐츠 ·
+//   커스텀 · 컷 프롬프트)이 이 한 덩어리를 쓴다. 프롬프트를 쓰는 Claude 에게 가는 글이고,
+//   영상 모델에는 가지 않는다 — 그래서 막을 낱말을 여기서는 이름으로 불러도 된다.
+//   ★ 배경음악이 계속 깔리던 원인. 소괄호는 깨끗했는데(v1126) Claude 가 'low ambient hum' 이
+//     'deepens' · 'swells' 하는 소리를 썼다 — 지속음이 점점 커지는 것, 곧 긴장을 쌓는 앰비언트
+//     스코어의 묘사다. v1035 이 '분위기를 고조시키는 사운드' 로 짚은 그 칸(drone · hum · riser)이다.
+//     지침서가 '무엇이 들리는가' 를 쓰라고만 하고 어떻게 쓰면 안 되는지는 말하지 않았다.
+// ═════════════════════════════════════════════════════════════════════
+// ★ 소리 지침 — 앱의 모든 영상 작업이 이 블록 하나만 읽는다 (v1197)
+//   프로젝트 · 내러티브 · 다큐 · POV · 부가콘텐츠(비하인드 · 인터뷰) · 커스텀 · VFX ·
+//   기획의 컷 프롬프트까지 전부 아래 상수를 가져다 쓴다. 소리 지침을 바꿀 때는 여기만 고친다.
+//     SOUND_WRITING_RULES  — Claude 가 프롬프트를 쓸 때 읽는 규칙. 모든 지침서에 실린다.
+//     SOUND_NEG_CN         — 영상 모델에 가는 음악 금지 한 줄. SOUND: 줄 · FINAL: 줄 ·
+//                            기획 Negative Prompt 가 이것을 쓴다.
+//     SOUND_KEEP_CN        — VFX: 원본 소리를 그대로 둔다.
+//     PROJECT_SOUND_RULE   — 영상 프롬프트 맨 앞의 SOUND: 줄 (VFX 를 뺀 모든 영상).
+//     VFX_AUDIO_RULE       — VFX 프롬프트의 AUDIO: 줄.
+//     TAKE_TURN_SOUND_RULE — 한 테이크(다큐 · POV)에서 화면이 돌아도 소리는 이어진다.
+//   지침서 안에는 소리 규칙을 따로 적지 않는다. 장르에만 해당하는 것(인터뷰 목소리가
+//   방에서 녹음된다 · POV 의 내 목소리)만 그 지침서에 남는다.
+//   회귀 테스트 sound_single_source_test 가 이 블록 밖에서 새로 적힌 소리 금지 문구를 잡는다.
+// ═════════════════════════════════════════════════════════════════════
+const SOUND_WRITING_RULES = `## ★ 소리를 적는 법 — 모든 영상 공통
+- 들리는 것은 이 장면 안에 있는 것이 내는 소리뿐이다. 화면 밖에서 깔리는 음악 · 효과음 · 해설은 없다.
+  화면 안에서 누가 노래하거나 악기를 연주하면 그것은 그 사람이 내는 소리다 — 누가 무엇을 연주하는지 행동으로 적는다.
+- 소리는 '사건' 으로 적는다 — 무엇이 · 어디서 · 무엇을 해서 나는 소리인가.
+  예: 붓 끝이 종이를 긁는 소리 · 촛불 심지가 타닥이는 소리 · 옷자락이 스치는 소리 · 복도 끝의 발소리 · 창틀을 흔드는 바람.
+- ★ 다음은 쓰지 않는다 — 영상 모델은 이것을 배경음악으로 만든다.
+  · 계속 울리는 음: hum · drone · tone · ringing · resonance · pad · 음처럼 쓴 ambience
+  · 세기가 오르는 흐름(소리에 붙여서): swells · deepens · rises · builds · grows · intensifies · crescendo
+  · 음악 · 영화 용어(소리에 붙여서): music · score · soundtrack · melody · beat · rhythm · sting · cue
+- 소리의 크기는 거리로만 바뀐다. 가까워지면 커지고 멀어지면 작아진다 — 긴장을 쌓으려고 키우지 않는다.
+- 조용한 곳은 조용하다고 적는다 — "the room is quiet except for the candle wick". 빈자리를 채우려고 소리를 지어내지 않는다.
+- ★ 소괄호 ( ) 를 쓰지 않는다. Seedance 에서 소괄호는 음악 채널이라, 부연으로 적은 괄호가 음악을 부른다.
+  부연 · 시각은 대괄호로 — [0:00–0:03] · [창가에서].
+- 음악 · 소리를 막는 문장은 장면 서술에 쓰지 않는다 — 막는 줄은 코드가 붙인다. 막으려고 이름을 부르면 오히려 불러온다.`;
+
+// v1170: 모든 영상 작업의 사운드 부정 지시를 이 한 줄로 모은다.
+//   근거 ① 2.5 제시어 가이드 「负向控制」 — 음효 · 배경음악(bgm) · 대사를 각각
+//     따로 끌 수 있다고 못 박고, 표준 어법으로 「无 bgm，只生成环境音和动作音」 을 준다.
+//   근거 ② 채널 기호표(음악 （） · 음효 <> · 대사 {})의 예시가 전부 중국어이고,
+//     음효 예시는 <远处传来狗叫声> 처럼 범주 이름이 아니라 사건 하나다.
+//   ★ 'diegetic' 을 뺐다. 공식 문서에 한 번도 나오지 않는 단어이고, 이 단어를 쓰는
+//     실사용자 자료는 전부 구체적인 소리 이름을 함께 나열한다 — 단어 하나에 경계를
+//     맡기는 용법은 어디에도 없다. <Foley — all diegetic sound in this scene> 은
+//     음효 채널에 범주 이름을 넣은 것이라 문서 용법과 정면으로 어긋나 있었다.
+//   ★ 문서 예시에는 대사가 빠져 있다. 그대로 베끼면 대사까지 사라지므로, 문서가
+//     셋을 따로 끈다고 한 것에 맞춰 대사를 살려 적는다(对白).
+// v1196: 소리의 출처를 긍정문으로 한 번 더 — 문서가 권하는 '正向描述'. '画面里(화면 안)' 가 아니라
+//   '这个场景里(이 장면 안)' 라 쓴다. 화면 밖 인터뷰어 · 시점 인물의 목소리도 이 장면 안의 소리다.
+const SOUND_NEG_CN = '无 bgm，只生成对白、环境音和动作音。所有声音都来自这个场景里的人和物。';
+// v1197: VFX 는 새로 만드는 작업이 아니라 원본을 보존하는 작업이다 — '생성' 이 아니라 '유지'.
+const SOUND_KEEP_CN = '无 bgm，只保留原视频的对白、环境音和动作音。';
+const VFX_AUDIO_RULE = 'AUDIO: keep the original audio of [Video] exactly as it is and add nothing on top of it. ' + SOUND_KEEP_CN;
+const PROJECT_SOUND_RULE = 'SOUND: dialogue goes in {}. ' + SOUND_NEG_CN;
+// v1147: 시간 표시를 컷 · 정지로 읽어 구간마다 자세를 굳히던 것. 한 테이크로 가는
+//   두 작업(다큐 · POV)에 함께 붙인다. v1196: 음악을 부르던 낱말을 뺐다.
+const TAKE_TURN_SOUND_RULE = 'Only things in this place make sound. Moving the frame is silent: across a turn only'
+ + ' the balance of the same sounds changes, and the sounds of this place carry on without a break.';
+// ═════════════════════════════════════════════════════════════════════ 소리 지침 끝
+
 const DEFAULT_SYSTEM_PROMPT = `당신은 Text-to-Video 영상 생성용 컷 단위 프롬프트를 작성합니다. 입력으로 시나리오 원문·등장 피사체·이전 컷 컨티뉴이티 정보가 주어지며, 즉시 완성된 프롬프트를 JSON으로 반환합니다.
 
 ────────────────────────────────
@@ -390,7 +451,7 @@ JSON 응답에 prompt 필드로 다음 구조의 텍스트를 담음:
 다음 항목을 영어 콤마 나열로 출력. 컷 맥락에 맞는 추가 항목도 함께.
 - no dissolve transitions
 - 无字幕，画面上不出现任何字幕、说明文字或对白文字
-- 无 bgm，只生成对白、环境音和动作音
+- ${SOUND_NEG_CN}
 - no duplicate characters in any single frame
 - no AI artifacts (extra fingers, distorted hands, melted faces)
 - ★ dialogue language: Korean only as written in the prompt (no foreign dubbing, no translation)
@@ -408,9 +469,9 @@ JSON 응답에 prompt 필드로 다음 구조의 텍스트를 담음:
 - 없음 → "음성·대사·VO·말한다·speaks" 등 발화 관련 묘사 **일절 금지**. "입을 여는 표정"이 시나리오에 있어도 소리는 만들지 말 것.
 
 대사 없는 컷의 대체 표현:
-- 침묵: "silent moment, no dialogue, ambient sound only"
+- 침묵: 대사 없이 그 자리에서 나는 소리만 — "no dialogue; the room is quiet except for the wall clock ticking"
 - 행동·표정으로 감정: "[인물A] tightens lips, eyes lowered"
-- 환경음: "footsteps, distant hum, wind"
+${SOUND_WRITING_RULES}
 
 [B. 대사 있는 컷의 작성법 (자막 번인 차단)]
 
@@ -1008,8 +1069,7 @@ const EXTRA_BEHIND_RULEBOOK = (durationSec = 10, langLabel = 'Korean', hasChalle
 - 상황이 분명하지 않으면 레퍼런스가 준 의상을 입은 쪽으로 둔다.
 
 ## 소리 — 현장에서 녹음된 소리다
-- 현장에서 나는 소리만 있다 — 목소리, 발소리, 옷 스치는 소리, 장비 소리, 공기.
-  음악을 금지하는 문구는 코드가 붙이므로 프롬프트에 적지 않는다.
+- 현장에서 나는 소리 — 목소리, 발소리, 옷 스치는 소리, 장비를 옮기는 소리, 문 여닫는 소리.
 - ★ 목소리도 그 자리에서 녹음된 것이다. 부스에서 딴 깨끗한 내레이션이 아니다.
   말하는 사람과 카메라 사이의 거리가 목소리에 그대로 들린다 — 멀면 작고 울리고,
   가까우면 크고 또렷하다. 등을 돌리거나 고개를 돌리면 소리도 같이 바뀐다.
@@ -1019,6 +1079,8 @@ const EXTRA_BEHIND_RULEBOOK = (durationSec = 10, langLabel = 'Korean', hasChalle
 - 말이 겹치고, 웃음이 새고, 문장이 끊기는 것이 자연스럽다. 또박또박 읽지 않는다.
 - 슬레이트 소리 · 컷 사인 · 스태프의 웅성거림은 상황이 그렇다면 넣어도 좋다.
 
+${SOUND_WRITING_RULES}
+
 ## 레퍼런스
 - 첨부된 이미지는 [Image1] · [Image2] … 로 부른다. 사용자가 @이름 으로 적은 자리에
   해당 번호가 이미 치환되어 들어온다. 번호를 새로 지어내지 않는다.
@@ -1027,10 +1089,6 @@ const EXTRA_BEHIND_RULEBOOK = (durationSec = 10, langLabel = 'Korean', hasChalle
 
 ## 언어
 ${EXTRA_LANG_LINE(langLabel)}
-
-## 괄호와 소리
-- 소괄호 ( ) 를 쓰지 않는다 — Seedance 에서 소괄호는 음악 채널이라 부연으로 적은 괄호가 음악을 부른다. 부연·시각은 대괄호 [ ] 로.
-- 사운드 부정 지시를 따로 쓰지 않는다. 현장에서 실제로 나는 소리만 적는다.
 
 ## 마지막 줄
 프롬프트 맨 끝에 이 한 줄을 그대로 붙인다 —
@@ -1127,13 +1185,14 @@ const EXTRA_INTERVIEW_RULEBOOK = (durationSec = 10, intervieweeLang = 'Korean', 
   생각하느라 잠깐 시선을 내리는 것.
 
 ## 소리 — 현장에서 녹음된 소리다
-- 목소리와 조용한 실내 공기음만 있다.
-  음악을 금지하는 문구는 코드가 붙이므로 프롬프트에 적지 않는다.
+- 목소리와, 방에서 가끔 나는 작은 소리 — 의자가 삐걱이는 소리 · 옷이 스치는 소리.
 - ★ 목소리는 그 방에서 녹음된 것이다. 부스 녹음이 아니다. 방의 울림이 살짝 얹히고,
-  카메라와의 거리가 목소리에 들린다. 에어컨 · 복도 · 먼 발소리 같은 것이 아주 낮게 깔린다.
+  카메라와의 거리가 목소리에 들린다. 복도를 지나는 먼 발소리처럼 가끔 들리는 것만 있다.
 - 목소리가 배경 위에 붕 떠 있으면 안 된다. 같은 마이크로 같이 들어온 소리처럼 섞인다.
   후시녹음 · 스튜디오 믹스 · 광고 내레이션 톤 금지.
 - 말하다 멈추고, 생각하고, 다시 시작하는 것이 자연스럽다. 대본을 읽는 소리가 아니다.
+
+${SOUND_WRITING_RULES}
 
 ## 레퍼런스
 - 첨부된 이미지는 [Image1] · [Image2] … 로 부른다. 사용자가 @이름 으로 적은 자리에
@@ -1144,10 +1203,6 @@ const EXTRA_INTERVIEW_RULEBOOK = (durationSec = 10, intervieweeLang = 'Korean', 
   골랐든 바뀌지 않는다. 질문은 한국어 원문 그대로 큰따옴표 안에 둔다.
 - 인터뷰이만 ${intervieweeLang} 로 답한다.
 ${INTERVIEW_LANG_RULE(intervieweeLang)}
-
-## 괄호와 소리
-- 소괄호 ( ) 를 쓰지 않는다 — Seedance 에서 소괄호는 음악 채널이다. 부연·시각은 대괄호 [ ] 로.
-- 사운드 부정 지시를 따로 쓰지 않는다. 방에서 실제로 나는 소리만 적는다.
 
 ## 마지막 줄
 프롬프트 맨 끝에 이 한 줄을 그대로 붙인다 —
@@ -1206,8 +1261,8 @@ const seedanceNarrativeRulebook = (durationSec = 15) => {
 - ★ 대사는 반드시 큰따옴표로 감싼다. 코드가 그 큰따옴표를 보고 대사 채널 {"..."} 로 배선한다. 큰따옴표가 없으면 대사 채널이 통째로 빈다.
 - 3000자 이내. 넘으면 압축.
 - 상단 제목 줄 금지. [Reference]로 바로 시작.
-- 사운드·자막 부정 지시를 쓰지 않는다 — 코드가 붙인다. Audio 줄에는 이 장면에서 실제로 나는 소리만 적는다.
-- ★ 소괄호 ( ) 를 쓰지 않는다. Seedance 2.5 에서 소괄호는 음악 채널이라, 부연으로 적은 괄호가 음악을 부른다. 시각은 [0:00–0:03], 부연은 [ ] 로.
+- 자막 부정 지시를 쓰지 않는다 — 코드가 붙인다.
+${SOUND_WRITING_RULES}
 - 길이 ${sec}초. 모든 Shot 시간 합 = ${sec}초.
 - 기본 톤: 실사 시네마틱 드라마.
 - 대사·상황이 ${sec}초에 넘치면 여러 ${sec}초로 분할하고 고지.
@@ -1225,7 +1280,7 @@ const seedanceNarrativeRulebook = (durationSec = 15) => {
 S1 — <size> / <beat> [0:00–0:0X] [in frame: ...]: <action + camera + dialogue>
 ...
 
-Audio: <이 장면에서 실제로 나는 소리 — 발소리 · 사물 · 환경>
+Audio: <이 장면에서 실제로 나는 소리 — 발소리 · 문 · 물건 · 바람. 사건으로>
 
 - 헤더는 [Reference] / [Notes] / [Shots] / Audio 만.
 - ★ Seedance 2.5 멀티모달: 첨부 레퍼런스는 [Shots]에서 이미지=[Image1],[Image2]..., 비디오=[Video1]... 로 순서대로 지칭. [Reference] 슬롯 라벨 옆에 (=[Image1]) 처럼 대응 표기.
@@ -1276,11 +1331,6 @@ const DOCU_CAMERA_STYLE = {
 const INTERVIEW_CAMERA_UNSEEN = 'All of this says where the viewer is; it is not an object in the scene.'
  + ' The camera does not stand inside the frame. A glimpse of it in a mirror or a window is fine — real footage does that.';
 
-// v1147: 시간 표시를 컷 · 정지로 읽어 구간마다 자세를 굳히던 것. 한 테이크로 가는
-//   두 작업(다큐 · POV)에 함께 붙인다.
-const TAKE_TURN_SOUND_RULE = 'Only things in this place make sound. Moving the frame is silent: across a turn only'
- + ' the balance of the same sounds changes, and the soundtrack never breaks.';
-
 const TAKE_MOTION_RULE = 'CONTINUOUS MOTION: the time marks are a clock, not cuts and not pauses. What moves at'
  + ' one mark is still moving through the next — an approach keeps closing, a turn keeps turning. The whole take is'
  + ' one unbroken shot: it never cuts and never jumps to another angle, though it may zoom in or out. Anyone with no'
@@ -1311,8 +1361,8 @@ const seedanceDocumentaryRulebook = (durationSec = 15) => {
 ## 절대 규칙
 - 출력은 영어. 대사만 한국어 원문 그대로 둔다. 영어 번역 병기 금지 — 연기 톤은 지문이 영어로 설명한다.
 - ★ 대사는 반드시 큰따옴표로 감싼다. 코드가 그 큰따옴표를 보고 대사 채널 {"..."} 로 배선한다.
-- ★ 소괄호 ( ) 를 쓰지 않는다. Seedance 2.5 에서 소괄호는 음악 채널이라, 부연으로 적은 괄호가 음악을 부른다. 시각은 [0:00–0:03], 부연은 [ ] 로.
-- 사운드·자막 부정 지시를 쓰지 않는다 — 코드가 붙인다. Audio 줄에는 그 자리에서 실제로 나는 소리만 적는다.
+- 자막 부정 지시를 쓰지 않는다 — 코드가 붙인다.
+${SOUND_WRITING_RULES}
 - 3000자 이내. 상단 제목 줄 금지. [Reference]로 바로 시작.
 - 길이 ${sec}초.
 
@@ -1345,7 +1395,7 @@ const seedanceDocumentaryRulebook = (durationSec = 15) => {
 
 CAMERA: <CAMERA_STYLE>
 
-Audio: <그 자리에서 실제로 나는 소리 — 발소리 · 사물 · 공기 · 멀리서 오는 소리.
+Audio: <그 자리에서 실제로 나는 소리 — 발소리 · 사물 · 바람 · 멀리서 오는 소리. 사건으로.
   카메라가 움직이는 것에는 소리를 달지 않는다. 같은 소리의 원근만 바뀐다>
 
 - 헤더는 [Reference] / [Notes] / [Take] / CAMERA / Audio 만.
@@ -1395,6 +1445,11 @@ const POV_BODY_RULE_FOR = (hands, held) => {
 };
 
 // ★ 두 번째 자리 — 내 대사가 화면 안 사람 입에 붙어 버린다.
+// v1192: 놀람 조항은 상황 묘사가 놀람을 말할 때만 붙는다. 조건문으로 적어도 영상
+//   모델은 조건을 따지지 않고 묘사된 동작을 한다 — 붙어 있으면 놀란다.
+//   '놀라운 · 놀라울' 은 감탄이라 뺀다. '귀신' 만으로는 붙이지 않는다 — 무당 · 퇴마처럼
+//   귀신이 나와도 차분한 장면이 있다. 놀라게 하려면 그렇다고 적으면 된다.
+const POV_STARTLE_CUE = /놀라(?!운|울)|놀랐|놀란|놀래|깜짝|흠칫|움찔|소스라|기겁|질겁|화들짝|비명|덮치|덮쳐|달려들|튀어나|뛰쳐나|들이닥|급습|startl|flinch|lunge|pounce|jump ?scare/i;
 const POV_STARTLE_RULE = 'STARTLE, SHOWN BY THE FRAME: when something appears close or lunges, the body flinches first and the frame goes with it — in under a third of a second it throws back and up by about a quarter turn, overshoots past the thing, smears into motion blur, then swings back and hunts for it, missing once before catching it off-centre. From there the frame keeps trembling with fast breath for the rest of the take, and never returns to a calm hold. The frame is one unbroken take through all of this: the thing grows in frame because it is coming closer or because the shot tightens, never because the frame cuts to another shot. The take never cuts and never jumps to a new angle.';
 
 const POV_SPEECH_RULE = 'WHO SPEAKS: only the people on screen, and their lines are lip-synced. The viewer makes no vocal sound at all — no dialogue, no gasp, no grunt, no scream, no whisper — unless a line in double quotes is written for them below; then it is heard from behind the frame, close and not lip-synced to any mouth. Their breathing stays faint under the room, never a performance. Whoever speaks to the viewer looks straight into the frame.';
@@ -1509,8 +1564,8 @@ const seedancePovRulebook = (durationSec = 15, camera = 'eyes') => {
 ## 그 밖의 절대 규칙
 - 출력은 영어. 대사만 한국어 원문 그대로 둔다. 영어 번역 병기 금지.
 - ★ 대사는 반드시 큰따옴표로 감싼다. 코드가 그 큰따옴표를 보고 대사 채널 {"..."} 로 배선한다.
-- ★ 소괄호 ( ) 를 쓰지 않는다. Seedance 2.5 에서 소괄호는 음악 채널이라, 부연으로 적은 괄호가 음악을 부른다. 시각은 [0:00–0:03], 부연은 [ ] 로.
-- 사운드·자막 부정 지시를 쓰지 않는다 — 코드가 붙인다.
+- 자막 부정 지시를 쓰지 않는다 — 코드가 붙인다.
+${SOUND_WRITING_RULES}
 - 3000자 이내. 상단 제목 줄 금지. [Reference]로 바로 시작. 길이 ${sec}초.
 
 ${deviceBlock}
@@ -1844,7 +1899,7 @@ const CROWD_PROMPTS = {
 The crowd's wardrobe, styling, and demographics should match the setting and tone of the original footage so they blend in seamlessly. Give the crowd subtle, natural ambient motion — people talking, gesturing, shifting weight, walking through the space, drinks in hand — consistent with the energy of a busy gathering. Maintain realistic spatial layering and scale relative to the camera distance.
 
 Lighting on the added crowd must be consistent with the scene: same key/fill direction, same shadow softness, same reflections and bounce light from the environment. No floating figures, no duplicated faces, no mismatched lighting, no changes to the original subjects' acting, timing, position, or appearance, no warping of the original subjects or set.` },
- indoor_venue: { density: ['Sparse', 'Light', 'Moderate', 'Dense', 'Packed'], body: `Add a standing audience filling the floor and tiered seating at the amount set in [DENSITY] above, transforming the empty hall into a live-music crowd. Interpret the density scale as: Sparse = a thin, early-arrival crowd; Light = a partly filled hall; Moderate = a solidly attended show; Dense = a packed crowd; Packed = a sold-out, shoulder-to-shoulder house. If [DENSITY] gives a number, match that approximate head count within the frame. The added audience must be naturally integrated — matching the original video's stage-lighting direction, color temperature, depth of field, grain, and motion blur so the new people look filmed at the same time with the same camera. Place them realistically: filling the standing floor, rows, and balconies, respecting the venue's perspective and depth, partially occluding and being occluded by existing elements where appropriate.
+ indoor_venue: { density: ['Sparse', 'Light', 'Moderate', 'Dense', 'Packed'], body: `Add a standing audience filling the floor and tiered seating at the amount set in [DENSITY] above, transforming the empty hall into a full audience for a live show. Interpret the density scale as: Sparse = a thin, early-arrival crowd; Light = a partly filled hall; Moderate = a solidly attended show; Dense = a packed crowd; Packed = a sold-out, shoulder-to-shoulder house. If [DENSITY] gives a number, match that approximate head count within the frame. The added audience must be naturally integrated — matching the original video's stage-lighting direction, color temperature, depth of field, grain, and motion blur so the new people look filmed at the same time with the same camera. Place them realistically: filling the standing floor, rows, and balconies, respecting the venue's perspective and depth, partially occluding and being occluded by existing elements where appropriate.
 
 Wardrobe, styling, and demographics should match a concert audience and the tone of the footage. Give the crowd concert-appropriate ambient motion — raised hands, phones held up, gentle swaying, cheering, heads turned toward the stage — consistent with a live show. Maintain realistic spatial layering and scale relative to the camera distance.
 
@@ -5653,27 +5708,11 @@ const PROJECT_VIDEO_EDIT_RULE = [
 //   목록 밖 소리가 사라졌다 — 액션씬이 무성영화가 됐다.
 //   부정은 문서가 예시로 준 토큰(No BGM · no subtitles)만 쓴다. 금지어를 늘리는 쪽은
 //   막다른 길이다 — 이름으로 부르면 그것이 호출된다(v1040 의 whoosh).
-// v1170: 모든 영상 작업의 사운드 부정 지시를 이 한 줄로 모은다.
-//   근거 ① 2.5 제시어 가이드 「负向控制」 — 음효 · 배경음악(bgm) · 대사를 각각
-//     따로 끌 수 있다고 못 박고, 표준 어법으로 「无 bgm，只生成环境音和动作音」 을 준다.
-//   근거 ② 채널 기호표(음악 （） · 음효 <> · 대사 {})의 예시가 전부 중국어이고,
-//     음효 예시는 <远处传来狗叫声> 처럼 범주 이름이 아니라 사건 하나다.
-//   ★ 'diegetic' 을 뺐다. 공식 문서에 한 번도 나오지 않는 단어이고, 이 단어를 쓰는
-//     실사용자 자료는 전부 구체적인 소리 이름을 함께 나열한다 — 단어 하나에 경계를
-//     맡기는 용법은 어디에도 없다. <Foley — all diegetic sound in this scene> 은
-//     음효 채널에 범주 이름을 넣은 것이라 문서 용법과 정면으로 어긋나 있었다.
-//   ★ 문서 예시에는 대사가 빠져 있다. 그대로 베끼면 대사까지 사라지므로, 문서가
-//     셋을 따로 끈다고 한 것에 맞춰 대사를 살려 적는다(对白).
-const SOUND_NEG_CN = '无 bgm，只生成对白、环境音和动作音。';
 // v1171: 자막 부정. 「负向控制」 가 검증 범위로 든 두 축이 자막과 오디오라,
 //   한쪽만 문서 표기로 바꾸면 같은 줄 안에서 표기가 갈린다.
 //   자막 채널은 【】 이고, 여기서 막는 것은 '화면에 찍히는 글자' 다.
 const SUBTITLE_NEG_CN = '无字幕，画面上不出现任何字幕、说明文字或对白文字。';
 
-// v1170: VFX 는 새로 만드는 작업이 아니라 원본을 보존하는 작업이다 —
-//   '생성' 이 아니라 '유지' 라고 적는다. 부정 표기만 위와 맞춘다.
-const VFX_AUDIO_RULE = 'AUDIO: keep the original audio of [Video] exactly as it is and add nothing on top of it. 无 bgm，只保留原视频的对白、环境音和动作音。';
-const PROJECT_SOUND_RULE = 'SOUND: dialogue goes in {}. ' + SOUND_NEG_CN;
 
 // 마지막에 읽는 줄. 자막 금지는 문서가 인정하는 다른 한 축이라 여기 같이 둔다.
 // v1143: 오브제 시트에는 크기를 재는 회색 손(소형) · 사람 실루엣(대형)이 그려져 있다.
@@ -6263,7 +6302,7 @@ const PROJECT_VIDEO_PROMPT_SYS = `당신은 한국 드라마의 영상 생성 �
   쓰지 말고 동작으로만 적으십시오 — [남자1] lets out a breath.
   괄호의 낱말에서 벗어나 지어내지 마십시오. 적힌 그 감정 · 그 동작만 옮깁니다.
   큰따옴표 안에 남는 것은 대본의 말 그대로와 말줄임표 · 물음표 · 느낌표뿐입니다.
-- 배경음악은 붙지 않습니다. 그 공간에서 실제로 날 소리만 있습니다.
+${SOUND_WRITING_RULES}
 
 - ★★ 속마음 · 나레이션 줄은 '소리로만 들리는 말' 입니다. 입으로 말하지 않습니다.
   ★ 어느 줄이 그것인지는 당신이 판단하지 마십시오. 입력의 [속마음 · 나레이션]
@@ -6590,6 +6629,40 @@ const projectGenNos = (seg) => {
 };
 const projectVerLabel = (n) => (n > 0 ? `v${String(n).padStart(3, '0')}` : '');
 
+// v1188: 지금 클립 → 이전 결과 한 칸. 이 모양은 여기서만 만든다.
+//   (생성 · 1080p 변환 · 되돌리기 · 이어받기가 모두 이것을 쓴다)
+const projectClipToTake = (g, genNo) => (g && g.clipUrl ? [{
+  url: g.clipUrl, file: g.clipFile || '', ts: g.clipTs || 0, prompt: g.prompt || '', feedback: g.feedback || '',
+  genNo: genNo || 0,
+  isDraft: !!g.clipIsDraft, draftTaskId: g.clipDraftTaskId || '', draftAt: g.clipDraftAt || 0,
+  res: g.clipRes || '', upgraded: !!g.clipUpgraded,
+}] : []);
+// 이전 결과 한 칸 → 지금 클립 필드 (되돌리기). 위와 짝이다 — 한쪽을 고치면 다른 쪽도.
+//   올려둔 사본(clipPubUrl)은 밀려난 클립의 것이라 언제나 비운다(v1167).
+const projectTakeToClip = (tk) => ({
+  clipUrl: tk.url, clipFile: tk.file || '', clipTs: tk.ts || Date.now(), prompt: tk.prompt || '',
+  clipIsDraft: !!tk.isDraft, clipDraftTaskId: tk.draftTaskId || '', clipDraftAt: tk.draftAt || 0,
+  clipRes: tk.res || '', clipUpgraded: !!tk.upgraded,
+  clipPubUrl: '',
+});
+
+// v1188: 버전 배지. 1080p 로 올린 것 · 초안 · 그 밖의 해상도를 한눈에 가른다.
+//   해상도를 적어 두지 않던 옛 클립은 배지가 없다 — 모르는 것을 지어내지 않는다.
+const ProjectVerBadge = ({ upgraded, isDraft, res, big }) => {
+  const b = upgraded ? { t: '1080p ↑', bg: 'var(--green-600)', fg: '#fff' }
+    : isDraft ? { t: '초안 480p', bg: 'var(--state-warning)', fg: '#1a1300' }
+    : res ? { t: res, bg: 'rgba(0,0,0,0.58)', fg: '#fff' } : null;
+  if (!b) return null;
+  return (
+    <span title={upgraded ? '초안을 1080p 로 올린 버전' : isDraft ? '480p 초안 — 1080p 로 변환할 수 있습니다' : `${res} 로 뽑은 버전`}
+      style={{ position: 'absolute', top: big ? 10 : 6, left: big ? 10 : 6, zIndex: 2, pointerEvents: 'none',
+        padding: big ? '3px 9px' : '2px 7px', borderRadius: 999, fontSize: big ? 11.5 : 10, fontWeight: 800,
+        letterSpacing: '.01em', background: b.bg, color: b.fg, boxShadow: '0 1px 3px rgba(0,0,0,0.35)' }}>
+      {b.t}
+    </span>
+  );
+};
+
 // v958: 저장 형식 번호. 2 = 검토·피드백이 빠진 4단계 체계(v932 이후).
 const PROJECT_SCHEMA = 2;
 // 옛 5단계 저장본만 번호를 옮긴다 (3 검토 → 2 · 4 → 3 · 5 → 4).
@@ -6679,7 +6752,17 @@ const ProjectTimeIcon = ({ time, size = 13 }) => {
  );
 };
 
+// v1190: POV 에서 등록한 프레임 그룹인가. registerFrameAsset 이 이름에
+//   'OXYZN 시작 프레임' · 설명에 'POV 시작·끝 프레임' 을 단다.
+const isFrameAssetGroup = (g) => /프레임/.test(String(g?.description || '')) || /프레임/.test(String(g?.name || ''));
+
 const PROJECT_REF_SOURCES = {
+ // v1189: POV 시작 · 끝 프레임 — 인증 자산만. 업로드는 슬롯에서 바로 한다.
+ frames: [
+  { id: 'aigcFrame', label: '등록한 프레임' },
+  { id: 'actor', label: '배우 (실인물)' },
+  { id: 'aigcChar', label: '캐릭터 자산' },
+ ],
  // v1173: 목소리만 가져오는 자리. 보이스는 캐릭터와 배우에 붙어 있으므로
  //   그 둘만 낸다 — 시트 · 업로드는 그림이라 여기서는 뜻이 없다.
  voices: [
@@ -6911,6 +6994,9 @@ const sessionFilterGenLists = (slice, key) => {
 
 // 복원할 때 — 돌다 만 작업은 살릴 수 없다. 스피너로 굳는 것을 막는다.
 const SESSION_BUSY_KEYS = /^(is[A-Z]|loading$)/;
+// v1193: 'is' 로 시작해도 '작업 중' 이 아니라 사실을 적은 것 — 켤 때 끄면 안 된다.
+//   새로 is* 필드를 저장하게 되면 여기에 더해야 한다(안 그러면 켤 때마다 꺼진다).
+const SESSION_KEEP_BOOL = new Set(['isDraft', 'isActorAsset', 'isCharacter', 'isCustom']);
 const sessionReviveState = (v) => {
  if (Array.isArray(v)) return v.filter(x => !(x && typeof x === 'object' && x.loading)).map(sessionReviveState);
  if (v && typeof v === 'object') {
@@ -6919,8 +7005,14 @@ const sessionReviveState = (v) => {
  // v993: 지난 오류 문구를 되살리면 켤 때부터 빨간 박스가 떠 있다.
  //   localStorage 쪽 복원이 하던 일인데, 그걸 걷어냈으니 여기서 한다.
  if (k === 'error' && typeof val === 'string') { out[k] = ''; continue; }
- out[k] = (SESSION_BUSY_KEYS.test(k) && typeof val === 'boolean') ? false : sessionReviveState(val);
+ out[k] = (SESSION_BUSY_KEYS.test(k) && typeof val === 'boolean' && !SESSION_KEEP_BOOL.has(k)) ? false : sessionReviveState(val);
  }
+ // v1193: 이미 꺼진 채 저장된 것을 되살린다. 모양으로 확실히 알아볼 수 있는 것만 —
+ //   초안 id 는 초안일 때만 적히고, 캐릭터 칩에는 charId 가, 배우 자산 칩에는
+ //   asset:// 주소가 있고 charId 가 없다.
+ if (out.isDraft === false && typeof out.draftTaskId === 'string' && out.draftTaskId) out.isDraft = true;
+ if (out.isCharacter === false && out.charId) out.isCharacter = true;
+ if (out.isActorAsset === false && /^asset:\/\//.test(String(out.srcUrl || '')) && !out.charId) out.isActorAsset = true;
  return out;
  }
  return v;
@@ -8716,19 +8808,23 @@ const CLAUDE_PRICING = {
  'haiku-4-5': { input: 1.0, output: 5.0 },
  'sonnet-4-5': { input: 3.0, output: 15.0 },
  'opus-4-5': { input: 15.0, output: 75.0 },
+ // v1196: 전에는 'opus' 가 들어가면 전부 4.5 단가($15/$75)로 셌다 — Opus 5 는 $5/$25 라
+ //   크레딧 기록이 Opus 비용을 세 배로 적고 있었다. 5.5 는 캐시 읽기 단가가 따로다($0.20).
+ 'opus-5': { input: 5.0, output: 25.0 },
+ 'opus-5-5': { input: 4.0, output: 20.0, cacheRead: 0.20 },
 };
 
 // v1184: 캐시를 걸 만한 길이인가. 최소 단위(약 1,024토큰)에 못 미치면
 //   캐시가 만들어지지 않으므로 쓰기 할증만 무는 손해가 된다.
 //   한국어는 1자당 1~2토큰이라 2,500자를 기준으로 둔다.
-// v1186: 클립 프롬프트 전용 모델. 기본은 Opus 5 이고, 견줘 볼 때만 바꾼다.
+// v1186: 클립 프롬프트 전용 모델. 견줘 볼 때만 바꾼다. v1196: 기본을 Opus 5.5 로.
 //   개발자도구 콘솔에서 —
-//     localStorage.setItem('oxyzn_clip_prompt_model', 'claude-opus-5-5')   // 바꾸기
+//     localStorage.setItem('oxyzn_clip_prompt_model', 'claude-opus-5')     // 5 로 되돌려 견주기
 //     localStorage.removeItem('oxyzn_clip_prompt_model')                   // 되돌리기
 //   바꾼 뒤 새로고침하면 적용된다. 생성 기록의 promptModel 로 어느 것이었는지 남는다.
 const clipPromptModel = () => {
-  try { return localStorage.getItem('oxyzn_clip_prompt_model') || 'claude-opus-5'; }
-  catch { return 'claude-opus-5'; }
+  try { return localStorage.getItem('oxyzn_clip_prompt_model') || 'claude-opus-5-5'; }   // v1196
+  catch { return 'claude-opus-5-5'; }
 };
 
 const CLAUDE_CACHE_MIN_CHARS = 2500;
@@ -8742,9 +8838,15 @@ const CLAUDE_CACHE_OFF = { on: false };
 const CLAUDE_CACHE_WRITE_MULT = 1.25;
 const CLAUDE_CACHE_READ_MULT = 0.1;
 
+// v1197: Opus 5.5 출력 한도의 바닥. 생각 + 답이 여기 안에 들어가야 한다.
+const OPUS55_MIN_TOKENS = 16000;
+
 const getClaudePricing = (model) => {
  const m = (model || '').toLowerCase();
  if (m.includes('haiku')) return CLAUDE_PRICING['haiku-4-5'];
+ // v1196: 긴 이름부터 — 'opus-5' 는 'opus-5-5' 의 앞부분이기도 하다
+ if (m.includes('opus-5-5')) return CLAUDE_PRICING['opus-5-5'];
+ if (m.includes('opus-5')) return CLAUDE_PRICING['opus-5'];
  if (m.includes('opus')) return CLAUDE_PRICING['opus-4-5'];
  // sonnet 또는 fallback
  return CLAUDE_PRICING['sonnet-4-5'];
@@ -8939,6 +9041,62 @@ const estimateSeedance2Cost = (durationSec, resolution = '1080p', aspect = '16:9
  const tokens = ((inSec + (Number(durationSec) || 0)) * w * h * SEEDANCE_FPS) / 1024;
  return (tokens * rate) / 1e6;
 };
+// v1198: 초안 → 1080p 변환의 예상 비용.
+//   2.5 는 해상도와 무관하게 토큰 단가가 같고, 토큰은 픽셀 수에 비례한다. 그래서 초안이 실제로
+//   쓴 토큰(서버가 알려 준 completion_tokens)에 1080p/480p 픽셀 비를 곱하면 변환 요금이 된다 —
+//   영상 레퍼런스 입력분도 같은 비율로 커지므로 따로 셀 것이 없다.
+//   변환은 새 생성이라 1080p 요금이 그대로 든다(초안 요금에서 빼 주지 않는다).
+//   초안 기록은 task id 로 남긴다. 초안 id 를 쓸 수 있는 기간(7일)보다 하루 더 둔다.
+const DRAFT_COST_KEY = 'oxyzn_draft_costs';
+const DRAFT_COST_TTL = 8 * 24 * 3600 * 1000;
+const readDraftCosts = () => {
+ try { const o = JSON.parse(localStorage.getItem(DRAFT_COST_KEY) || '{}'); return o && typeof o === 'object' ? o : {}; } catch { return {}; }
+};
+const rememberDraftCost = (taskId, info, { keep = false } = {}) => {
+ if (!taskId || !info) return;
+ try {
+  const all = readDraftCosts(); const now = Date.now();
+  if (keep && all[taskId]) return;   // 생성 때 남긴 정확한 기록을 추정으로 덮지 않는다
+  for (const k of Object.keys(all)) if (!(now - (Number(all[k] && all[k].at) || 0) < DRAFT_COST_TTL)) delete all[k];
+  all[taskId] = { ...info, at: now };
+  localStorage.setItem(DRAFT_COST_KEY, JSON.stringify(all));
+ } catch {}
+};
+// 서버의 작업 정보만 있을 때(이어받기 · 서버 작업에서 받아 오기). 영상 입력이 있었는지는
+//   응답에 없어서 토큰으로 가늠한다 — 출력만으로 나올 토큰보다 15% 넘게 많으면 입력이 있었다.
+const rememberDraftFromTask = (task) => {
+ if (!task || !task.draft || !task.id) return;
+ const tokens = Number(task.usage && task.usage.completion_tokens) || 0;
+ const dur = Number(task.duration) || 0;
+ const ratio = task.ratio && task.ratio !== 'adaptive' ? task.ratio : '16:9';
+ let videoIn = false;
+ if (tokens && dur) {
+  const [w, h] = seedanceDims(task.resolution || '480p', ratio);
+  videoIn = tokens > (dur * w * h * SEEDANCE_FPS / 1024) * 1.15;
+ }
+ rememberDraftCost(task.id, { tokens, videoIn, dur, ratio, guessed: true }, { keep: true });
+};
+const draftCostInfo = (taskId) => (taskId && readDraftCosts()[taskId]) || null;
+const estimateDraftFinalCost = (draftTaskId, { dur, aspect } = {}) => {
+ const info = draftCostInfo(draftTaskId);
+ const ratio = (info && info.ratio) || (aspect && aspect !== 'adaptive' ? aspect : '16:9');
+ if (info && info.tokens > 0) {
+  const [w1, h1] = seedanceDims('1080p', ratio); const [w0, h0] = seedanceDims('480p', ratio);
+  return { usd: (info.tokens * ((w1 * h1) / (w0 * h0)) * arkVideoRate('1080p', !!info.videoIn, 'video25')) / 1e6, exact: true };
+ }
+ // 기록이 없는 초안(이 기능 전에 뽑은 것) — 길이로 추정한다. 영상 레퍼런스가 있었으면 이보다 조금 더 나온다.
+ const d = Math.max(4, Number((info && info.dur) || dur) || 10);
+ return { usd: estimateSeedance2Cost(d, '1080p', ratio, { tier: 'video25', hasVideoInput: !!(info && info.videoIn), inputSec: d }), exact: false };
+};
+const draftFinalCostLabel = (draftTaskId, opts) => {
+ const c = estimateDraftFinalCost(draftTaskId, opts);
+ const f = formatCostDisplay(c.usd);
+ // usd 는 숫자 그대로 둔다(합계에 쓴다) — 글자는 usdText · krw · text
+ return { ...c, usdText: f.usd, krw: f.krw, text: (c.exact ? '' : '약 ') + f.usd,
+  why: c.exact ? '초안이 실제로 쓴 토큰으로 계산했습니다.' : '초안의 토큰 기록이 없어 길이로 추정했습니다 — 영상 레퍼런스가 있었으면 조금 더 나옵니다.' };
+};
+const draftFinalTip = (lbl) => `\n\n예상 비용 ${lbl.usdText} (${lbl.krw}) — ${lbl.why}`;
+
 const estimateVideoCost = (model, durationSec, generateAudio = true, resolution = '1080p', aspect = '16:9', opts = {}) => {
  const m = (model || '').toLowerCase();
 
@@ -11787,7 +11945,10 @@ const callClaude = async (systemPrompt, userMessage, options = {}) => {
  //
  // 기존 (v287): maxTokens × 6ms → 24K = 3.4분으로 너무 짧아 타임아웃 발생
  // v337: maxTokens × 15ms → 24K = 6분, 16K = 4분으로 여유 확보
- const maxTok = options.maxTokens || 2500;
+ // v1197: Opus 5.5 는 생각(thinking)을 끌 수 없고 생각도 이 한도 안에서 쓴다. 바닥을 두고,
+ //   대기 시간도 바닥이 올라간 한도로 잰다(안 쓴 한도는 청구되지 않는다).
+ const isOpus55 = /opus-5-5/.test(String(options.model || ''));
+ const maxTok = isOpus55 ? Math.max(options.maxTokens || 2500, OPUS55_MIN_TOKENS) : (options.maxTokens || 2500);
  // v792: 기존 공식은 '출력' 토큰만 봤다. 장편 시나리오처럼 입력이 크면 프리필(prefill)
  //   자체가 오래 걸려 출력이 짧아도 타임아웃이 났다. 입력 길이도 함께 반영한다.
  //   입력 추정: 한글 기준 대략 1.5자 = 1토큰 → 문자수/1.5 를 토큰으로 보고 토큰당 4ms.
@@ -11835,13 +11996,16 @@ const callClaude = async (systemPrompt, userMessage, options = {}) => {
  headers['anthropic-version'] = '2023-06-01';
  headers['anthropic-dangerous-direct-browser-access'] = 'true';
  }
+ // v1196: Opus 5.5 는 effort 기본값이 medium 이다(Opus 5 는 high). 긴 지침서를 지켜야 하는
+ //   일이라 high 로 둔다 — 5 에서 쓰던 깊이 그대로.
  response = await fetch('https://api.anthropic.com/v1/messages', {
  method: 'POST',
  signal: controller.signal,
  headers,
  body: JSON.stringify({
  model: options.model || 'claude-sonnet-4-5',
- max_tokens: options.maxTokens || 2500,
+ max_tokens: maxTok,
+ ...(isOpus55 ? { output_config: { effort: options.effort || 'high' } } : {}),
  // v1184: 긴 시스템 프롬프트는 캐시에 올린다. 룰북은 클립마다 같은 글이라
  //   두 번째 호출부터 입력값이 읽기 단가로 떨어진다.
  //   noCache 를 주면 그냥 문자열로 보낸다(캐시가 말썽일 때의 도피로).
@@ -11977,16 +12141,22 @@ const callClaude = async (systemPrompt, userMessage, options = {}) => {
  const cr = u.cache_read_input_tokens || 0;       // 캐시에서 읽은 분 (0.1배)
  const cost = ((u.input_tokens || 0) / 1e6) * pricing.input
   + (cw / 1e6) * pricing.input * CLAUDE_CACHE_WRITE_MULT
-  + (cr / 1e6) * pricing.input * CLAUDE_CACHE_READ_MULT
+  + (cr / 1e6) * (pricing.cacheRead != null ? pricing.cacheRead : pricing.input * CLAUDE_CACHE_READ_MULT)   // v1196
   + ((u.output_tokens || 0) / 1e6) * pricing.output;
  // 캐시가 실제로 듣고 있는지는 이 줄로 확인한다
  if (cw || cr) { try { console.log(`[claude] 캐시 — 올림 ${cw} · 읽음 ${cr} · 새 입력 ${u.input_tokens || 0} 토큰`); } catch {} }
  // v734: 호출부가 options.workCat으로 작업 대분류(plan/image/video/sound/etc)를 지정 가능 — 미지정 시 'etc'
  recordCreditUsage(cost, 'claude', { workCat: options.workCat || 'etc' });
  } catch {}
+ // v1196: 안전 분류기가 거절하면 본문이 비어 온다 — 그대로 두면 '결과가 비었습니다' 로만 보여
+ //   무엇 때문인지 알 수 없다.
+ if (data.stop_reason === 'refusal') {
+  const cat = data.stop_details && data.stop_details.category;
+  throw new Error(`Claude 가 이 요청을 거절했습니다${cat ? ` (분류: ${cat})` : ''}. 글 표현을 조금 바꿔 다시 시도해 주세요.`);
+ }
  if (data.stop_reason === 'max_tokens') {
  // v304: 진단 로그 — 사용자가 어떤 maxTokens에서 잘렸는지 확인 가능
- const usageInfo = data.usage ? ` (입력 ${data.usage.input_tokens || '?'} 토큰, 출력 ${data.usage.output_tokens || '?'} 토큰, maxTokens 한도 ${options.maxTokens || 2500})` : '';
+ const usageInfo = data.usage ? ` (입력 ${data.usage.input_tokens || '?'} 토큰, 출력 ${data.usage.output_tokens || '?'} 토큰, maxTokens 한도 ${maxTok})` : '';
  if (typeof console !== 'undefined' && console.warn) {
  console.warn(`[callClaude] max_tokens 잘림 발생${usageInfo}`);
  }
@@ -14273,7 +14443,11 @@ const polishGenPrompt = async (raw, { model, workCat } = {}) => {
  // 너무 짧으면 다듬을 게 없고, 너무 길면 이미 사용자가 충분히 쓴 것이라 건드리지 않는다
  if (src.length < 4 || src.length > 1200) return src;
  try {
- const out = String(await callClaude(GEN_PROMPT_POLISH_SYSTEM, src, {
+ // v1196: 영상이면 소리 쓰는 법을 함께 준다 — 사용자가 적은 소리를 다듬는 데만 쓰고, 보태지 않는다
+ const polishSys = workCat === 'video'
+  ? `${GEN_PROMPT_POLISH_SYSTEM}\n\n${SOUND_WRITING_RULES}\n(위 규칙은 사용자가 소리를 적었을 때 그 표현을 고치는 데만 쓴다. 적지 않은 소리를 보태지 않는다.)`
+  : GEN_PROMPT_POLISH_SYSTEM;
+ const out = String(await callClaude(polishSys, src, {
  model: model || 'claude-sonnet-4-5', maxTokens: 700, workCat: workCat || 'image',
  }) || '').replace(/```/g, '').trim();
  if (!out) return src;
@@ -18115,6 +18289,12 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
  // Filter.GroupType 은 'LivenessFace'(실인물) / 'AIGC'(디지털 캐릭터) 두 값뿐이다.
  // 문서 본문에는 없고 ListAssets 레퍼런스에만 적혀 있다.
  // ─────────────────────────────────────────────────────────────
+ // v1189: AIGC 인증 자산 — POV 에서 등록한 프레임 · 캐릭터 자산. 배우 목록과 따로 둔다.
+ //   섞으면 배우 고르기 창에 프레임 · 캐릭터 시트가 끼어든다.
+ const [aigcAssetLib, setAigcAssetLib] = useState({ loading: false, err: '', loadedAt: 0, groups: [] });
+ // v1195: 설정 › 서버 작업. 목록 · 받아 올 탭 · 받는 중인 작업 · 받은 작업(탭 이름)
+ const [arkTaskList, setArkTaskList] = useState({ loading: false, err: '', items: [], total: 0, at: 0, busyId: '', done: {}, open: '' });
+ const [arkRecoverWs, setArkRecoverWs] = useState('video-pov');
  const [actorAssetLib, setActorAssetLib] = useState({
  loading: false,
  err: '',
@@ -19277,7 +19457,7 @@ const projectRefLiveSrc = (item) => {
  //   사라지고, 다음 클립이 그 사람의 자리를 지어낸다 — 조용히 틀리는 쪽이라 위험하다.
  // v1047: 소지물 목록이 인물마다 붙으므로 다시 올린다.
  // v1122: Opus 5 는 같은 내용을 더 많은 토큰으로 쓴다 — 잘리면 조용히 틀리는 쪽이라 넉넉히 준다.
- const out = await callClaude(sys, content, { model: 'claude-opus-5', maxTokens: 3000, workCat: 'video' });
+ const out = await callClaude(sys, content, { model: 'claude-opus-5-5', maxTokens: 3000, workCat: 'video' });
  const note = String(out || '').trim();
  projectShotRefCache.current.set(key, note);
  return note;
@@ -19301,7 +19481,7 @@ const projectRefLiveSrc = (item) => {
   setProjectGenJob({ segId: seg.id, phase: '1080p 최종 생성 중', ts: t0,
    estSec: estSecFor(durKeyVideo('1080p', seg.sec, false), estVideoGenSeconds('1080p', seg.sec)) });
   try {
-   const { url } = await callSeedanceFinalFromDraft(seg.clipDraftTaskId, {
+   const { url } = await callSeedanceFinalFromDraft(seg.clipDraftTaskId, { dur: seg.sec, aspect: projectRatioOf(projectDataRef.current),
     onStatus: (st) => setProjectGenJob(j => (j && j.segId === seg.id
      ? { ...j, phase: st === 'queued' ? '대기열에서 기다리는 중' : '영상 만드는 중' } : j)),
    });
@@ -19318,13 +19498,10 @@ const projectRefLiveSrc = (item) => {
     const nos = projectGenNos(g);
     const off = g.clipUrl ? 1 : 0;
     const stamped = (g.takes || []).map((t, k) => ({ ...t, genNo: t.genNo || nos[k + off] || 0 }));
-    const prev = g.clipUrl
-     ? [{ url: g.clipUrl, file: g.clipFile || '', ts: g.clipTs || 0, prompt: g.prompt || '',
-        feedback: g.feedback || '', genNo: nos[0] || 0,
-        isDraft: true, draftTaskId: g.clipDraftTaskId || '', draftAt: g.clipDraftAt || 0 }]   // v1168
-     : [];
+    const prev = projectClipToTake(g, nos[0]);   // v1188
     const genNo = Math.max(g.genSeq || 0, ...nos.map(n => n || 0)) + 1;
     return { ...g, clipUrl: url, clipFile, clipTs, clipIsDraft: false, clipDraftTaskId: '', clipDraftAt: 0,
+     clipRes: '1080p', clipUpgraded: true,   // v1188: 초안을 올린 버전 — 배지로 가른다
      clipPubUrl: '',   // v1167: 480p 초안을 올려둔 사본을 버린다
 
      clipGenNo: genNo, genSeq: genNo, takes: [...prev, ...stamped].slice(0, 8) };
@@ -19333,7 +19510,15 @@ const projectRefLiveSrc = (item) => {
     { tier: PROJECT_TIER_FOR(seg.kind) }), 'video', { workCat: 'video' }); } catch {}
    try { showToast('1080p 최종을 만들었습니다.', 'load'); } catch {}
   } catch (e) {
-   projectUp({ error: `최종 생성 실패: ${(e && e.message) || e}` });
+   // v1187: 시간만 넘긴 것이면 서버는 아직 만들고 있다. id 를 버리면 다시 눌렀을 때
+   //   1080p 를 한 번 더 산다 — 이어받기로 넘긴다(초안은 그대로 둔다).
+   if (e?.pending && e?.taskId) {
+    setProjectData(p => ({ ...p, segments: p.segments.map(g => (g.id === seg.id
+     ? { ...g, pendingTaskId: e.taskId, pendingAt: Date.now(), pendingDraft: false, pendingFinal: true, pendingPrompt: '' } : g)) }));
+    projectUp({ error: '1080p 변환이 오래 걸립니다. 서버에서는 계속 만들고 있습니다 — 3단계에서 이 구간의 [이어받기] 를 눌러 결과만 되찾아 주세요. 다시 변환하면 요금이 한 번 더 듭니다.' });
+   } else {
+    projectUp({ error: `최종 생성 실패: ${(e && e.message) || e}` });
+   }
   } finally {
    setProjectGenJob(null);
   }
@@ -19483,6 +19668,8 @@ const projectRefLiveSrc = (item) => {
  let contVideo = '';
  let contVia = '';
  let contNote = '';
+ // v1187: 이어받기가 되찾은 클립을 제대로 적으려면 무엇을 보냈는지 알아야 한다
+ let sentPrompt = '';
  // v928: 피드백이 있고 이미 뽑아둔 클립이 있으면 '고치기' 다. 앞 클립을 이어받는
  //   대신 이 클립 자신을 Video 1 로 넣고, 지적한 것만 바꿔 다시 만든다.
  const isEdit = !!fb && !!seg.clipUrl;
@@ -20050,6 +20237,7 @@ const projectRefLiveSrc = (item) => {
  PROJECT_FINAL_LINE,   // v1007: 마지막에 읽는 줄
  // v1126: 조립이 끝난 블록마다 괄호를 정리한다(사운드 두 줄은 스스로 건너뛴다)
  ].filter(Boolean).map(t => soundChannelize(t)).join('\n\n');
+ sentPrompt = finalPrompt;   // v1187
 
  // v1086: 프롬프트만 만들고 멈춘다. 영상 호출 전이라 ARK 비용이 안 나간다.
  //   읽어 보고 괜찮으면 그대로 클립을 뽑고, 고칠 데가 있으면 고쳐서 뽑는다.
@@ -20116,10 +20304,7 @@ const projectRefLiveSrc = (item) => {
  const nosBefore = projectGenNos(seg);
  const offBefore = seg.clipUrl ? 1 : 0;
  const genNo = Math.max(seg.genSeq || 0, ...nosBefore.map(n => n || 0)) + 1;
- const prevTake = seg.clipUrl
- ? [{ url: seg.clipUrl, file: seg.clipFile || '', ts: seg.clipTs || 0, prompt: seg.prompt || '', feedback: seg.feedback || '', genNo: nosBefore[0] || 0,
-    isDraft: !!seg.clipIsDraft, draftTaskId: seg.clipDraftTaskId || '', draftAt: seg.clipDraftAt || 0 }]   // v1168
- : [];
+ const prevTake = projectClipToTake(seg, nosBefore[0]);   // v1188
  const clipPatch = {
  prompt: finalPrompt, clipUrl: url, clipFile, clipTs, feedback: fb,
  // v1167: 올려둔 사본은 앞 세대의 것이다. 지우지 않으면 24시간 뒤
@@ -20135,6 +20320,7 @@ const projectRefLiveSrc = (item) => {
  // v1162: 초안으로 뽑았으면 그 id 를 들고 있어야 1080p 최종을 만들 수 있다
  clipIsDraft: isDraft, clipDraftTaskId: isDraft ? draftTaskId : '', clipDraftAt: isDraft ? clipTs : 0,
  promptModel: clipPromptModel(),   // v1186: 어느 모델이 쓴 프롬프트인지
+ clipRes: genRes, clipUpgraded: false,   // v1188: 배지 — 무엇으로 뽑았는지
  };
  setProjectData(p => {
  const segments = p.segments.map(g => (g.id === segId ? { ...g, ...clipPatch } : g));
@@ -20159,7 +20345,9 @@ const projectRefLiveSrc = (item) => {
  if (e?.pending && e?.taskId) {
  setProjectData(p => ({
  ...p,
- segments: p.segments.map(g => (g.id === segId ? { ...g, pendingTaskId: e.taskId, pendingAt: Date.now() } : g)),
+ // v1187: 초안이었는지 · 무엇을 보냈는지도 남긴다 — 이어받기가 이것으로 클립을 적는다
+ segments: p.segments.map(g => (g.id === segId ? { ...g, pendingTaskId: e.taskId, pendingAt: Date.now(),
+  pendingDraft: !!isDraft, pendingFinal: false, pendingPrompt: sentPrompt || '' } : g)),
  error: `클립 생성이 오래 걸립니다: ${e.message}`,
  }));
  } else {
@@ -20183,6 +20371,21 @@ const projectRefLiveSrc = (item) => {
  }
  };
 
+ // v1187: 되찾은 영상으로 구간을 갈아 끼운다. 지금 클립은 이전 결과로 밀고,
+ //   초안 · 최종 표시와 순번을 새로 적는다. 예전에는 주소만 바꿔 앞 클립의
+ //   표시가 그대로 남았다 — 되찾은 초안에 1080p 버튼이 안 뜨거나, 앞 초안의
+ //   id 로 엉뚱한 영상을 올렸다.
+ const projectRollClip = (g, next) => {
+  const nos = projectGenNos(g);
+  const off = g.clipUrl ? 1 : 0;
+  const stamped = (g.takes || []).map((t, k) => ({ ...t, genNo: t.genNo || nos[k + off] || 0 }));
+  const prev = projectClipToTake(g, nos[0]);   // v1188
+  const genNo = Math.max(g.genSeq || 0, ...nos.map(n => n || 0)) + 1;
+  return { ...g, ...next, clipPubUrl: '', clipGenNo: genNo, genSeq: genNo,
+   pendingTaskId: '', pendingAt: 0, pendingDraft: false, pendingFinal: false, pendingPrompt: '',
+   takes: [...prev, ...stamped].slice(0, 8) };
+ };
+
  // v916: 남아 있는 태스크에서 결과만 되찾는다
  const handleProjectResumeClip = async (segId) => {
  const seg = projectDataRef.current.segments.find(g => g.id === segId);
@@ -20202,18 +20405,29 @@ const projectRefLiveSrc = (item) => {
  const rs = await window.electronAPI?.clipSave?.({ projectId: projectDataRef.current.id || '', segId, url, ts: resumedTs });
  if (rs?.success) resumedFile = rs.path;
  } catch { /* 못 받아도 주소는 하루는 산다 */ }
+ // v1187: 초안이었으면 그 task id 가 곧 초안 id 다 — 1080p 변환에 그대로 쓴다.
+ //   7일은 만든 때부터 센다. 넘긴 시각은 만든 때보다 폴링 한도만큼 뒤라 그만큼 당긴다.
+ const wasDraft = !!seg.pendingDraft;
+ const madeAt = Math.max(0, (seg.pendingAt || resumedTs) - ARK_VIDEO_POLL_MAX * ARK_VIDEO_POLL_MS);
+ const rolled = (g) => projectRollClip(g, {
+  clipUrl: url, clipFile: resumedFile, clipTs: resumedTs,
+  ...(seg.pendingPrompt ? { prompt: seg.pendingPrompt } : {}),
+  clipIsDraft: wasDraft, clipDraftTaskId: wasDraft ? seg.pendingTaskId : '', clipDraftAt: wasDraft ? madeAt : 0,
+  // v1188: 변환을 되찾은 것이면 1080p 업그레이드, 초안이면 480p. 옛 기록은 모른다.
+  clipRes: seg.pendingFinal ? '1080p' : wasDraft ? '480p' : '', clipUpgraded: !!seg.pendingFinal,
+ });
  setProjectData(p => ({
  ...p,
  segments: p.segments.map(g => (g.id === segId
- ? { ...g, clipUrl: url, clipFile: resumedFile, clipTs: resumedTs, pendingTaskId: '', pendingAt: 0 } : g)),
+ ? rolled(g) : g)),   // v1187
  step: 4, reachedStep: Math.max(Number(p.reachedStep) || 1, 4), error: '',
  }));
  // v924: 이어받기도 참조를 같이 올린다 — 곧바로 다음 클립을 뽑을 수 있다
  projectDataRef.current = { ...projectDataRef.current,
  segments: projectDataRef.current.segments.map(g => (g.id === segId
- ? { ...g, clipUrl: url, clipFile: resumedFile, clipTs: resumedTs, pendingTaskId: '', pendingAt: 0 } : g)) };
+ ? rolled(g) : g)) };   // v1187
  setProjectViewClip(segId);
- try { showToast('클립을 되찾았습니다.', 'load'); } catch {}
+ try { showToast(seg.pendingFinal ? '1080p 변환 결과를 되찾았습니다.' : '클립을 되찾았습니다.', 'load'); } catch {}
  } catch (e) {
  // 아직 만드는 중이면 taskId 를 지우지 않는다 — 다시 누르면 된다
  projectUp({ error: e?.pending ? e.message : `이어받기 실패: ${e.message}` });
@@ -23155,7 +23369,7 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
 
  // v916: 이미 만들어진 태스크를 이어받는다. 폴링이 끊긴 뒤(시간 초과·앱 종료)
  //   결과를 되찾는 유일한 길이다. 새로 만들지 않으므로 비용이 또 나가지 않는다.
- const resumeArkVideoTask = async (taskId, { onStatus, maxPolls = ARK_VIDEO_POLL_MAX } = {}) => {
+ const resumeArkVideoTask = async (taskId, { onStatus, onDone, maxPolls = ARK_VIDEO_POLL_MAX } = {}) => {
  const apiKey = arkKey();
  let status = 'queued', last = null;
  for (let i = 0; i < maxPolls; i++) {
@@ -23179,17 +23393,20 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  ? arkErrorMessage(status, JSON.stringify({ error: last?.error }))
  : '아직 만드는 중입니다. 조금 뒤에 다시 눌러주세요.');
  e.pending = !['failed', 'cancelled', 'expired'].includes(status);
+ e.taskId = taskId;   // v1187: 부른 쪽이 나중에 이어받을 수 있게 — 없으면 다시 사야 한다
  throw e;
  }
  const url = last?.content?.video_url || null;
  if (!url) throw new Error('영상 URL을 받지 못했습니다.');
+ rememberDraftFromTask(last);   // v1198
+ try { onDone?.(last); } catch {}
  return url;
  };
 
  // v1154: 초안 task ID 로 1080p 최종을 만든다. 2.5 는 최종 해상도로 1080p 만 받는다.
  //   프롬프트 · 레퍼런스 · 길이 · 화면비 · 시드 · 오디오 설정은 다시 보내지 않는다 —
  //   값이 같아도 오류다(문서). 초안 ID 는 만든 지 7일까지만 쓸 수 있다.
- const callSeedanceFinalFromDraft = async (draftTaskId, { onStatus } = {}) => {
+ const callSeedanceFinalFromDraft = async (draftTaskId, { onStatus, dur, aspect } = {}) => {
   const apiKey = arkKey();
   const body = {
    model: ARK_MODELS.video25,
@@ -23208,12 +23425,62 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
   try { task = JSON.parse(createText); } catch {}
   const id = task?.id;
   if (!id) throw new Error(`태스크 ID를 받지 못했습니다: ${createText.slice(0, 200)}`);
-  const url = await resumeArkVideoTask(id, { onStatus });
+  let fin = null;
+  const url = await resumeArkVideoTask(id, { onStatus, onDone: (t) => { fin = t; } });
+  // v1198: 요금 기록을 여기 한 곳에서 — 서버가 알려 준 토큰이 있으면 그것으로, 없으면 예상값으로
+  try {
+   const info = draftCostInfo(draftTaskId);
+   const tokens = Number(fin && fin.usage && fin.usage.completion_tokens) || 0;
+   const usd = tokens ? (tokens * arkVideoRate('1080p', !!(info && info.videoIn), 'video25')) / 1e6
+    : estimateDraftFinalCost(draftTaskId, { dur, aspect }).usd;
+   recordCreditUsage(usd, 'video', { workCat: 'video' });
+  } catch {}
   return { url, taskId: id };
  };
 
  // v1165: 초안으로 뽑은 기록을 1080p 최종으로 올린다(커스텀 · 부가콘텐츠 공용).
  //   프롬프트 · 레퍼런스 · 길이 · 화면비 · 시드는 모델이 초안에서 그대로 가져온다.
+ // v1194: 시간만 넘긴 생성을 기록에 남기는 모양. loading 을 내려야 앱을 다시 켜도
+ //   남는다(돌던 작업은 복원에서 빠진다 — sessionReviveState).
+ const jobPendingPatch = (e, extra) => ({ loading: false, phase: '', error: '',
+  pendingTaskId: e.taskId, pendingAt: Date.now(), ...(extra || {}) });
+ const GEN_PENDING_MSG = `생성이 ${Math.round(ARK_VIDEO_POLL_MAX * ARK_VIDEO_POLL_MS / 60000)}분을 넘겼습니다. 서버에서는 계속 만들고 있습니다 — `
+  + '기록의 [결과 이어받기] 를 눌러 결과만 되찾으세요. 다시 뽑으면 요금이 한 번 더 듭니다.';
+ // v1194: 남아 있는 태스크에서 결과만 되찾는다(다시 만들지 않는다 — 요금이 더 들지 않는다).
+ //   초안이었으면 그 task id 가 곧 초안 id 다 — 1080p 변환에 그대로 쓴다.
+ const resumeGenJob = async (setData, ws, job) => {
+  const tid = job && job.pendingTaskId;
+  if (!tid) return;
+  const up2 = (patch) => setData(p => (typeof patch === 'function' ? patch(p) : { ...p, ...patch }));
+  const mapJob = (fn) => up2(p => ({ ...p, jobs: (p.jobs || []).map(j => (j.id === job.id ? fn(j) : j)) }));
+  mapJob(j => ({ ...j, loading: true, error: '', phase: '결과 이어받는 중', ts: Date.now(), estSec: 600 }));
+  up2({ error: '' });
+  try {
+   const url = await resumeArkVideoTask(tid, {
+    onStatus: (st) => mapJob(j => ({ ...j, phase: st === 'queued' ? '대기열에서 기다리는 중' : '결과 이어받는 중' })) });
+   mapJob(j => ({ ...j, phase: '받아두는 중' }));
+   const kept = await keepGenResult(ws, job.id, url, 'mp4');
+   const wasDraft = !!job.pendingDraft;
+   // 7일은 만든 때부터 센다 — 넘긴 시각은 만든 때보다 폴링 한도만큼 뒤라 그만큼 당긴다
+   const madeAt = Math.max(0, (job.pendingAt || Date.now()) - ARK_VIDEO_POLL_MAX * ARK_VIDEO_POLL_MS);
+   up2(p => ({ ...p, error: '', jobs: (p.jobs || []).map(j => (j.id === job.id ? { ...j, loading: false, phase: '', ...kept,
+    pendingTaskId: '', pendingAt: 0, pendingDraft: false,
+    ...(wasDraft ? { isDraft: true, draftTaskId: tid, draftAt: madeAt, draftWs: ws } : {}) } : j)),
+    selectedUrl: p.selectedUrl || kept.resultUrl }));
+   try { showToast('결과를 되찾았습니다.', 'load'); } catch {}
+  } catch (e) {
+   if (e?.pending) {
+    // 아직 만드는 중 — id 를 그대로 두고 다시 누를 수 있게
+    mapJob(j => ({ ...j, loading: false, phase: '' }));
+    up2({ error: '아직 서버에서 만드는 중입니다. 조금 뒤 [결과 이어받기] 를 다시 눌러주세요.' });
+   } else {
+    const msg = String((e && e.message) || e);
+    mapJob(j => ({ ...j, loading: false, phase: '', error: msg, pendingTaskId: '', pendingAt: 0, pendingDraft: false }));
+    up2({ error: `이어받기 실패: ${msg}` });
+   }
+  }
+ };
+
  const DRAFT_TTL = 7 * 24 * 3600 * 1000;
  const runDraftFinal = async (setData, ws, job) => {
   const tid = job && job.draftTaskId;
@@ -23229,12 +23496,16 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
   const estSec = estSecFor(durKeyVideo('1080p', fDur, false), estVideoGenSeconds('1080p', fDur));
   up2(p => ({ ...p, error: '', jobs: [{ id: fid, loading: true, phase: '1080p 최종 생성 중', ts: Date.now(), estSec, params }, ...(p.jobs || [])] }));
   try {
-   const { url } = await callSeedanceFinalFromDraft(tid);
+   const { url } = await callSeedanceFinalFromDraft(tid, { dur: fDur, aspect: job.params?.aspect });
    up2(p => ({ ...p, jobs: (p.jobs || []).map(j => (j.id === fid ? { ...j, phase: '받아두는 중' } : j)) }));
    const kept = await keepGenResult(ws, fid, url, 'mp4');
    up2(p => ({ ...p, jobs: (p.jobs || []).map(j => (j.id === fid ? { ...j, loading: false, phase: '', ...kept } : j)), selectedUrl: kept.resultUrl }));
-   try { recordCreditUsage(estimateSeedance2Cost(fDur, '1080p', job.params?.aspect || '16:9', { tier: 'video25' }), 'video', { workCat: 'video' }); } catch {}
   } catch (e) {
+   // v1194: 시간만 넘긴 것이면 id 를 남긴다 — 다시 누르면 1080p 를 한 번 더 산다
+   if (e?.pending && e?.taskId) {
+    up2(p => ({ ...p, error: GEN_PENDING_MSG, jobs: (p.jobs || []).map(j => (j.id === fid ? { ...j, ...jobPendingPatch(e, { pendingDraft: false }) } : j)) }));
+    return;
+   }
    const msg = String((e && e.message) || e);
    up2(p => ({ ...p, error: `최종 생성 실패: ${msg}`, jobs: (p.jobs || []).map(j => (j.id === fid ? { ...j, loading: false, phase: '', error: msg } : j)) }));
   }
@@ -23249,6 +23520,70 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  const k = (arkApiKey || (typeof window !== 'undefined' ? window.__OXYZN_ARK_API_KEY__ : '') || '').trim();
  if (!k) throw new Error(apiKeyHelp('BytePlus ModelArk API'));
  return k;
+ };
+
+ // v1195: 서버에 남은 영상 작업 목록(최근 7일). 한 쪽 20개씩(문서 기본값) 끝까지 받는다.
+ //   상한을 둔다 — 7일 치가 수백 개여도 화면에서 쓸 것은 최근 것이다.
+ const loadArkTasks = async () => {
+  setArkTaskList(p => ({ ...p, loading: true, err: '' }));
+  try {
+   const key = arkKey();
+   const PS = 20, MAX_PAGES = 15;
+   const items = [];
+   let total = 0;
+   for (let pg = 1; pg <= MAX_PAGES; pg += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    const r = await fetch(`${ARK_BASE}/contents/generations/tasks?page_num=${pg}&page_size=${PS}`, {
+     headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' } });
+    // eslint-disable-next-line no-await-in-loop
+    const txt = await r.text();
+    if (!r.ok) throw new Error(arkErrorMessage(r.status, txt));
+    let j = {};
+    try { j = JSON.parse(txt); } catch { throw new Error('ModelArk 응답을 해석할 수 없습니다.'); }
+    const got = Array.isArray(j.items) ? j.items : [];
+    total = Number(j.total) || total;
+    items.push(...got);
+    if (got.length < PS || (total && items.length >= total)) break;
+   }
+   items.sort((a, b) => (Number(b.created_at) || 0) - (Number(a.created_at) || 0));
+   setArkTaskList(p => ({ ...p, loading: false, err: '', items, total: total || items.length, at: Date.now() }));
+  } catch (e) {
+   setArkTaskList(p => ({ ...p, loading: false, err: String((e && e.message) || e) }));
+  }
+ };
+ // v1195: 되찾은 영상을 넣을 탭. 세 공용 워크스페이스는 순번(narrJobSeq)을 같이 쓴다.
+ const ARK_RECOVER_TARGETS = [
+  { id: 'video-pov', label: 'POV', set: setVideoPovData, seq: narrJobSeq },
+  { id: 'video-narrative', label: '내러티브', set: setVideoNarrativeData, seq: narrJobSeq },
+  { id: 'video-documentary', label: '다큐', set: setVideoDocuData, seq: narrJobSeq },
+  { id: 'video-custom', label: '커스텀', set: setVideoCustomData, seq: videoJobSeq },
+  { id: 'video-extra', label: '부가콘텐츠', set: setExtraData, seq: extraJobSeq },
+ ];
+ // v1195: 서버의 결과를 받아 두고 고른 탭의 생성 기록에 넣는다(다시 만들지 않는다 —
+ //   요금이 더 들지 않는다). 초안이었으면 그 task id 가 곧 초안 id 라 1080p 로 올릴 수 있다.
+ const recoverArkTask = async (task, wsId) => {
+  const tgt = ARK_RECOVER_TARGETS.find(t => t.id === wsId);
+  const url = task && task.content && task.content.video_url;
+  if (!tgt || !url) return;
+  setArkTaskList(p => ({ ...p, busyId: task.id, err: '' }));
+  try {
+   const id = `rec_${task.id}`;
+   const kept = await keepGenResult(tgt.id, id, url, 'mp4');
+   rememberDraftFromTask(task);   // v1198
+   tgt.seq.current += 1;
+   const made = (Number(task.created_at) || 0) * 1000;
+   const note = '(서버에서 되찾은 영상)';
+   const job = { id, version: tgt.seq.current, loading: false, phase: '', ts: made || Date.now(), ...kept,
+    recoveredFrom: task.id,
+    params: { resolution: task.resolution || '', duration: Number(task.duration) || 0, aspect: task.ratio || '16:9',
+     situation: note, prompt: note, ...(task.draft_task_id ? { fromDraft: task.draft_task_id } : {}) },
+    ...(task.draft ? { isDraft: true, draftTaskId: task.id, draftAt: made, draftWs: tgt.id } : {}) };
+   tgt.set(p => ({ ...p, jobs: [job, ...(p.jobs || []).filter(j => j.id !== id)] }));
+   setArkTaskList(p => ({ ...p, busyId: '', done: { ...(p.done || {}), [task.id]: tgt.label } }));
+   try { showToast(`${tgt.label} 생성 기록에 넣었습니다${task.draft ? ' — 초안이라 1080p 로 변환할 수 있습니다' : ''}.`, 'load'); } catch {}
+  } catch (e) {
+   setArkTaskList(p => ({ ...p, busyId: '', err: `받아 오기 실패: ${(e && e.message) || e}` }));
+  }
  };
 
  // v832: Assets API 호출 — AK/SK 서명은 메인 프로세스가 만든다.
@@ -23339,6 +23674,35 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  setActorAssetLib(p => ({ ...p, loading: false, err: e.message || '배우 자산을 불러오지 못했습니다.' }));
  return null;
  }
+ };
+
+ // v1189: AIGC 인증 자산을 불러온다. 배우 쪽(loadActorAssets)과 하는 일은 같고
+ //   GroupType 만 다르다. 배우 쪽은 여러 화면이 기대고 있어 건드리지 않는다.
+ const loadAigcAssets = async () => {
+  setAigcAssetLib(p => ({ ...p, loading: true, err: '' }));
+  try {
+   const [gr, as] = await Promise.all([
+    arkOpenapiCall('ListAssetGroups', { Filter: { GroupType: 'AIGC' }, PageNumber: 1, PageSize: 100 }),
+    arkOpenapiCall('ListAssets', { Filter: { GroupType: 'AIGC' }, PageNumber: 1, PageSize: 100,
+     SortBy: 'CreateTime', SortOrder: 'Desc' }),
+   ]);
+   const groups = ((gr && gr.Items) || []).map(g => ({
+    id: String(g.Id || ''), name: String(g.Name || ''), description: String(g.Description || ''),
+    createTime: String(g.CreateTime || ''), assets: [],
+   })).filter(g => g.id);
+   const byId = new Map(groups.map(g => [g.id, g]));
+   for (const it of ((as && as.Items) || [])) {
+    const g = byId.get(String(it.GroupId || ''));
+    if (!g) continue;
+    g.assets.push({ id: String(it.Id || ''), name: String(it.Name || ''), url: String(it.URL || ''),
+     status: String(it.Status || ''), assetType: String(it.AssetType || 'Image') });
+   }
+   setAigcAssetLib({ loading: false, err: '', loadedAt: Date.now(), groups });
+   return groups;
+  } catch (e) {
+   setAigcAssetLib(p => ({ ...p, loading: false, err: e.message || '인증 자산을 불러오지 못했습니다.' }));
+   return null;
+  }
  };
 
  // v844: 배우 탭을 누르는 순간 네트워크를 가면, 다른 탭과 달리 빈 화면이 잠깐 떠서
@@ -23868,11 +24232,15 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  // 프롬프트 토큰을 ModelArk 표기로 변환 (@Image1 / [Image1] → Image 1)
  content.push({ type: 'text', text: arkRefTokens(prompt) });
 
- // v1182: 레퍼런스는 프레임과 함께 간다. 프레임이 있다고 얼굴 · 의상을
- //   버릴 이유가 없다 — 프레임은 첫 컷과 끝 컷의 그림이고, 레퍼런스는 누구인가다.
+ // v1182: 레퍼런스는 프레임과 함께 간다 — 프레임은 첫 컷의 그림이고, 레퍼런스는 누구인가다.
  //   ★ 순서가 중요하다. 프롬프트의 Image 1 은 첫 번째 reference_image 여야 하므로
  //     레퍼런스를 먼저 싣고 프레임을 뒤에 붙인다.
- for (const u of imageUrls) content.push(asImageEntry(u, 'reference_image'));
+ // v1191: 단, 끝 프레임이 있으면 싣지 않는다. ModelArk 가 last_frame 과
+ //   reference_image 를 한 요청에 받지 않는다(400). 부르는 쪽이 번호 토큰을
+ //   이미 걷었어야 한다 — 여기는 마지막 방어선이다.
+ const withLastFrame = !!(firstFrame && endFrame);
+ if (!withLastFrame) for (const u of imageUrls) content.push(asImageEntry(u, 'reference_image'));
+ else if (imageUrls.length) console.warn(`[ark] 끝 프레임이 있어 레퍼런스 이미지 ${imageUrls.length}장을 싣지 않았습니다 — ModelArk 가 함께 받지 않습니다.`);
  if (firstFrame) {
  // v1132: 프레임도 공개 주소로 올려 보낸다 — data URL 을 그대로 실으면 요청이 413 으로 막힌다(v1000)
  content.push(asImageEntry(await asPublicUrl(firstFrame, '시작 프레임'), 'first_frame'));
@@ -23994,6 +24362,8 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  ? (tokens * arkVideoRate(res, hasVideoInput, tierKey)) / 1e6
  : estimateSeedance2Cost(dur, res, aspForCost, { tier: tierKey, hasVideoInput, inputSec: dur });
  recordCreditUsage(usd, 'video', { workCat: 'video' });
+ // v1198: 초안이면 1080p 변환 요금을 미리 셀 수 있게 실제 토큰을 남긴다
+ if (draft) rememberDraftCost(taskId, { tokens, videoIn: hasVideoInput, dur, ratio: aspForCost });
  } catch {}
  return url;
  };
@@ -24013,6 +24383,8 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  'claude-haiku-4-5': { input: 1.00, output: 5.00 },
  'claude-sonnet-4-5': { input: 3.00, output: 15.00 },
  'claude-opus-4-5': { input: 15.00, output: 75.00 },
+ 'claude-opus-5': { input: 5.00, output: 25.00 },     // v1196
+ 'claude-opus-5-5': { input: 4.00, output: 20.00 },   // v1196
  };
  const getClaudePrice = (model) => CLAUDE_PRICING[model] || CLAUDE_PRICING['claude-sonnet-4-5'];
  // 음악 비용: 길이(초) × $0.0025/초 (elevenlabs/music 추정치, 분당 ~$0.15)
@@ -32105,6 +32477,7 @@ ${sampleText}`;
  const isCostume = slot === 'costume';
  const isVoice = kind === 'voices';   // v1175: 소리만 받는 창
  const kindLabel = isCostume ? '의상' : kind === 'voices' ? '보이스'   // v1173
+  : kind === 'frames' ? '프레임'   // v1189
   : (PROJECT_REF_KINDS.find(x => x.k === kind)?.label || '');
  const sources = PROJECT_REF_SOURCES[isCostume ? 'costume' : kind] || [];
  const cur = sources.find(x => x.id === source) || sources[0];
@@ -32140,6 +32513,18 @@ ${sampleText}`;
  assetUri: a.id ? `asset://${a.id}` : '',
  // v924: 배우도 보이스를 갖는다. 캐릭터와 같은 방식으로 함께 물고 온다.
  voiceUrl: voiceRefSrc(actorVoices[g.id]) || '', voiceName: actorVoices[g.id]?.name || '' });
+ }));
+ } else if (source === 'aigcFrame' || source === 'aigcChar') {
+ // v1189: AIGC 인증 자산. POV 에서 등록한 프레임 그룹은 설명에 '프레임' 이 들어간다
+ //   (registerFrameAsset 이 'POV 시작·끝 프레임' 으로 단다). 나머지는 캐릭터 자산이다.
+ //   영상 자산 · 실패한 자산은 프레임이 될 수 없으므로 뺀다.
+ // v1190: 판정은 isFrameAssetGroup 한 곳 — '처리 중' 개수와 같은 기준이어야 한다.
+ (aigcAssetLib.groups || []).filter(g => (source === 'aigcFrame') === isFrameAssetGroup(g)).forEach(g => (g.assets || []).forEach(a => {
+  const isImage = String(a.assetType || 'Image').toLowerCase() === 'image';
+  const ok = !a.status || String(a.status).toLowerCase() === 'active';
+  if (!isImage || !ok) return;
+  items.push({ name: a.name || g.name || '자산', assetId: g.id || '', assetUrl: a.url || '', source,
+   assetUri: a.id ? `asset://${a.id}` : '' });
  }));
  } else if (source === 'character') {
  // v1119: 아카이브와 같은 폴더로 거른다. 지워진 폴더 id 를 가진 캐릭터는 미분류로 본다
@@ -32209,11 +32594,36 @@ ${sampleText}`;
  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 12 }}>
  {sources.map(sc => (
  <button key={sc.id} type="button"
- onClick={() => { setProjectRefPicker(v => ({ ...v, source: sc.id })); if (sc.id === 'actor' && !actorAssetLib.loadedAt && !actorAssetLib.loading) loadActorAssets(); }}
+ onClick={() => { setProjectRefPicker(v => ({ ...v, source: sc.id })); if (sc.id === 'actor' && !actorAssetLib.loadedAt && !actorAssetLib.loading) loadActorAssets();
+  // v1190: 한 번만 받으면 그 뒤에 등록한 자산이 안 뜬다 — 누를 때마다 받는다(약 0.1초)
+  if (/^aigc/.test(sc.id) && !aigcAssetLib.loading) loadAigcAssets(); }}
  className={source === sc.id ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}>
  {sc.label}
  </button>
  ))}
+ {/* v1190: 인증 자산은 서버에 있다 — 등록 직후 · 처리 중인 것을 여기서 가늠한다 */}
+ {(/^aigc/.test(source) || source === 'actor') && (() => {
+  const isAigc = /^aigc/.test(source);
+  const lib = isAigc ? aigcAssetLib : actorAssetLib;
+  const groups = (lib.groups || []).filter(g => !isAigc || (source === 'aigcFrame') === isFrameAssetGroup(g));
+  const pending = groups.reduce((n, g) => n + (g.assets || []).filter(a => {
+   const st = String(a.status || '').toLowerCase();
+   return st && st !== 'active' && st !== 'failed';
+  }).length, 0);
+  return (<>
+   {pending > 0 && (
+    <span className="micro" style={{ alignSelf: 'center', color: 'var(--state-warning)', fontWeight: 700 }}
+     title="등록 직후에는 ModelArk 가 심사하느라 몇십 초~몇 분 걸립니다. 끝나면 목록에 뜹니다.">
+     ⏳ 처리 중 {pending}개
+    </span>
+   )}
+   <button type="button" className="btn btn-ghost btn-sm" disabled={lib.loading}
+    onClick={() => (isAigc ? loadAigcAssets() : loadActorAssets())}
+    title="서버에서 목록을 다시 받습니다">
+    <RefreshCw size={11} className={lib.loading ? 'spin' : ''} /> {lib.loading ? '받는 중' : '새로고침'}
+   </button>
+  </>);
+ })()}
  {/* v1174: onPick 으로 빌려 쓰는 창(부가콘텐츠 · 보이스)에는 이 버튼이 뜻이 없다.
      sceneKey 가 없어서 누르면 없는 씬에 이름을 다는 셈이 된다. */}
  {!targetId && !projectRefPicker.onPick && (
@@ -32278,6 +32688,10 @@ ${sampleText}`;
  <div style={{ padding: '40px 10px', textAlign: 'center' }}>
  <div className="meta" style={{ color: 'var(--text-quaternary)', lineHeight: 1.8 }}>
  {source === 'actor' && actorAssetLib.loading ? '배우 자산을 불러오는 중…'
+ : /^aigc/.test(source) && aigcAssetLib.loading ? '인증 자산을 불러오는 중…'
+ : /^aigc/.test(source) && aigcAssetLib.err ? `인증 자산을 불러오지 못했습니다 — ${aigcAssetLib.err}`
+ : source === 'aigcFrame' ? '아직 쓸 수 있는 프레임이 없습니다. 슬롯에 그림을 넣고 [인증 자산으로 등록] 을 누르면 여기에 쌓입니다. 방금 등록했다면 처리가 끝나야 뜹니다 — 위의 새로고침을 눌러 보세요.'
+ : source === 'aigcChar' ? '인증 자산으로 등록한 캐릭터가 없습니다.'
  : source === 'actor' ? '인증된 배우 자산이 없습니다.'
  : source === 'character' ? ((characterLibrary || []).some(c => !c.deletedAt) ? '이 폴더에 캐릭터가 없습니다.' : '캐릭터 라이브러리가 비어 있습니다.')
  : '해당하는 시트가 없습니다.'}
@@ -33950,7 +34364,9 @@ ${sampleText}`;
  <div style={{ maxWidth: 1180, margin: '0 auto', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 300px', gap: 16, alignItems: 'start' }}>
  {/* 왼쪽 — 영상 */}
  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
- <div className="card" style={{ padding: 0, overflow: 'hidden', background: '#0e1116' }}>
+ <div className="card" style={{ padding: 0, overflow: 'hidden', background: '#0e1116', position: 'relative' }}>
+ {/* v1188: 이 버전이 무엇인지 — 1080p 로 올린 것 · 초안 · 해상도 */}
+ <ProjectVerBadge upgraded={cur.clipUpgraded} isDraft={cur.clipIsDraft} res={cur.clipRes} big />
  {/* v934: 받아둔 파일을 먼저 쓴다. 못 열리면 원본 주소로 한 번 되돌린다. */}
  <video key={cur.id} src={projectClipSrc(cur)} controls autoPlay loop playsInline
  onError={(e) => {
@@ -33985,11 +34401,14 @@ ${sampleText}`;
  const isCur = g.id === cur.id;
  return (
  <button key={g.id} type="button"
- title={`${sceneTag(gp)}${gp.place ? ` · ${gp.place}` : ''} · ${g.sec}초`}
+ title={`${sceneTag(gp)}${gp.place ? ` · ${gp.place}` : ''} · ${g.sec}초${g.clipIsDraft ? ' · 초안 480p' : ''}`}
  onClick={() => goTo(g.id)}
  style={{ width: isCur ? 22 : 8, height: 8, borderRadius: 999, padding: 0, cursor: 'pointer',
  border: 'none', transition: 'width .16s',
- background: isCur ? 'var(--green-500)' : 'var(--border-strong)' }} />
+ /* v1187: 초안은 주황 — 어느 클립이 아직 480p 인지 한눈에 */
+ background: g.clipIsDraft
+  ? (isCur ? 'var(--state-warning)' : 'color-mix(in srgb, var(--state-warning) 70%, transparent)')
+  : (isCur ? 'var(--green-500)' : 'var(--border-strong)') }} />
  );
  })}
  </div>
@@ -34019,15 +34438,47 @@ ${sampleText}`;
  {!!(cur.takes || []).length && (
  <div className="card" style={{ padding: '12px 16px' }}>
  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
- <span style={{ fontSize: 12.5, fontWeight: 700 }}>이전에 뽑은 것</span>
- <span className="micro" style={{ color: 'var(--text-quaternary)' }}>{cur.takes.length}개 · 최근 순</span>
+ {/* v1188: 지금 버전도 함께 놓는다. 어느 것이 다음 클립으로 넘어가는지를
+     목록 안에서 견줘 볼 수 있어야 한다 — 초안과 1080p 가 나란히 있을 때 특히. */}
+ <span style={{ fontSize: 12.5, fontWeight: 700 }}>이 구간의 버전</span>
+ <span className="micro" style={{ color: 'var(--text-quaternary)' }}>{cur.takes.length + 1}개 · 최근 순</span>
  <span className="micro" style={{ marginLeft: 'auto', color: 'var(--text-quaternary)' }}>
- 되돌리면 지금 것이 이 목록으로 들어갑니다
+ 초록 테두리가 다음 클립으로 넘어가는 버전 · 되돌리면 바뀝니다
  </span>
  </div>
  <div style={{ display: 'flex', gap: 9, overflowX: 'auto', paddingBottom: 2 }}>
+ {/* v1188: 지금 버전 — 다음 클립이 Video 1 로 이어받는 것. 같은 씬에 뒤 클립이
+     있고 앞 클립 연결이 켜져 있을 때만 실제로 넘어간다. 그렇지 않으면 그렇다고 적는다. */}
+ {(() => {
+  const scAll = projectGroupByScene(d.segments).find(gp => gp.items.some(it => it.seg.id === cur.id));
+  const ixAll = scAll ? scAll.items.findIndex(it => it.seg.id === cur.id) : -1;
+  const contOn = projectContVideoOn(d);
+  const hasNext = !!scAll && ixAll >= 0 && ixAll < scAll.items.length - 1;
+  const handsOff = hasNext && contOn;
+  return (
+   <div style={{ flex: '0 0 172px', border: '2px solid var(--green-500)', borderRadius: 8, overflow: 'hidden',
+    background: 'var(--bg-secondary)', position: 'relative', boxShadow: '0 0 0 3px color-mix(in srgb, var(--green-500) 18%, transparent)' }}>
+    <ProjectVerBadge upgraded={cur.clipUpgraded} isDraft={cur.clipIsDraft} res={cur.clipRes} />
+    <video src={projectClipSrc(cur)} controls preload="metadata" playsInline
+     style={{ width: '100%', display: 'block', background: '#000', aspectRatio: '16/9' }} />
+    <div style={{ padding: '7px 9px' }}>
+     <div className="micro" style={{ color: 'var(--text-quaternary)' }}>
+      {projectVerLabel(projectGenNos(cur)[0]) && <strong style={{ color: 'var(--text-secondary)', marginRight: 5 }}>{projectVerLabel(projectGenNos(cur)[0])}</strong>}
+      {cur.clipTs ? fmtProjectTime(cur.clipTs) : '시각 미상'}
+     </div>
+     <div className="micro" style={{ marginTop: 4, fontWeight: 800,
+      color: handsOff ? 'var(--green-700)' : 'var(--text-tertiary)' }}>
+      {handsOff ? '▶ 다음 클립이 이어받음'
+       : !hasNext ? '지금 버전 · 씬의 마지막 클립'
+       : '지금 버전 · 앞 클립 연결 꺼짐'}
+     </div>
+    </div>
+   </div>
+  );
+ })()}
  {cur.takes.map((tk, ti) => (
- <div key={ti} style={{ flex: '0 0 172px', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', background: 'var(--bg-secondary)' }}>
+ <div key={ti} style={{ flex: '0 0 172px', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', background: 'var(--bg-secondary)', position: 'relative' }}>
+ <ProjectVerBadge upgraded={tk.upgraded} isDraft={tk.isDraft} res={tk.res} />   {/* v1188 */}
  <video src={tk.file ? localFileUrl(tk.file) : tk.url} controls preload="metadata" playsInline
  onError={(e) => { const el = e.currentTarget;
  if (tk.url && el.dataset.fellBack !== '1' && el.src !== tk.url) { el.dataset.fellBack = '1'; el.src = tk.url; } }}
@@ -34066,14 +34517,10 @@ ${sampleText}`;
  const off = g2.clipUrl ? 1 : 0;
  const stamped = (g2.takes || []).map((t, k) => ({ ...t, genNo: t.genNo || nos[k + off] || 0 }));
  const rest = stamped.filter((_, k) => k !== ti);
- const nowTake = g2.clipUrl
- ? [{ url: g2.clipUrl, file: g2.clipFile || '', ts: g2.clipTs || 0, prompt: g2.prompt || '', feedback: g2.feedback || '', genNo: nos[0] || 0,
-    isDraft: !!g2.clipIsDraft, draftTaskId: g2.clipDraftTaskId || '', draftAt: g2.clipDraftAt || 0 }]   // v1168
- : [];
- return { ...g2, clipUrl: tk.url, clipFile: tk.file || '', clipTs: tk.ts || Date.now(), prompt: tk.prompt || '',
- // v1168: 초안 표시를 되살린다 — 이게 없으면 480p 를 다음 클립이 이어받는다
- clipIsDraft: !!tk.isDraft, clipDraftTaskId: tk.draftTaskId || '', clipDraftAt: tk.draftAt || 0,
- clipPubUrl: '',   // v1168: 올려둔 사본은 밀려난 클립의 것이다
+ const nowTake = projectClipToTake(g2, nos[0]);   // v1188
+ // v1188: 되살릴 필드는 projectTakeToClip 한 곳에서 정한다 — 초안 · 해상도 ·
+ //   업그레이드 표시 · 사본 비우기. 빠지면 480p 를 다음 클립이 이어받는다(v1168).
+ return { ...g2, ...projectTakeToClip(tk),
  clipGenNo: stamped[ti]?.genNo || 0, genSeq: Math.max(g2.genSeq || 0, ...nos.map(n => n || 0)),
  feedback: tk.feedback || '', takes: [...nowTake, ...rest].slice(0, 8) };
  }) }));
@@ -34176,16 +34623,47 @@ ${sampleText}`;
  style={{ marginTop: 8, width: '100%', justifyContent: 'center' }}>
  <Download size={13} /> 이 클립 저장{projectVerLabel(projectGenNos(cur)[0]) ? ` · ${projectVerLabel(projectGenNos(cur)[0])}` : ''}
  </button>
+ {/* v1187: 남은 초안으로 곧장 간다. 하나를 올리고 나면 그 클립은 최종이 되어
+     버튼이 사라지고, 나머지 초안이 어디 있는지 알 길이 없었다. */}
+ {(() => {
+  const drafts = done.filter(g => g.clipIsDraft && g.clipDraftTaskId);
+  if (!drafts.length) return null;
+  const others = drafts.filter(g => g.id !== cur.id);
+  // 지금 클립 다음부터 찾고, 없으면 처음으로 돌아간다
+  const after = others.find(g => done.indexOf(g) > at) || others[0] || null;
+  return (
+   <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8,
+    border: '1px solid color-mix(in srgb, var(--state-warning) 45%, transparent)',
+    background: 'color-mix(in srgb, var(--state-warning) 8%, transparent)' }}>
+    <span className="micro" style={{ flex: 1, fontSize: 11, color: 'var(--text-secondary)' }}>
+     아직 초안인 클립 <b>{drafts.length}개</b>{cur.clipIsDraft ? ' (이 클립 포함)' : ''}
+     {(() => {   // v1198: 전부 올리면 드는 돈
+      const all = drafts.map(g => estimateDraftFinalCost(g.clipDraftTaskId, { dur: g.sec, aspect: projectRatioOf(projectData) }));
+      const f = formatCostDisplay(all.reduce((a2, c2) => a2 + c2.usd, 0));
+      return <> · 모두 1080p 로 올리면 {all.every(c2 => c2.exact) ? '' : '약 '}{f.usd} ({f.krw})</>;
+     })()}
+    </span>
+    {after && (
+     <button type="button" className="btn btn-secondary btn-sm" onClick={() => goTo(after.id)}
+      title="다음 초안 클립으로 넘어갑니다">
+      다음 초안 <ChevronRight size={12} />
+     </button>
+    )}
+   </div>
+  );
+ })()}
  {/* v1162: 초안으로 뽑은 클립이면 여기서 1080p 로 올린다 */}
  {cur.clipIsDraft && cur.clipDraftTaskId && (() => {
   const old = (Date.now() - (cur.clipDraftAt || cur.clipTs || 0)) > PROJECT_DRAFT_TTL;
+  const fc = draftFinalCostLabel(cur.clipDraftTaskId, { dur: cur.sec, aspect: projectRatioOf(projectData) });   // v1198
   return (
    <button type="button" className="btn btn-primary" style={{ marginTop: 8, width: '100%', justifyContent: 'center' }}
-    disabled={!!projectGenJob || old}
-    title={old ? '초안 id 는 7일까지만 쓸 수 있습니다 — 초안을 다시 뽑아주세요'
-     : '초안과 똑같은 영상을 1080p 로 만듭니다 — 프롬프트 · 레퍼런스 · 시드가 같아 구성이 바뀌지 않습니다. 업스케일이 아니라 새 생성이라 1080p 요금이 듭니다. 초안은 이전 결과로 남습니다.'}
+    disabled={!!projectGenJob || old || !!cur.pendingTaskId}
+    title={cur.pendingTaskId ? '1080p 변환 결과를 기다리는 중입니다 — 3단계에서 [이어받기] 를 눌러주세요'
+     : old ? '초안 id 는 7일까지만 쓸 수 있습니다 — 초안을 다시 뽑아주세요'
+     : '초안과 똑같은 영상을 1080p 로 만듭니다 — 프롬프트 · 레퍼런스 · 시드가 같아 구성이 바뀌지 않습니다. 업스케일이 아니라 새 생성이라 1080p 요금이 듭니다. 초안은 이전 결과로 남습니다.' + draftFinalTip(fc)}
     onClick={() => handleProjectFinalFromDraft(cur)}>
-    1080p 로 변환{old ? ' · 기간 지남' : ''}
+    1080p 로 변환{old ? ' · 기간 지남' : ` · 예상 ${fc.text} (${fc.krw})`}
    </button>
   );
  })()}
@@ -38313,7 +38791,14 @@ ${sampleText}`;
   ? { ...j, loading: false, phase: '', ...vKept, ...(isDraft ? { isDraft: true, draftTaskId, draftAt: Date.now() } : {}) } : j),
   selectedUrl: p.selectedUrl || vKept.resultUrl }));
  // v741: 완료 알람은 중앙(progressItems 상태 전이)에서 발송 — 중복 제거
- } catch (e) { up(p => ({ ...p, error: `영상 생성 실패: ${e.message}`, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, error: e.message } : j) })); }
+ } catch (e) {
+  // v1194: 시간만 넘긴 것이면 버리지 않는다
+  if (e?.pending && e?.taskId) {
+   up(p => ({ ...p, error: GEN_PENDING_MSG, jobs: p.jobs.map(j => j.id === jobId ? { ...j, ...jobPendingPatch(e, { pendingDraft: !!v.draft }) } : j) }));
+   return;
+  }
+  up(p => ({ ...p, error: `영상 생성 실패: ${e.message}`, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, error: e.message } : j) }));
+ }
  };
  // v643: 피드백 = 사용자의 간결한 수정 의도를 Claude가 반영해 프롬프트를 다시 다듬어 재생성
  const doFeedback = async () => {
@@ -38394,6 +38879,14 @@ ${sampleText}`;
  <JobGauge job={job} style={{ marginTop: 6 }} />
  <div className="micro" style={{ marginTop: 5, fontSize: 9, color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}><JobTimer ts={job.ts} estSec={job.estSec} /></div>
  </div>
+ ) : job.pendingTaskId ? (
+ /* v1194: 시간을 넘겼지만 서버는 아직 만드는 중 — 결과만 되찾는다 */
+ <div style={{ textAlign: 'center', padding: 8, width: '100%' }}>
+  <div className="micro" style={{ fontSize: 9.5, fontWeight: 800, color: 'var(--state-warning)', lineHeight: 1.4 }}>⏳ 서버에서<br />아직 만드는 중</div>
+  <button type="button" className="btn btn-primary btn-sm" style={{ marginTop: 6, height: 24, fontSize: 10, padding: '0 9px' }}
+   onClick={(e) => { e.stopPropagation(); resumeGenJob(setVideoCustomData, 'video-custom', job); }}
+   title="다시 만들지 않고 서버에 남아 있는 결과만 받아 옵니다 — 요금이 더 들지 않습니다">결과 이어받기</button>
+ </div>
  ) : job.error ? (
  <><div style={{ textAlign: 'center', color: 'var(--state-error)', padding: 6 }}><AlertTriangle size={20} /><div className="micro" style={{ marginTop: 4, fontSize: 9, wordBreak: 'break-word', maxHeight: 46, overflow: 'hidden' }}>{job.error ? `실패: ${job.error}` : '생성 실패'}</div></div><button onClick={(e) => { e.stopPropagation(); up(p => ({ ...p, jobs: p.jobs.filter(j => j.id !== job.id) })); }} title="삭제" className="ff-hover-btns" style={{ ...iconBtn, position: 'absolute', top: 4, right: 4 }}><X size={11} /></button></>
  ) : (
@@ -38414,9 +38907,9 @@ ${sampleText}`;
   <button type="button" className="btn btn-secondary btn-sm"
    style={{ marginTop: 3, width: '100%', height: 22, fontSize: 9.5, padding: 0, justifyContent: 'center' }}
    disabled={(Date.now() - (job.draftAt || job.ts || 0)) > DRAFT_TTL}
-   title={(Date.now() - (job.draftAt || job.ts || 0)) > DRAFT_TTL ? '초안 id 는 7일까지만 쓸 수 있습니다' : '초안과 똑같은 영상을 1080p 로 만듭니다 — 프롬프트 · 레퍼런스 · 시드가 같아 구성이 바뀌지 않습니다. 업스케일이 아니라 새 생성이라 1080p 요금이 듭니다.'}
+   title={(Date.now() - (job.draftAt || job.ts || 0)) > DRAFT_TTL ? '초안 id 는 7일까지만 쓸 수 있습니다' : '초안과 똑같은 영상을 1080p 로 만듭니다 — 프롬프트 · 레퍼런스 · 시드가 같아 구성이 바뀌지 않습니다. 업스케일이 아니라 새 생성이라 1080p 요금이 듭니다.' + draftFinalTip(draftFinalCostLabel(job.draftTaskId, { dur: job.params?.duration, aspect: job.params?.aspect }))}
    onClick={(e) => { e.stopPropagation(); runDraftFinal(setVideoCustomData, 'video-custom', job); }}>
-   1080p 로 변환
+   1080p 로 변환 · {draftFinalCostLabel(job.draftTaskId, { dur: job.params?.duration, aspect: job.params?.aspect }).text}
   </button>
  )}
  </div>
@@ -39008,6 +39501,7 @@ ${sampleText}`;
     if (st === 'Active') {
      patchFrame(key, { assetId, assetPendingId: '' });
      try { showToast(`${label} — 자산 등록 완료 · 만료 없음`, 'load'); } catch {}
+     try { loadAigcAssets(); } catch {}   // v1190: 목록에도 곧바로 뜨게
      return;
     }
     if (st === 'Failed') throw new Error(arkAssetErrText(g2?.Error?.Code, g2?.Error?.Message));
@@ -39030,6 +39524,7 @@ ${sampleText}`;
    if (st === 'Active') {
     patchFrame(key, { assetId: f.assetPendingId, assetPendingId: '' });
     try { showToast(`${label} — 자산 등록 완료`, 'load'); } catch {}
+    try { loadAigcAssets(); } catch {}   // v1190
    } else if (st === 'Failed') {
     patchFrame(key, { assetPendingId: '' });
     up({ error: `${label} 자산 등록 실패: ${arkAssetErrText(g?.Error?.Code, g?.Error?.Message)}` });
@@ -39132,14 +39627,24 @@ ${sampleText}`;
  const frameEnd = isPov ? frameSrc(v.endFrame) : '';
  const frameExact = !!frameStart && (v.frameMode || 'exact') === 'exact';
  const frameLines = [];
+ const frameDropped = [];   // v1191: 끝 프레임 때문에 그림이 빠진 이름 — 본문에서 평범한 말로 되돌린다
  if (frameExact) {
-  // v1182: 예전에는 여기서 이미지 토큰 · 매니페스트 · imgList · 의상 지시를 전부
-  //   비웠다. 그 아래 전송이 프레임을 실으면 레퍼런스를 안 보냈기 때문인데,
-  //   그쪽을 고쳤으므로 여기서도 버리지 않는다 — 프레임을 걸었다고 배우가
-  //   누구인지까지 잊을 이유가 없다.
+  // v1191: 끝 프레임까지 고정하면 레퍼런스 이미지가 가지 않는다(ModelArk 제약 — 400).
+  //   보내지 않을 그림을 번호로 가리키면 모델이 그 번호를 프레임으로 읽는다.
+  //   번호 토큰 · 매니페스트 · 의상 지시를 함께 걷고, @이름 은 평범한 말로 남긴다.
+  //   시작 프레임만이면 레퍼런스가 함께 간다(v1182) — 걷지 않는다.
+  if (frameEnd) {
+   Object.keys(tokenMap).forEach(nm => { if (/^\[Image/.test(String(tokenMap[nm]))) { frameDropped.push(nm); delete tokenMap[nm]; } });
+   for (let k = manifest.length - 1; k >= 0; k -= 1) { if (/^\[Image/.test(String(manifest[k] || ''))) manifest.splice(k, 1); }
+   imgList.length = 0;
+   outfitDirectives.length = 0;
+  }
   frameLines.push(`FRAMES: the take opens exactly on the start frame${frameEnd ? ' and arrives exactly at the end frame in its final moment' : ''}. Everything in between moves from one to the other in a single continuous take.`);
-  frameLines.push('The frames set the opening and closing composition only. Who these people are — face, body, hair and'
-   + ' wardrobe — still comes from the reference images, and it does not change between the two frames.');
+  frameLines.push(frameEnd
+   ? 'The two frames are the only pictures of these people. Who they are — face, body, hair and wardrobe — is exactly'
+    + ' what the frames show, and it does not change between them.'
+   : 'The start frame sets the opening composition only. Who these people are — face, body, hair and wardrobe —'
+    + ' still comes from the reference images, and it does not change during the take.');
  } else if (frameStart || frameEnd) {
   const addKey = (src, label) => {
    if (!src || imgN >= 9) return '';
@@ -39175,6 +39680,9 @@ ${sampleText}`;
  let situationText = situationClean;
  Object.keys(tokenMap).sort((a, b) => b.length - a.length).forEach(nm => { situationText = situationText.split(`@${nm}`).join(tokenMap[nm]); });
  [...new Set(pendingNames)].sort((a, b) => b.length - a.length)
+  .forEach(nm => { situationText = situationText.split(`@${nm}`).join(nm); });
+ // v1191: 끝 프레임 때문에 그림이 빠진 이름도 평범한 말로
+ [...new Set(frameDropped)].sort((a, b) => b.length - a.length)
   .forEach(nm => { situationText = situationText.split(`@${nm}`).join(nm); });
  const jobId = `vn_${Date.now()}_${(narrJobSeq.current += 1)}`;
  // v643: 입력 스냅샷(상황묘사·설정·레퍼런스 4종) 저장 → 썸네일 클릭 시 복원
@@ -39258,10 +39766,16 @@ ${sampleText}`;
  // v1126: 본문의 괄호를 정리하고 사운드 두 줄을 앞뒤로 붙인다
  finalPrompt = soundChannelize(finalPrompt);
  finalPrompt = isPov
-  ? `${PROJECT_SOUND_RULE}\n\n${POV_FRAMING_LINE}\n\n${POV_STARTLE_RULE}`
+  // v1192: 놀람 조항은 상황 묘사가 놀람을 말할 때만 — 떨어뜨림 조항과 같은 방식
+  ? `${PROJECT_SOUND_RULE}\n\n${POV_FRAMING_LINE}`
+   + `${POV_STARTLE_CUE.test(situation) ? `\n\n${POV_STARTLE_RULE}` : ''}`
    + `${(v.camera === 'device' && /떨어뜨|떨어진|떨군|놓치|내려놓|drop/i.test(situation)) ? `\n\n${POV_DROP_LINE}` : ''}`
    + `\n\n${finalPrompt}\n\n${PROJECT_FINAL_LINE}`
   : `${PROJECT_SOUND_RULE}\n\n${finalPrompt}\n\n${PROJECT_FINAL_LINE}`;
+ // v1192: 실제로 보낸 전문을 남긴다. Claude 가 쓴 본문만 보여 주면 앞뒤에 코드가 붙이는
+ //   조항(사운드 · 화면 크기 · 놀람 · FINAL)이 안 보여 원인을 찾을 수 없다.
+ //   실패한 생성일수록 봐야 하므로 보내기 전에 적는다.
+ { const sent = finalPrompt; up(p => ({ ...p, jobs: p.jobs.map(j => (j.id === jobId ? { ...j, sentPrompt: sent } : j)) })); }
  // v789: 피드백 재생성 시 이전 결과 영상을 레퍼런스로 동반 (상한 3개·15초 안에서)
  // 피드백 재생성이 있으면 그쪽이 [Video1] 을 가져간다 — 자리가 겹치지 않게
  const vidsForRun = frameExact ? [] : [
@@ -39310,6 +39824,11 @@ ${sampleText}`;
   selectedUrl: p.selectedUrl || vKept.resultUrl }));
  // v741: 완료 알람은 중앙(progressItems 상태 전이)에서 발송 — 중복 제거
  } catch (e) {
+  // v1194: 시간만 넘긴 것이면 버리지 않는다
+  if (e?.pending && e?.taskId) {
+   up(p => ({ ...p, error: GEN_PENDING_MSG, jobs: p.jobs.map(j => j.id === jobId ? { ...j, ...jobPendingPatch(e, { pendingDraft: !!v.draft }) } : j) }));
+   return;
+  }
   let msg = String((e && e.message) || e);
   const cm = /content\[(\d+)\]/.exec(msg);
   if (cm && contentNames[Number(cm[1])]) msg += `\n→ content[${cm[1]}] = ${contentNames[Number(cm[1])]}`;
@@ -39333,14 +39852,17 @@ ${sampleText}`;
   up(p => ({ ...p, error: '', jobs: [{ id: fid, version: narrJobSeq.current, loading: true,
    phase: '1080p 최종 생성 중', ts: Date.now(), estSec, params }, ...p.jobs] }));
   try {
-   const { url } = await callSeedanceFinalFromDraft(tid);
+   const { url } = await callSeedanceFinalFromDraft(tid, { dur: fDur, aspect: job.params?.aspect || v.aspect });
    up(p => ({ ...p, jobs: p.jobs.map(j => (j.id === fid ? { ...j, phase: '받아두는 중' } : j)) }));
    const kept = await keepGenResult(job.draftWs || (isPov ? 'video-pov' : isDocu ? 'video-documentary' : 'video-narrative'), fid, url, 'mp4');
    up(p => ({ ...p, jobs: p.jobs.map(j => (j.id === fid ? { ...j, loading: false, phase: '', ...kept } : j)),
     selectedUrl: kept.resultUrl }));
-   // 최종은 이어받기 경로로 폴링해서 토큰을 못 받는다 — 문서 단가로 추정해 기록한다
-   try { recordCreditUsage(estimateSeedance2Cost(fDur, '1080p', job.params?.aspect || v.aspect, { tier: 'video25' }), 'video', { workCat: 'video' }); } catch {}
   } catch (e) {
+   // v1194: 시간만 넘긴 것이면 id 를 남긴다 — 다시 누르면 1080p 를 한 번 더 산다
+   if (e?.pending && e?.taskId) {
+    up(p => ({ ...p, error: GEN_PENDING_MSG, jobs: p.jobs.map(j => (j.id === fid ? { ...j, ...jobPendingPatch(e, { pendingDraft: false }) } : j)) }));
+    return;
+   }
    const msg = String((e && e.message) || e);
    up(p => ({ ...p, error: `최종 생성 실패: ${msg}`, jobs: p.jobs.map(j => (j.id === fid ? { ...j, loading: false, phase: '', error: msg } : j)) }));
   }
@@ -39431,7 +39953,18 @@ ${sampleText}`;
  </div>
  );
  })()}
- {selectedJob?.generatedPrompt && (<div className="card" style={{ padding: '14px 16px' }}><details><summary style={{ fontSize: 11, color: 'var(--text-tertiary)', cursor: 'pointer' }}>선택 영상의 Seedance 프롬프트 보기</summary><pre style={{ whiteSpace: 'pre-wrap', fontSize: 11, lineHeight: 1.6, marginTop: 8, color: 'var(--text-secondary)', maxHeight: 300, overflowY: 'auto' }}>{selectedJob.generatedPrompt}</pre></details></div>)}
+ {/* v1192: Seedance 가 실제로 받은 전문을 먼저 보여 준다. 전에는 Claude 가 쓴 본문만 보여 줘서
+     앞뒤에 코드가 붙이는 조항(사운드 · 화면 크기 · 놀람 · FINAL)이 안 보였다. */}
+ {(selectedJob?.sentPrompt || selectedJob?.generatedPrompt) && (<div className="card" style={{ padding: '14px 16px' }}>
+  <details><summary style={{ fontSize: 11, color: 'var(--text-tertiary)', cursor: 'pointer' }}>
+   {selectedJob.sentPrompt ? '선택 영상에 실제로 보낸 프롬프트 보기 · 전문' : '선택 영상의 프롬프트 보기 · 본문만 (전문을 남기기 전 기록)'}
+  </summary>
+  <pre style={{ whiteSpace: 'pre-wrap', fontSize: 11, lineHeight: 1.6, marginTop: 8, color: 'var(--text-secondary)', maxHeight: 360, overflowY: 'auto' }}>{selectedJob.sentPrompt || selectedJob.generatedPrompt}</pre></details>
+  {selectedJob.sentPrompt && selectedJob.generatedPrompt && (
+   <details style={{ marginTop: 8 }}><summary style={{ fontSize: 11, color: 'var(--text-quaternary)', cursor: 'pointer' }}>Claude 가 쓴 본문만</summary>
+   <pre style={{ whiteSpace: 'pre-wrap', fontSize: 11, lineHeight: 1.6, marginTop: 8, color: 'var(--text-secondary)', maxHeight: 300, overflowY: 'auto' }}>{selectedJob.generatedPrompt}</pre></details>
+  )}
+ </div>)}
  {jobs.length > 0 && (
  <div className="card" style={{ padding: '16px 18px' }}>
  <div className="micro" style={{ color: 'var(--green-700)', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 12 }}>🎬 생성 기록 ({jobs.length})</div>
@@ -39450,6 +39983,14 @@ ${sampleText}`;
  <div className="micro" style={{ marginTop: 2, fontSize: 9, color: 'var(--text-tertiary)' }}>{job.phase || '생성 중'}</div>
  <JobGauge job={job} style={{ marginTop: 5 }} />
  <div className="micro" style={{ marginTop: 4, fontSize: 9, color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}><JobTimer ts={job.ts} estSec={job.estSec} /></div>
+ </div>
+ ) : job.pendingTaskId ? (
+ /* v1194: 시간을 넘겼지만 서버는 아직 만드는 중 — 결과만 되찾는다 */
+ <div style={{ textAlign: 'center', padding: 8, width: '100%' }}>
+  <div className="micro" style={{ fontSize: 9.5, fontWeight: 800, color: 'var(--state-warning)', lineHeight: 1.4 }}>⏳ 서버에서<br />아직 만드는 중</div>
+  <button type="button" className="btn btn-primary btn-sm" style={{ marginTop: 6, height: 24, fontSize: 10, padding: '0 9px' }}
+   onClick={(e) => { e.stopPropagation(); resumeGenJob(setV, isPov ? 'video-pov' : isDocu ? 'video-documentary' : 'video-narrative', job); }}
+   title="다시 만들지 않고 서버에 남아 있는 결과만 받아 옵니다 — 요금이 더 들지 않습니다">결과 이어받기</button>
  </div>
  ) : job.error ? (
  <><div style={{ textAlign: 'center', color: 'var(--state-error)', padding: 6 }}><AlertTriangle size={20} /><div className="micro" style={{ marginTop: 4, fontSize: 9, wordBreak: 'break-word', maxHeight: 46, overflow: 'hidden' }}>{job.error ? `실패: ${job.error}` : '생성 실패'}</div></div><button onClick={(e) => { e.stopPropagation(); up(p => ({ ...p, jobs: p.jobs.filter(j => j.id !== job.id) })); }} title="삭제" className="ff-hover-btns" style={{ ...iconBtn, position: 'absolute', top: 4, right: 4 }}><X size={11} /></button></>
@@ -39474,9 +40015,9 @@ ${sampleText}`;
    disabled={anyLoading || (Date.now() - (job.draftAt || job.ts || 0)) > DRAFT_TTL_MS}
    title={(Date.now() - (job.draftAt || job.ts || 0)) > DRAFT_TTL_MS
     ? '초안 id 는 7일까지만 쓸 수 있습니다 — 초안을 다시 뽑아주세요'
-    : '초안과 똑같은 영상을 1080p 로 만듭니다 — 프롬프트 · 레퍼런스 · 시드가 같아 구성이 바뀌지 않습니다. 업스케일이 아니라 새 생성이라 1080p 요금이 듭니다.'}
+    : '초안과 똑같은 영상을 1080p 로 만듭니다 — 프롬프트 · 레퍼런스 · 시드가 같아 구성이 바뀌지 않습니다. 업스케일이 아니라 새 생성이라 1080p 요금이 듭니다.' + draftFinalTip(draftFinalCostLabel(job.draftTaskId, { dur: job.params?.duration || vDur, aspect: job.params?.aspect || v.aspect }))}
    onClick={(e) => { e.stopPropagation(); runFinalFromDraft(job); }}>
-   1080p 로 변환
+   1080p 로 변환 · {draftFinalCostLabel(job.draftTaskId, { dur: job.params?.duration || vDur, aspect: job.params?.aspect || v.aspect }).text}
   </button>
  )}
  </div>
@@ -39582,6 +40123,31 @@ ${sampleText}`;
    fr.onload = () => up({ [key]: { name: x.name, dataUrl: String(fr.result || '') } });
    fr.readAsDataURL(x);
   };
+  // v1189: 인증 자산에서 고른다. 보내는 것은 asset:// 라 실사 인물도 그대로 통과한다.
+  //   미리보기 주소는 12시간이면 죽으므로 받을 수 있으면 받아 둔다 — 못 받아도
+  //   생성에는 지장이 없다(보이는 그림만 안 나온다).
+  const pickFromAsset = () => {
+   setProjectRefPicker({ kind: 'frames', source: 'aigcFrame',
+    onPick: async (item) => {
+     const id = String(item.assetUri || '').replace(/^asset:\/\//, '');
+     if (!id) { up({ error: '이 자산의 id 를 읽지 못했습니다.' }); return; }
+     up({ [key]: { name: item.name || '인증 자산', dataUrl: '', previewUrl: item.assetUrl || '', assetId: id, fromAsset: true }, error: '' });
+     if (!item.assetUrl) return;
+     try {
+      const r = await fetch(item.assetUrl);
+      if (!r.ok) return;
+      const blob = await r.blob();
+      const du = await new Promise((res, rej) => { const fr2 = new FileReader(); fr2.onload = () => res(String(fr2.result || '')); fr2.onerror = rej; fr2.readAsDataURL(blob); });
+      const local = await storeUploadBytes(du, 'frame');
+      // 그 사이 다른 것으로 바꿨으면 덮지 않는다
+      if (local && !/^data:/.test(local)) up(p => (p[key] && p[key].assetId === id ? { ...p, [key]: { ...p[key], previewUrl: local } } : p));
+     } catch { /* 미리보기만 못 받은 것 — 보내는 건 asset:// 다 */ }
+    } });
+   setSingleDownloadsOpen(true);
+   // v1190: 열 때마다 새로 받는다 — 방금 등록한 프레임이 떠야 한다
+   if (!aigcAssetLib.loading) loadAigcAssets();
+   if (!actorAssetLib.loadedAt && !actorAssetLib.loading) loadActorAssets();
+  };
   return (
    <div style={{ flex: 1, minWidth: 0 }}>
     <div className="micro" style={{ marginBottom: 4, color: 'var(--text-secondary)', fontWeight: 700 }}>{label}</div>
@@ -39597,7 +40163,7 @@ ${sampleText}`;
        <X size={10} />
       </button>
      </div>
-    ) : (
+    ) : (<>
      <button type="button" className="ff-refadd" disabled={busy}
       onClick={() => document.getElementById(inputId)?.click()}
       onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('is-dragover'); }}
@@ -39608,7 +40174,13 @@ ${sampleText}`;
        justifyContent: 'center', gap: 2, fontSize: 10.5 }}>
       <Plus size={13} />이미지 · 드래그
      </button>
-    )}
+     {/* v1189: 인증 자산에서 바로 — 등록해 둔 프레임 · 배우 · 캐릭터 */}
+     <button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={pickFromAsset}
+      title="인증 자산에서 고릅니다 — 등록해 둔 프레임 · 배우(실인물) · 캐릭터. asset:// 로 보내므로 실사 인물도 심의를 통과합니다."
+      style={{ marginTop: 4, width: '100%', height: 24, fontSize: 10, padding: 0, justifyContent: 'center' }}>
+      인증 자산에서
+     </button>
+    </>)}
     {f && (() => {
      // v1146: 실사 인물이 든 프레임은 인증 자산으로 등록해야 레퍼런스로 들어간다
      const busy = v.frameAssetBusy === key;
@@ -39653,10 +40225,13 @@ ${sampleText}`;
     ))}
    </div>
    <div className="micro" style={{ marginTop: 6, lineHeight: 1.55,
-    color: (mode === 'exact' && v.startFrame) ? 'var(--state-warning)' : 'var(--text-quaternary)' }}>
+    color: (mode === 'exact' && v.startFrame && v.endFrame) ? 'var(--state-warning)' : 'var(--text-quaternary)' }}>
+    {/* v1191: ModelArk 는 끝 프레임과 레퍼런스 이미지를 함께 받지 않는다. 시작만이면 함께 간다. */}
     {mode === 'exact'
-     ? (v.startFrame
-       ? '시작 · 끝 그림이 그대로 나옵니다. 대신 이 방식에서는 인물 · 공간 · 오브제 레퍼런스 이미지와 앞 클립이 전송되지 않고, 화면비는 시작 그림을 따릅니다. 보이스는 그대로 갑니다.'
+     ? (v.startFrame && v.endFrame
+       ? '시작 · 끝 그림이 그대로 나옵니다. 끝 프레임을 고정하면 ModelArk 가 레퍼런스 이미지를 함께 받지 않아 인물 · 공간 · 오브제 레퍼런스가 빠지고, 인물은 두 그림 속 모습을 따릅니다. 레퍼런스가 필요하면 [레퍼런스 유지] 로 바꾸세요. 보이스는 그대로 갑니다.'
+       : v.startFrame
+       ? '시작 그림이 그대로 나오고, 인물 · 공간 · 오브제 레퍼런스도 함께 갑니다. 화면비는 시작 그림을 따르고, 앞 클립은 전송되지 않습니다.'
        : '정확히 방식은 시작 프레임이 있어야 합니다. 끝 프레임만 있으면 레퍼런스 유지 방식으로 보냅니다.')
      : '시작 · 끝 그림을 레퍼런스로 싣고 "여기서 시작해 여기서 끝난다" 고 적습니다. 다른 레퍼런스는 그대로 가지만, 그림과 완전히 같게 시작하지 않을 수 있습니다.'}
    </div>
@@ -40691,7 +41266,7 @@ ${VFX_AUDIO_RULE}${refBlock}`;
     ? '\n\n[이미 골라낸 대사 — 이 문장들만 옮기십시오]\n'
       + v.dlg.map(x => (x.who ? x.who + ': ' : '') + x.line).join('\n')
     : '';
-   const out = String(await callClaude(sys, situation + picked, { model: 'claude-opus-5', maxTokens: 3000, workCat: 'video' }) || '');   // v1122
+   const out = String(await callClaude(sys, situation + picked, { model: 'claude-opus-5-5', maxTokens: 3000, workCat: 'video' }) || '');   // v1122
    const m = /\[[\s\S]*\]/.exec(out);
    if (!m) throw new Error('대사를 찾지 못했습니다.');
    const arr = JSON.parse(m[0]);
@@ -40765,10 +41340,10 @@ ${VFX_AUDIO_RULE}${refBlock}`;
    // v1176: 레퍼런스와 대사를 함께 뽑는다. 둘 다 같은 글을 읽는 일이라 나란히 돌린다.
    const [out, dlgOut] = await Promise.all([
     callClaude(PROJECT_REF_EXTRACT_SYS, `[씬 key=x]\n${situation}`,
-     { model: 'claude-opus-5', maxTokens: 2400, workCat: 'video' }),   // v1122
+     { model: 'claude-opus-5-5', maxTokens: 2400, workCat: 'video' }),   // v1122
     callClaude(EXTRA_DLG_EXTRACT_SYS,
      (isInterview ? '[인터뷰 대본]\n' : '[상황 묘사]\n') + situation,
-     { model: 'claude-opus-5', maxTokens: 2400, workCat: 'video' }).catch(() => ''),
+     { model: 'claude-opus-5-5', maxTokens: 2400, workCat: 'video' }).catch(() => ''),
    ]);
    // 대사 뽑기가 실패해도 레퍼런스는 살린다 — 대사는 큰따옴표로 직접 적으면 된다
    let dlg = null;
@@ -40959,7 +41534,7 @@ ${VFX_AUDIO_RULE}${refBlock}`;
       + src.dlgTr.map(x => (x.who ? x.who + ': ' : '') + '"' + (x.tr || '') + '"').join('\n')
     : '';
    const body = String(await callClaude(rulebook, `${head}\n${text}${mfs}${trBlock}`,
-    { model: 'claude-opus-5', maxTokens: 3200, workCat: 'video' }) || '').replace(/```/g, '').trim();   // v1122
+    { model: 'claude-opus-5-5', maxTokens: 3200, workCat: 'video' }) || '').replace(/```/g, '').trim();   // v1122
    if (!body) throw new Error('프롬프트 생성 결과가 비었습니다.');
    let finalPrompt = body;
    // v1169: 비하인드의 거리. 정체성 조항 '뒤' 에 오도록 먼저 붙인다 —
@@ -40987,7 +41562,12 @@ ${VFX_AUDIO_RULE}${refBlock}`;
     ? { ...j, loading: false, phase: '', ...vKept, ...(isDraft ? { isDraft: true, draftTaskId, draftAt: Date.now() } : {}) } : j),
     selectedUrl: p.selectedUrl || vKept.resultUrl }));
   } catch (e) {
-   up(p => ({ ...p, error: `생성 실패: ${e.message}`, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, phase: '', error: e.message } : j) }));
+   // v1194: 시간만 넘긴 것이면 버리지 않는다
+  if (e?.pending && e?.taskId) {
+   up(p => ({ ...p, error: GEN_PENDING_MSG, jobs: p.jobs.map(j => j.id === jobId ? { ...j, ...jobPendingPatch(e, { pendingDraft: isDraft }) } : j) }));
+   return;
+  }
+  up(p => ({ ...p, error: `생성 실패: ${e.message}`, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, phase: '', error: e.message } : j) }));
   }
  };
 
@@ -41070,6 +41650,14 @@ ${VFX_AUDIO_RULE}${refBlock}`;
         <div key={j.id} style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
          {j.resultUrl
           ? <video src={j.resultUrl} controls style={{ width: '100%', display: 'block', background: '#000' }} />
+          /* v1194: 시간을 넘겼지만 서버는 아직 만드는 중 — 결과만 되찾는다 */
+          : (j.pendingTaskId && !j.loading)
+           ? <div style={{ width: '100%', padding: '18px 10px', background: 'var(--bg-subtle)', textAlign: 'center' }}>
+              <div className="micro" style={{ fontSize: 11, fontWeight: 800, color: 'var(--state-warning)' }}>⏳ 서버에서 아직 만드는 중</div>
+              <button type="button" className="btn btn-primary btn-sm" style={{ marginTop: 8, height: 26, fontSize: 11, padding: '0 12px' }}
+               onClick={(e) => { e.stopPropagation(); resumeGenJob(setExtraData, 'video-extra', j); }}
+               title="다시 만들지 않고 서버에 남아 있는 결과만 받아 옵니다 — 요금이 더 들지 않습니다">결과 이어받기</button>
+             </div>
           : j.error
            ? <div style={{ width: '100%', height: 86, display: 'flex', alignItems: 'center', justifyContent: 'center',
                background: 'var(--bg-subtle)', fontSize: 10.5, textAlign: 'center', padding: 6, color: 'var(--red-600)' }}>실패</div>
@@ -41093,9 +41681,9 @@ ${VFX_AUDIO_RULE}${refBlock}`;
            <button type="button" className="btn btn-secondary btn-sm"
            style={{ marginTop: 5, width: '100%', height: 26, fontSize: 11, padding: 0, justifyContent: 'center' }}
            disabled={(Date.now() - (j.draftAt || j.ts || 0)) > DRAFT_TTL}
-           title={(Date.now() - (j.draftAt || j.ts || 0)) > DRAFT_TTL ? '초안 id 는 7일까지만 쓸 수 있습니다' : '초안과 똑같은 영상을 1080p 로 만듭니다 — 프롬프트 · 레퍼런스 · 시드가 같아 구성이 바뀌지 않습니다. 업스케일이 아니라 새 생성이라 1080p 요금이 듭니다.'}
+           title={(Date.now() - (j.draftAt || j.ts || 0)) > DRAFT_TTL ? '초안 id 는 7일까지만 쓸 수 있습니다' : '초안과 똑같은 영상을 1080p 로 만듭니다 — 프롬프트 · 레퍼런스 · 시드가 같아 구성이 바뀌지 않습니다. 업스케일이 아니라 새 생성이라 1080p 요금이 듭니다.' + draftFinalTip(draftFinalCostLabel(j.draftTaskId, { dur: j.params?.duration, aspect: j.params?.aspect }))}
            onClick={(e) => { e.stopPropagation(); runDraftFinal(setExtraData, 'video-extra', j); }}>
-           1080p 로 변환
+           1080p 로 변환 · 예상 {(() => { const c = draftFinalCostLabel(j.draftTaskId, { dur: j.params?.duration, aspect: j.params?.aspect }); return `${c.text} (${c.krw})`; })()}
            </button>
           )}
           <div style={{ color: 'var(--text-quaternary)', marginTop: 3, maxHeight: 34, overflow: 'hidden', lineHeight: 1.4 }}>{j.params?.situation}</div>
@@ -43651,6 +44239,7 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  {[
  { id: 'common', label: '공용', icon: <Settings size={14} color="currentColor" /> },
  { id: 'credit', label: '크레딧 소모량', icon: <Activity size={14} color="currentColor" /> },
+ { id: 'arkTasks', label: '서버 작업', icon: <Film size={14} color="currentColor" /> },   // v1195
  ...(isAdmin ? [{ id: 'api', label: 'API 관리', icon: <Sparkles size={14} color="currentColor" /> }] : []),
  { id: 'etc', label: '기타', icon: <AlertCircle size={14} color="currentColor" /> },
  ].map((tab) => {
@@ -44233,6 +44822,145 @@ ${VFX_AUDIO_RULE}${refBlock}`;
 
 
  {/* ── 기타 탭 ── */}
+ {/* v1195: 서버 작업 — ModelArk 에 남은 영상 작업 */}
+ {settingsTab === 'arkTasks' && (<>
+ <div style={{ marginBottom: 20, paddingBottom: 18, borderBottom: '1px solid var(--border)' }}>
+ <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+ <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, #3b82f6, #60a5fa)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+ <Film size={18} color="#fff" strokeWidth={2} />
+ </div>
+ <div style={{ flex: 1 }}>
+ <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>서버 작업</div>
+ <div className="meta" style={{ marginTop: 2 }}>ModelArk 에 남아 있는 영상 작업 — 최근 7일 · 결과 주소는 24시간</div>
+ </div>
+ <button type="button" className="btn btn-primary btn-sm" disabled={arkTaskList.loading} onClick={loadArkTasks}>
+ <RefreshCw size={12} className={arkTaskList.loading ? 'spin' : ''} /> {arkTaskList.loading ? '불러오는 중' : arkTaskList.at ? '새로고침' : '불러오기'}
+ </button>
+ </div>
+ </div>
+ {(() => {
+  const L = arkTaskList;
+  const now = Date.now();
+  // 앱에 이미 있는지 — task id 로, 없으면 결과 주소로
+  const knownIds = new Set(), pendingIds = new Set(), knownUrls = new Set();
+  for (const d of [videoPovData, videoNarrativeData, videoDocuData, videoCustomData, extraData]) {
+   for (const j of ((d && d.jobs) || [])) {
+    if (j.draftTaskId) knownIds.add(j.draftTaskId);
+    if (j.recoveredFrom) knownIds.add(j.recoveredFrom);
+    if (j.pendingTaskId) pendingIds.add(j.pendingTaskId);
+    if (j.remoteUrl) knownUrls.add(j.remoteUrl);
+   }
+  }
+  for (const g of ((projectData && projectData.segments) || [])) {
+   if (g.clipDraftTaskId) knownIds.add(g.clipDraftTaskId);
+   if (g.pendingTaskId) pendingIds.add(g.pendingTaskId);
+   if (g.clipUrl) knownUrls.add(g.clipUrl);
+   for (const t of (g.takes || [])) { if (t.draftTaskId) knownIds.add(t.draftTaskId); if (t.url) knownUrls.add(t.url); }
+  }
+  const items = L.items || [];
+  const cnt = (st) => items.filter(x => String(x.status) === st).length;
+  const busy = cnt('queued') + cnt('running');
+  const mins = (sec) => Math.max(0, Math.round((now - (Number(sec) || 0) * 1000) / 60000));
+  const ST = { queued: ['대기 중', 'var(--state-warning)'], running: ['만드는 중', 'var(--green-600)'],
+   succeeded: ['완료', 'var(--text-secondary)'], failed: ['실패', 'var(--state-error)'],
+   expired: ['만료', 'var(--text-quaternary)'], cancelled: ['취소', 'var(--text-quaternary)'] };
+  const chip = (label, n, color) => (
+   <span className="micro" style={{ padding: '4px 10px', borderRadius: 999, border: '1px solid var(--border)',
+    color: n ? color : 'var(--text-quaternary)', fontWeight: 700 }}>{label} {n}</span>);
+  return (<>
+   <div className="meta" style={{ lineHeight: 1.7, color: 'var(--text-tertiary)', marginBottom: 14 }}>
+    Seedance 2.5 는 <strong>개인 계정 3개 · 기업 계정 10개</strong>까지 동시에 만들고, 넘치면 대기열에서 기다립니다.
+    같은 API 키를 다른 앱이나 다른 사람이 쓰고 있으면 그 작업도 이 자리를 차지합니다. 앱이 놓친 결과(시간 초과 · 앱이 꺼진 사이 끝난 것)는
+    여기서 <strong>다시 만들지 않고</strong> 받아 올 수 있습니다 — 요금이 더 들지 않습니다.
+   </div>
+   {L.err && <div className="meta" style={{ color: 'var(--state-error)', marginBottom: 12, whiteSpace: 'pre-wrap' }}>{L.err}</div>}
+   {!L.at && !L.loading && (
+    <div className="meta" style={{ padding: '28px 0', textAlign: 'center', color: 'var(--text-quaternary)' }}>[불러오기] 를 누르면 서버에서 목록을 받아 옵니다.</div>
+   )}
+   {!!L.at && (<>
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
+     {chip('대기', cnt('queued'), 'var(--state-warning)')}
+     {chip('만드는 중', cnt('running'), 'var(--green-600)')}
+     {chip('완료', cnt('succeeded'), 'var(--text-secondary)')}
+     {chip('실패', cnt('failed'), 'var(--state-error)')}
+     {chip('만료', cnt('expired'), 'var(--text-tertiary)')}
+     <span className="micro" style={{ marginLeft: 'auto', color: 'var(--text-quaternary)' }}>
+      {items.length}{L.total > items.length ? ` / ${L.total}` : ''}개 · {new Date(L.at).toLocaleTimeString('ko-KR')}
+     </span>
+    </div>
+    {busy >= 3 && (
+     <div className="meta" style={{ marginBottom: 10, padding: '8px 12px', borderRadius: 8, fontSize: 12,
+      background: 'color-mix(in srgb, var(--state-warning) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--state-warning) 45%, transparent)' }}>
+      지금 <strong>{busy}개</strong>가 대기 · 제작 중입니다. 개인 계정이면 동시 한도(3)에 닿아 새 작업은 앞의 것이 끝날 때까지 기다립니다.
+     </div>
+    )}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+     <span className="micro" style={{ color: 'var(--text-tertiary)' }}>받아 올 탭</span>
+     <select value={arkRecoverWs} onChange={(e) => setArkRecoverWs(e.target.value)}
+      style={{ height: 28, padding: '0 8px', borderRadius: 6, border: '1px solid var(--border-strong)', background: 'var(--bg-input)', color: 'var(--text-primary)', fontSize: 12 }}>
+      {ARK_RECOVER_TARGETS.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+     </select>
+     <span className="micro" style={{ color: 'var(--text-quaternary)' }}>받은 영상은 그 탭의 생성 기록 맨 앞에 들어갑니다</span>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+     {items.length === 0 && <div className="meta" style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-quaternary)' }}>최근 7일 안에 만든 영상 작업이 없습니다.</div>}
+     {items.map(x => {
+      const st = ST[String(x.status)] || [String(x.status || '?'), 'var(--text-tertiary)'];
+      const url = x.content && x.content.video_url;
+      // 결과 주소는 끝난 때(updated_at)부터 24시간
+      const leftH = x.status === 'succeeded' ? 24 - (now - (Number(x.updated_at) || Number(x.created_at) || 0) * 1000) / 3600000 : null;
+      const alive = !!url && leftH != null && leftH > 0;
+      const inApp = knownIds.has(x.id) || (url && knownUrls.has(url));
+      const waiting = pendingIds.has(x.id);
+      const got = (L.done || {})[x.id];
+      const spec = [x.resolution, x.duration ? `${x.duration}초` : '', x.ratio].filter(Boolean).join(' · ');
+      return (
+       <div key={x.id} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', background: 'var(--bg-secondary)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+         <span className="micro" style={{ fontWeight: 800, color: st[1], minWidth: 54 }}>{st[0]}</span>
+         <span className="micro" style={{ color: 'var(--text-secondary)', minWidth: 118 }}>{new Date((Number(x.created_at) || 0) * 1000).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+         <span className="micro" style={{ color: 'var(--text-tertiary)' }}>{spec}</span>
+         {x.draft && <span className="micro" style={{ padding: '1px 6px', borderRadius: 999, fontWeight: 800, background: 'var(--state-warning)', color: '#1a1300' }}>초안</span>}
+         {x.draft_task_id && <span className="micro" style={{ padding: '1px 6px', borderRadius: 999, fontWeight: 800, background: 'var(--green-600)', color: '#fff' }}>1080p ↑</span>}
+         <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+          {(x.status === 'queued' || x.status === 'running') && (
+           <span className="micro" style={{ color: 'var(--text-quaternary)' }}>{mins(x.created_at)}분째</span>
+          )}
+          {x.status === 'succeeded' && (alive
+           ? <span className="micro" style={{ color: leftH < 3 ? 'var(--state-error)' : 'var(--text-quaternary)' }}>주소 {Math.floor(leftH)}시간 남음</span>
+           : <span className="micro" style={{ color: 'var(--text-quaternary)' }}>주소 만료</span>)}
+          {alive && (
+           <button type="button" className="btn btn-ghost btn-sm" onClick={() => setArkTaskList(p => ({ ...p, open: p.open === x.id ? '' : x.id }))}>
+            {L.open === x.id ? '닫기' : '미리보기'}
+           </button>
+          )}
+          {got ? <span className="micro" style={{ color: 'var(--green-700)', fontWeight: 800 }}>✓ {got} 에 넣음</span>
+           : waiting ? <span className="micro" style={{ color: 'var(--state-warning)', fontWeight: 700 }} title="그 탭의 기록에서 [결과 이어받기] 를 누르면 됩니다">앱에서 이어받기 대기 중</span>
+           : inApp ? <span className="micro" style={{ color: 'var(--text-quaternary)' }}>앱에 있음</span>
+           : alive ? (
+            <button type="button" className="btn btn-primary btn-sm" disabled={!!L.busyId}
+             onClick={() => recoverArkTask(x, arkRecoverWs)}
+             title="다시 만들지 않고 서버의 결과만 받아 옵니다 — 요금이 더 들지 않습니다">
+             {L.busyId === x.id ? '받는 중' : <><Download size={11} /> 받아 오기</>}
+            </button>) : null}
+         </span>
+        </div>
+        {x.status === 'failed' && x.error && (
+         <div className="micro" style={{ marginTop: 4, color: 'var(--state-error)', wordBreak: 'break-word' }}>{String(x.error.message || x.error.code || '').slice(0, 220)}</div>
+        )}
+        {L.open === x.id && alive && (
+         <video src={url} controls preload="metadata" style={{ marginTop: 8, width: '100%', maxHeight: 280, borderRadius: 6, background: '#000' }} />
+        )}
+        <div className="micro" style={{ marginTop: 3, color: 'var(--text-quaternary)', fontSize: 9.5, userSelect: 'all' }}>{x.id}</div>
+       </div>
+      );
+     })}
+    </div>
+   </>)}
+  </>);
+ })()}
+ </>)}
+
  {settingsTab === 'etc' && (<>
  {/* v311: 탭 헤더 */}
  <div style={{ marginBottom: 24, paddingBottom: 20, borderBottom: '1px solid var(--border)' }}>
