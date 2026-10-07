@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Eraser, Folder, FolderOpen, Upload, FileText, Sparkles, Check, Copy, ChevronRight, ChevronLeft, ChevronDown, AlertCircle, Edit3, Film, Calendar, Heart, RefreshCw, ArrowRight, AlertTriangle, Users, Settings, X, Sun, Moon, Pause, Play, Download, Save, RotateCcw, Image, Music, Layers, Activity, Send, Bell, BellOff, Grid, Languages, Youtube, Star, ExternalLink, Trash2, Plus, Wand2, Mic, ZoomIn, ZoomOut, Eye, EyeOff, CloudSun, Sunrise, Sunset, Shirt, Palette } from 'lucide-react';
+import { Zap, Eraser, Folder, FolderOpen, Upload, FileText, Sparkles, Check, Copy, ChevronRight, ChevronLeft, ChevronDown, AlertCircle, Edit3, Film, Calendar, Heart, RefreshCw, ArrowRight, AlertTriangle, Users, Settings, X, Sun, Moon, Pause, Play, Download, Save, RotateCcw, Image, Music, Layers, Activity, Send, Bell, BellOff, Grid, Languages, Youtube, Star, ExternalLink, Trash2, Plus, Wand2, Mic, ZoomIn, ZoomOut, Eye, EyeOff, CloudSun, Sunrise, Sunset, Shirt, Palette } from 'lucide-react';
 import lottie from 'lottie-web';
 import QRCode from 'qrcode';
 // 챗봇 펫 Lottie 애니메이션 (오프라인 번들 · src/assets/lottie)
@@ -5822,6 +5822,60 @@ const SCALE_FIGURE_RULE = 'SIZE RULERS: an object reference image may show a fla
  + ' extra hand and no extra person appear because of it.';
 
 const PROJECT_FINAL_LINE = 'FINAL: ' + SUBTITLE_NEG_CN + ' ' + SOUND_NEG_CN;   // v1171
+
+// v1226: 퀵 프롬프트 — 챗봇 패널에서 복사해 영상 모델에 바로 붙이는 고정 지침.
+//   사운드 · 자막은 앱이 실제로 보내는 문구를 그대로 잇는다(맨 위 소리 블록 · SUBTITLE_NEG_CN 을 고치면 여기도 바뀐다).
+//   컷 호흡 · 화면 질감은 앱 지침(PROJECT_CUT_TEMPO_FOR 일반씬 · 영상 규칙 머리 · 필름룩 조항)을
+//   영상 모델에 그대로 붙일 수 있는 영어 문단으로 옮긴 것이다. 패널에서 고쳐 쓰면 이 PC 에 저장된다.
+const QUICK_PROMPTS = [
+ { id: 'sound_subtitle', label: '사운드&자막 금지',
+   text: PROJECT_SOUND_RULE + '\n' + SUBTITLE_NEG_CN },
+ { id: 'cut_rhythm', label: '드라마틱 컷 호흡',
+   // v1228: 컷 리듬 + 컷 콘티뉴이티. 콘티뉴이티는 앱이 모든 클립 머리에 붙이는 조항(PROJECT_VIDEO_RULES_HEAD)을
+   //   그대로 잇는다 — 그쪽을 고치면 여기도 바뀐다. 리듬 문단에서 그 조항과 겹치던 두 문장(앞 프레임에서 이어짐 ·
+   //   같은 각도 크기만 바꾸기 금지)은 빼고, 180도 선은 앞 클립 조항(PROJECT_VIDEO_CONT_TEXT_RULE_FOR)의 문구를 옮겼다.
+   text: [
+    [
+     'CUT RHYTHM — live-action drama. Cut every 2–3 seconds; no shot runs longer than 6 seconds,',
+     'and never one unbroken take for the whole clip. Cover the scene with over-the-shoulder shots,',
+     'singles and inserts; a two-shot or wide only where the distance between the people is itself the point.',
+     'While a line is spoken the speaker is on screen — at most one brief cut-away to a reaction or',
+     'insert per line, back on the speaker before the line ends. No zoom in or out — change shot size with a cut.',
+    ].join(' '),
+    '',
+    PROJECT_VIDEO_RULES_HEAD.split('\n').join(' '),
+    '',
+    [
+     '180-DEGREE LINE: two people talking look in OPPOSITE screen directions, one right, one left.',
+     'Reverse angle = the other person on the opposite side of frame. Three or more: take the line',
+     'from the two speaking, keep the rest on one side.',
+    ].join(' '),
+   ].join('\n') },
+ { id: 'film_look', label: '드라마틱 화면질감',
+   text: [
+    'LOOK — live-action cinematic drama, shot on a 35mm cinema camera with prime lenses: organic',
+    'film grain, natural shallow depth of field, muted natural colour grading, light that comes',
+    'from the scene itself. Real skin with true texture, the same at every shot size. Photographed,',
+    'not rendered — no glossy CG, no plastic skin, no 3D or game-render look.',
+   ].join(' ') },
+];
+const QUICK_PROMPT_STORE = 'oxyzn_quick_prompts';   // { [id]: 고쳐 쓴 글 }
+// v1227: 합본 — 위 세 지침을 한 번에. 사용자는 컨셉 · 상황묘사 자리만 채운다.
+//   세 지침은 '지금 패널에 있는 글'(고쳐 쓴 것 포함)을 그대로 쓴다 — 합본만 따로 놀지 않게.
+//   순서는 앱과 같다: 무엇을 찍는가(컨셉 · 상황) → 어떻게 끊는가 → 어떻게 보이는가 → 마지막에 소리 · 자막.
+const QUICK_SLOT_CONCEPT = '[여기에 컨셉]';
+const QUICK_SLOT_SCENE = '[여기에 상황묘사 — 대사는 {} 안에]';
+const quickPromptCombined = (textOf) => [
+ 'CONCEPT: ' + QUICK_SLOT_CONCEPT,
+ '',
+ 'SCENE: ' + QUICK_SLOT_SCENE,
+ '',
+ textOf('cut_rhythm'),
+ '',
+ textOf('film_look'),
+ '',
+ textOf('sound_subtitle'),
+].join('\n');
 
 // v1209: 대본에 없는 대사. 프롬프트의 큰따옴표 안 말이 대본(과 그 번역)에 있는지 본다.
 //   띄어쓰기 · 문장부호는 무시한다 — 한 줄을 둘로 나눠 적어도 각각 대본 안에 있으면 통과.
@@ -29814,6 +29868,22 @@ ${sampleText}`;
  const [homePage, setHomePage] = useState(0);
  // 챗봇 패널의 설정 탭 표시 여부
  const [chatSettingsOpen, setChatSettingsOpen] = useState(false);
+ // v1226: 퀵 프롬프트 탭 · 고쳐 쓴 글(이 PC 에 저장) · 방금 복사한 항목
+ const [chatQuickOpen, setChatQuickOpen] = useState(false);
+ const [quickPromptEdits, setQuickPromptEdits] = useState(() => { try { return JSON.parse(localStorage.getItem(QUICK_PROMPT_STORE)) || {}; } catch { return {}; } });
+ const [quickCopied, setQuickCopied] = useState('');
+ useEffect(() => { try { localStorage.setItem(QUICK_PROMPT_STORE, JSON.stringify(quickPromptEdits)); } catch {} }, [quickPromptEdits]);
+ // v1227: 지금 패널에 있는 글(고쳐 쓴 것 포함) · 복사
+ const quickTextOf = (id) => {
+  const q = QUICK_PROMPTS.find(x => x.id === id);
+  return Object.prototype.hasOwnProperty.call(quickPromptEdits, id) ? quickPromptEdits[id] : (q ? q.text : '');
+ };
+ const copyQuickPrompt = async (id, text) => {
+  try { await navigator.clipboard.writeText(text); }
+  catch { try { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); } catch {} }
+  setQuickCopied(id);
+  setTimeout(() => setQuickCopied(c => (c === id ? '' : c)), 1500);
+ };
  // 이름 입력 임시 상태 (설정 탭에서)
  const [chatNameInput, setChatNameInput] = useState('');
  // 점심 추천 상태 추적
@@ -45830,13 +45900,21 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  <div>
  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{chatPetName}</div>
  <div className="micro" style={{ fontSize: 10, color: 'var(--text-tertiary)', textTransform: 'none', letterSpacing: 0, fontFamily: 'inherit' }}>
- {chatSettingsOpen ? '설정' : `${PET_ICON_LABELS[chatPetIcon] || ''} · 웹 검색 · 번역`}
+ {chatSettingsOpen ? '설정' : chatQuickOpen ? '퀵 프롬프트 · 영상 고정 지침' : `${PET_ICON_LABELS[chatPetIcon] || ''} · 웹 검색 · 번역`}
  </div>
  </div>
  </div>
  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
- {!chatSettingsOpen && (
+ {!chatSettingsOpen && !chatQuickOpen && (
  <>
+ {/* v1226: 퀵 프롬프트 */}
+ <button
+ onClick={() => setChatQuickOpen(true)}
+ title="퀵 프롬프트 — 영상 고정 지침 복사"
+ style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: 4 }}
+ >
+ <Zap size={14} />
+ </button>
  <button
  onClick={() => {
  setChatNameInput(chatPetName);
@@ -45856,16 +45934,16 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  </button>
  </>
  )}
- {chatSettingsOpen && (
+ {(chatSettingsOpen || chatQuickOpen) && (
  <button
- onClick={() => setChatSettingsOpen(false)}
+ onClick={() => { setChatSettingsOpen(false); setChatQuickOpen(false); }}
  title="대화로 돌아가기"
  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: 4, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}
  >
  <ArrowRight size={12} style={{ transform: 'rotate(180deg)' }} /> 대화
  </button>
  )}
- <button onClick={() => { setChatOpen(false); setChatSettingsOpen(false); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: 4 }}>
+ <button onClick={() => { setChatOpen(false); setChatSettingsOpen(false); setChatQuickOpen(false); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: 4 }}>
  <X size={16} />
  </button>
  </div>
@@ -45984,6 +46062,62 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  설정은 자동으로 저장되며 다음 실행에도 유지됩니다.
  </div>
  </div>
+ ) : chatQuickOpen ? (
+ // ── v1226: 퀵 프롬프트 ──
+ <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+ <div className="meta" style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--text-tertiary)' }}>
+ 영상 모델 프롬프트에 그대로 붙이는 고정 지침입니다. 고쳐 쓰면 이 PC 에 저장됩니다.
+ </div>
+ {/* v1227: 합본 — 세 지침 + 컨셉 · 상황묘사 빈자리 */}
+ {(() => {
+ const text = quickPromptCombined(quickTextOf);
+ const copied = quickCopied === 'combined';
+ return (
+ <div style={{ border: '1px solid var(--green-500)', borderRadius: 'var(--radius-md)', background: 'var(--green-50)', padding: '10px 12px' }}>
+ <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+ <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--green-700)' }}>합본 · 세 가지 한꺼번에</span>
+ <span style={{ flex: 1 }} />
+ <button className={copied ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm'} style={{ padding: '3px 10px', fontSize: 11 }}
+ onClick={() => copyQuickPrompt('combined', text)}>
+ {copied ? <><Check size={11} /> 복사됨</> : <><Copy size={11} /> 복사</>}
+ </button>
+ </div>
+ <div className="micro" style={{ fontSize: 10.5, color: 'var(--text-tertiary)', textTransform: 'none', letterSpacing: 0, lineHeight: 1.5, marginBottom: 6 }}>
+ 붙여 넣은 뒤 {QUICK_SLOT_CONCEPT} · {QUICK_SLOT_SCENE} 두 자리만 채우세요. 아래 세 지침을 고치면 합본에도 바로 반영됩니다.
+ </div>
+ <textarea value={text} readOnly rows={6} spellCheck={false} data-ff-nogrow="1"
+ style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', fontSize: 11.5, lineHeight: 1.55, padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', color: 'var(--text-secondary)', fontFamily: 'inherit' }} />
+ </div>
+ );
+ })()}
+ {QUICK_PROMPTS.map((q) => {
+ const edited = Object.prototype.hasOwnProperty.call(quickPromptEdits, q.id) && quickPromptEdits[q.id] !== q.text;
+ const text = edited ? quickPromptEdits[q.id] : q.text;
+ const copied = quickCopied === q.id;
+ return (
+ <div key={q.id} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', padding: '10px 12px' }}>
+ <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+ <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)' }}>{q.label}</span>
+ {edited && <span className="micro" style={{ fontSize: 9.5, color: 'var(--green-700)', textTransform: 'none', letterSpacing: 0 }}>고쳐 씀</span>}
+ <span style={{ flex: 1 }} />
+ {edited && (
+ <button className="btn btn-ghost btn-sm" style={{ padding: '3px 8px', fontSize: 11 }} title="앱 기본 문구로 되돌립니다"
+ onClick={() => setQuickPromptEdits(p => { const n = { ...p }; delete n[q.id]; return n; })}>
+ <RotateCcw size={11} /> 기본값
+ </button>
+ )}
+ <button className={copied ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm'} style={{ padding: '3px 10px', fontSize: 11 }}
+ onClick={() => copyQuickPrompt(q.id, text)}>
+ {copied ? <><Check size={11} /> 복사됨</> : <><Copy size={11} /> 복사</>}
+ </button>
+ </div>
+ <textarea value={text} onChange={(e) => { const v = e.target.value; setQuickPromptEdits(p => ({ ...p, [q.id]: v })); }}
+ rows={5} spellCheck={false} data-ff-nogrow="1"
+ style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', fontSize: 11.5, lineHeight: 1.55, padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontFamily: 'inherit' }} />
+ </div>
+ );
+ })}
+ </div>
  ) : (
  // ── 메시지 영역 ──
  <div ref={chatScrollRef} style={{ flex: 1, overflowY: 'auto', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -46050,8 +46184,8 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  </div>
  )}
 
- {/* 입력 영역 — 설정 탭일 때는 숨김 */}
- {!chatSettingsOpen && (
+ {/* 입력 영역 — 설정 · 퀵 프롬프트 탭일 때는 숨김 */}
+ {!chatSettingsOpen && !chatQuickOpen && (
  <div style={{
  padding: '12px 14px',
  borderTop: '1px solid var(--border)',
