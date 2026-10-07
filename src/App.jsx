@@ -129,7 +129,11 @@ const SOUND_WRITING_RULES = `## ★ 소리를 적는 법 — 모든 영상 공�
 - 조용한 곳은 조용하다고 적는다 — "the room is quiet except for the candle wick". 빈자리를 채우려고 소리를 지어내지 않는다.
 - ★ 소괄호 ( ) 를 쓰지 않는다. Seedance 에서 소괄호는 음악 채널이라, 부연으로 적은 괄호가 음악을 부른다.
   부연 · 시각은 대괄호로 — [0:00–0:03] · [창가에서].
-- 음악 · 소리를 막는 문장은 장면 서술에 쓰지 않는다 — 막는 줄은 코드가 붙인다. 막으려고 이름을 부르면 오히려 불러온다.`;
+- 음악 · 소리를 막는 문장은 장면 서술에 쓰지 않는다 — 막는 줄은 코드가 붙인다. 막으려고 이름을 부르면 오히려 불러온다.
+- ★ 말은 대본(상황 묘사)에 적힌 대사만 한다. 대본에 없는 대사 · 혼잣말 · 감탄사 · 맞장구 · 기합 · 외침을 지어 넣지 않는다.
+  숨 · 한숨 · 웃음 · 신음 같은 소리는 괜찮지만 낱말은 안 된다. 대본에 대사가 없으면 아무도 말하지 않는다.
+- ★ 큰따옴표는 소리 내어 말할 대사에만 쓴다. 영상 모델은 큰따옴표 안을 소리 내어 읽는다 — 글씨 · 간판 · 강조 ·
+  메모 · 지시문을 큰따옴표로 감싸지 않는다.`;
 
 // v1170: 모든 영상 작업의 사운드 부정 지시를 이 한 줄로 모은다.
 //   근거 ① 2.5 제시어 가이드 「负向控制」 — 음효 · 배경음악(bgm) · 대사를 각각
@@ -144,16 +148,49 @@ const SOUND_WRITING_RULES = `## ★ 소리를 적는 법 — 모든 영상 공�
 //     셋을 따로 끈다고 한 것에 맞춰 대사를 살려 적는다(对白).
 // v1196: 소리의 출처를 긍정문으로 한 번 더 — 문서가 권하는 '正向描述'. '画面里(화면 안)' 가 아니라
 //   '这个场景里(이 장면 안)' 라 쓴다. 화면 밖 인터뷰어 · 시점 인물의 목소리도 이 장면 안의 소리다.
-const SOUND_NEG_CN = '无 bgm，只生成对白、环境音和动作音。所有声音都来自这个场景里的人和物。';
+// v1209: '只生成对白…' 는 대사를 '만들라' 로 읽혔다 — 적히지 않은 말까지. 대사는 {} 에 적힌 것뿐이라고 못 박는다.
+const SOUND_NEG_CN = '无 bgm，只生成环境音、动作音和 {} 里写好的对白，{} 之外没有任何台词。所有声音都来自这个场景里的人和物。';
 // v1197: VFX 는 새로 만드는 작업이 아니라 원본을 보존하는 작업이다 — '생성' 이 아니라 '유지'.
 const SOUND_KEEP_CN = '无 bgm，只保留原视频的对白、环境音和动作音。';
 const VFX_AUDIO_RULE = 'AUDIO: keep the original audio of [Video] exactly as it is and add nothing on top of it. ' + SOUND_KEEP_CN;
-const PROJECT_SOUND_RULE = 'SOUND: dialogue goes in {}. ' + SOUND_NEG_CN;
+const PROJECT_SOUND_RULE = 'SOUND: dialogue goes in {}. Nobody says a word that is not written in {}. ' + SOUND_NEG_CN;   // v1209
 // v1147: 시간 표시를 컷 · 정지로 읽어 구간마다 자세를 굳히던 것. 한 테이크로 가는
 //   두 작업(다큐 · POV)에 함께 붙인다. v1196: 음악을 부르던 낱말을 뺐다.
 const TAKE_TURN_SOUND_RULE = 'Only things in this place make sound. Moving the frame is silent: across a turn only'
  + ' the balance of the same sounds changes, and the sounds of this place carry on without a break.';
 // ═════════════════════════════════════════════════════════════════════ 소리 지침 끝
+
+// ═════════════════════════════════════════════════════════════════════
+// ★ 글씨를 적는 장면 — 모든 영상 작업 공통 (v1203). 고칠 때는 여기만 고친다.
+//   ONSCREEN_WRITING_RULES — Claude 가 읽는다. SOUND_WRITING_RULES 가 실리는 모든 지침서에 함께 실린다.
+//   ONSCREEN_WRITING_RULE  — 영상 모델에 간다. 원문에 글씨를 적는 장면이 있을 때만(ONSCREEN_WRITING_CUE).
+//   겪은 것(9/30): ① '알아볼 수 없는 내용을 적는다' 를 Claude 가 'indistinct characters · shapes' 로 옮기자
+//     영상은 줄만 그었다. ② 종이를 들어 읽을 때 앞면의 글씨가 뒷면에도 그려졌다 — 종이에 앞뒤가 있다는
+//     말이 어디에도 없었다.
+// ═════════════════════════════════════════════════════════════════════
+const ONSCREEN_WRITING_RULES = `## ★ 글씨를 적는 장면
+- 적는 것은 글자다. lines · marks · shapes · strokes · scribbles · indistinct 로 쓰지 않는다 — 영상 모델은 그 말대로 줄을 긋는다.
+- 무슨 글자인지(한자 · 한글 · 부적의 문자 · 영문 흘림체 등), 몇 줄 · 몇 자쯤, 글자 크기를 적고 characters 라고 쓴다.
+  예: "[Image1] writes two columns of small brush-written Chinese characters down [Image2], one character at a time".
+- 상황이 '알아볼 수 없는 내용' 이면 글자는 글자로 두고 읽히지 않게만 적는다 — "dense cursive characters too flowing to read".
+  흐릿한 모양 · 선으로 바꾸지 않는다.
+- 쓴 글씨는 쓴 면에만 있다. 종이를 들어 읽는 장면에서는 쓴 면이 읽는 사람 쪽을 향하고, 맞은편에서는 빈 뒷면만
+  보인다고 적는다 — "the blank back of [Image2] faces the viewer".
+- 적는 장면이면 첫 구간의 종이는 비어 있다 — "[Image2], still blank". 글자는 붓 · 펜이 지나간 자리에만 한 자씩 생긴다.`;
+const ONSCREEN_WRITING_CUE = /글씨|글자|문장|문구|낙서|부적|편지|메모|서명|필기|필사|붓글씨|서예|적(?:는|었|힌|혀)|적어(?!도|지|진|서)|써 ?내려|글을 ?[쓰써]|\bwrit(?:e|es|ing|ten)\b|\bwrote\b|calligraph|inscrib/i;
+// v1204: 적는 행동이 있을 때 — 종이는 비어 있다가 붓이 지나간 자리에만 글자가 생긴다. 전에는 처음부터
+//   글씨가 다 써진 종이가 나왔다(9/30). 이미 쓰인 편지를 읽는 장면에는 붙지 않는다(적힌 · 편지 만으로는 안 붙는다).
+const ONSCREEN_WRITING_ACT_CUE = /적(?:는|었)|적어(?!도|지|진|서)|써 ?내려|(?:글|글씨|글자|이름|부적|편지|메모|문장)(?:을|를)? ?(?:쓰|써|쓴)|부적을 ?그|\bwrit(?:e|es|ing)\b|\bwrote\b/i;
+const ONSCREEN_WRITING_BLANK_START = 'THE PAGE STARTS BLANK: the sheet being written on is empty until the brush or pen touches it.'
+ + ' Characters appear only where and when it has passed, growing stroke by stroke, one character after another —'
+ + ' nothing is on the page ahead of the writing, and the part not yet reached stays empty paper.';
+const ONSCREEN_WRITING_RULE = 'WRITING ON THE PAGE: whatever is written here is real handwriting. Each stroke builds a separate'
+ + ' character of the script being used, and the characters sit in rows across the sheet, dense and complete, the way a'
+ + ' real hand writes them — never a single line, a scribble or a smear of ink. It is writing on paper inside the scene,'
+ + ' not a caption. PAPER HAS TWO SIDES: the writing is only on the side it was written on. The sheet is opaque and its'
+ + ' back is plain blank paper — nothing shows through and nothing is mirrored onto it. When someone holds a written sheet'
+ + ' up to read it, the written side faces them and whoever is opposite sees only the blank back.';
+// ═════════════════════════════════════════════════════════════════════ 글씨 끝
 
 const DEFAULT_SYSTEM_PROMPT = `당신은 Text-to-Video 영상 생성용 컷 단위 프롬프트를 작성합니다. 입력으로 시나리오 원문·등장 피사체·이전 컷 컨티뉴이티 정보가 주어지며, 즉시 완성된 프롬프트를 JSON으로 반환합니다.
 
@@ -472,6 +509,8 @@ JSON 응답에 prompt 필드로 다음 구조의 텍스트를 담음:
 - 침묵: 대사 없이 그 자리에서 나는 소리만 — "no dialogue; the room is quiet except for the wall clock ticking"
 - 행동·표정으로 감정: "[인물A] tightens lips, eyes lowered"
 ${SOUND_WRITING_RULES}
+
+${ONSCREEN_WRITING_RULES}
 
 [B. 대사 있는 컷의 작성법 (자막 번인 차단)]
 
@@ -1081,6 +1120,8 @@ const EXTRA_BEHIND_RULEBOOK = (durationSec = 10, langLabel = 'Korean', hasChalle
 
 ${SOUND_WRITING_RULES}
 
+${ONSCREEN_WRITING_RULES}
+
 ## 레퍼런스
 - 첨부된 이미지는 [Image1] · [Image2] … 로 부른다. 사용자가 @이름 으로 적은 자리에
   해당 번호가 이미 치환되어 들어온다. 번호를 새로 지어내지 않는다.
@@ -1194,6 +1235,8 @@ const EXTRA_INTERVIEW_RULEBOOK = (durationSec = 10, intervieweeLang = 'Korean', 
 
 ${SOUND_WRITING_RULES}
 
+${ONSCREEN_WRITING_RULES}
+
 ## 레퍼런스
 - 첨부된 이미지는 [Image1] · [Image2] … 로 부른다. 사용자가 @이름 으로 적은 자리에
   해당 번호가 이미 치환되어 들어온다. 번호를 새로 지어내지 않는다.
@@ -1263,6 +1306,8 @@ const seedanceNarrativeRulebook = (durationSec = 15) => {
 - 상단 제목 줄 금지. [Reference]로 바로 시작.
 - 자막 부정 지시를 쓰지 않는다 — 코드가 붙인다.
 ${SOUND_WRITING_RULES}
+
+${ONSCREEN_WRITING_RULES}
 - 길이 ${sec}초. 모든 Shot 시간 합 = ${sec}초.
 - 기본 톤: 실사 시네마틱 드라마.
 - 대사·상황이 ${sec}초에 넘치면 여러 ${sec}초로 분할하고 고지.
@@ -1287,19 +1332,19 @@ Audio: <이 장면에서 실제로 나는 소리 — 발소리 · 문 · 물건 
 - 인물마다·반복 오브젝트마다 슬롯. 장소는 Situation 슬롯으로 배경 위임. 집단은 "동일 유닛" 하나로.
 
 ## [Notes] 필수 (씬에 맞게)
-- 콘티뉴이티(최우선): 고정 blocking, "positions must NOT jump between cuts — eyelines, spacing, orientation, prop placement continuous. Acting continuous." 네거티브 "position jumps, discontinuous acting".
-- 인물 일관성: "each person exactly their ref — face/hair/wardrobe 100% identical, locked all shots (no appearance description in text)."
-- 복제 방지: "each character exactly ONE instance, no cloning/duplicated faces/extra people." 각 샷 머리에 [in frame: A, B — N people only].
-- 카메라: 기본 "objective third-person." 픽스면 "LOCKED static". 클로즈업은 "face fills frame".
-- 물리 사실성: "natural, believable, no cartoonish exaggeration." 피격 "no blood/gore — dust scattering."
-- 필름룩: "live-action cinematic — 35mm, organic grain, real skin, shallow DOF, muted natural grading. Photographed, not rendered." 네거티브 "glossy CG, plastic skin, 3D/game render".
-- 대사·립싱크: "each line lip-synced. Non-speaking silent." 속마음/VO는 "lips do NOT move, NOT lip-synced."
+- 콘티뉴이티(최우선): 고정 blocking, positions must NOT jump between cuts — eyelines, spacing, orientation, prop placement continuous. Acting continuous. 네거티브 position jumps, discontinuous acting.
+- 인물 일관성: each person exactly their ref — face/hair/wardrobe 100% identical, locked all shots (no appearance description in text).
+- 복제 방지: each character exactly ONE instance, no cloning/duplicated faces/extra people. 각 샷 머리에 [in frame: A, B — N people only].
+- 카메라: 기본 objective third-person. 픽스면 LOCKED static. 클로즈업은 face fills frame.
+- 물리 사실성: natural, believable, no cartoonish exaggeration. 피격은 상황 묘사에 적힌 그대로.
+- 필름룩: live-action cinematic — 35mm, organic grain, real skin, shallow DOF, muted natural grading. Photographed, not rendered. 네거티브 glossy CG, plastic skin, 3D/game render.
+- 대사·립싱크: each line lip-synced. Non-speaking silent. 속마음/VO는 lips do NOT move, NOT lip-synced.
 
 ## 샷 구성
 - ${sec}초 = ${shotMin}~${shotMax}샷, 컷당 ~2초. 초 배분 표기. 원본 사건 순서 유지. 컷당 동작 하나.
 
-## 검열 회피
-- 조직명→중립어(guard/pursuer), 무기·폭력은 "dramatic prop, thriller tension, not graphic" + "no blood/gore." 미성년+실사는 성인/공간 위주로.
+## 미성년 인물
+- 미성년 인물이 실사로 나오면 성인 · 공간 위주로 잡는다.
 
 ## 출력
 - 위 형식의 프롬프트만 출력. 설명·머리말·코드블록 금지.`;
@@ -1331,10 +1376,16 @@ const DOCU_CAMERA_STYLE = {
 const INTERVIEW_CAMERA_UNSEEN = 'All of this says where the viewer is; it is not an object in the scene.'
  + ' The camera does not stand inside the frame. A glimpse of it in a mirror or a window is fine — real footage does that.';
 
-const TAKE_MOTION_RULE = 'CONTINUOUS MOTION: the time marks are a clock, not cuts and not pauses. What moves at'
+// v1204: 화면 크기는 상황 묘사가 줌 · 확대 · 다가감을 말할 때만 바뀐다. 전에는 'though it may zoom in or out'
+//   이 늘 붙어 있어서, 대사가 시작되면 얼굴로 당기는 줌이 들어갔다(9/30).
+const TAKE_SIZE_CUE = /줌|확대|클로즈업|당겨 ?(?:잡|찍)|다가가|다가간|다가선|다가서|물러나|물러난|물러서|물러선|멀어지|멀어진|zoom|close-?up|push(?:es|ing)? in|pull(?:s|ing)? back|punch-?in/i;
+const TAKE_MOTION_RULE_FOR = (sizeFree) => 'CONTINUOUS MOTION: the time marks are a clock, not cuts and not pauses. What moves at'
  + ' one mark is still moving through the next — an approach keeps closing, a turn keeps turning. The whole take is'
- + ' one unbroken shot: it never cuts and never jumps to another angle, though it may zoom in or out. Anyone with no'
- + ' action written is still breathing and shifting. Stillness only where this prompt says someone stops.';
+ + ' one unbroken shot: it never cuts and never jumps to another angle'
+ + (sizeFree ? ', though it may zoom in or out.'
+  : '. ITS SIZE NEVER CHANGES: no zoom in, no zoom out, no push-in and no tightening on a face when someone speaks —'
+   + ' the distance to the people stays the same from the first second to the last.')
+ + ' Anyone with no action written is still breathing and shifting. Stillness only where this prompt says someone stops.';
 
 // 인터뷰 조항 — 화면 · 조명 · 컷.
 // v1172: 다큐 탭에서 글자로 걸리던 것을 부가콘텐츠 인터뷰의 본체로 옮겼다.
@@ -1363,6 +1414,8 @@ const seedanceDocumentaryRulebook = (durationSec = 15) => {
 - ★ 대사는 반드시 큰따옴표로 감싼다. 코드가 그 큰따옴표를 보고 대사 채널 {"..."} 로 배선한다.
 - 자막 부정 지시를 쓰지 않는다 — 코드가 붙인다.
 ${SOUND_WRITING_RULES}
+
+${ONSCREEN_WRITING_RULES}
 - 3000자 이내. 상단 제목 줄 금지. [Reference]로 바로 시작.
 - 길이 ${sec}초.
 
@@ -1403,12 +1456,12 @@ Audio: <그 자리에서 실제로 나는 소리 — 발소리 · 사물 · 바�
 - 첨부 레퍼런스는 [Take] 에서 이미지=[Image1],[Image2]..., 비디오=[Video1]... 로 지칭.
 
 ## [Notes] 필수
-- 인물 일관성: "each person exactly their reference — face, hair and build identical throughout."
-- 컷 없음: "one continuous take, no cuts, no edits."
-- 끊기지 않는 움직임: "motion continues across every time mark — nobody holds a pose and nothing freezes between them."
-- 사실감: "amateur footage look — imperfect framing, the operator reacts a beat late, subjects sometimes drift out of frame and come back."
-- 연기: "people behave as if the camera is just there — no posing, no performing to the lens."
-- 복제 방지: "each person appears exactly once, no duplicated faces."
+- 인물 일관성: each person exactly their reference — face, hair and build identical throughout.
+- 컷 없음: one continuous take, no cuts, no edits.
+- 끊기지 않는 움직임: motion continues across every time mark — nobody holds a pose and nothing freezes between them.
+- 사실감: amateur footage look — imperfect framing, the operator reacts a beat late, subjects sometimes drift out of frame and come back.
+- 연기: people behave as if the camera is just there — no posing, no performing to the lens.
+- 복제 방지: each person appears exactly once, no duplicated faces.
 
 ## 출력
 - 위 형식의 프롬프트만 출력. 설명 · 머리말 · 코드블록 금지.`;
@@ -1423,11 +1476,11 @@ Audio: <그 자리에서 실제로 나는 소리 — 발소리 · 사물 · 바�
 // 두 가지 시점. 다큐의 '핸드헬드 / 고정' 자리에 그대로 들어간다.
 const POV_CAMERA_STYLE = {
  eyes: `The frame is this person's eyes — there is no camera in this world. Eye level, a narrow attentive view.`
-  + ` It never locks: it drifts with the breath and makes small shifts to a nearby eye, mouth or hand; a head turn`
+  + ` It never locks: it drifts with the breath and makes small shifts to the other person's eyes, mouth or hands; a head turn`
   + ` is a pan that settles back into that drift, the look going first and the body a beat later.`,
- device: `While it is in the viewer's hand the view is what a small hand-held camera sees at eye line — a little`
-  + ` wider than the eye, slight bend at the edges, hand shake, the image swinging when the arm moves. The holding`
-  + ` hand and forearm sit at the frame edge, and the whole view drops when the arm lowers.`,
+ device: `While it is held, the view is what a small hand-held camera sees at eye line — a little`
+  + ` wider than the eye, slight bend at the edges, hand shake, the image swinging when the arm moves. The hand`
+  + ` holding it stays below the frame, out of the picture, and the whole view drops when the arm lowers.`,   // v1206
 };
 
 // ★ POV 가 깨지는 첫 번째 자리 — 모델이 '나' 를 3인칭으로 세운다.
@@ -1435,13 +1488,21 @@ const POV_CAMERA_STYLE = {
 const POV_BODY_RULE_FOR = (hands, held) => {
  const head = `The viewer's face is never seen, and while the camera is in their hand nothing of them is seen from`
   + ` outside either. Every object is handled by the person named doing it, with`
-  + ` their own hands in full view across from the viewer, on their side and beyond the viewer's reach; while they`
-  + ` act the frame holds them chest-up at eye level.`;
+  + ` their own hands in full view across from the viewer, on their side of the table at their own arm's length; while they`
+  + ` act the frame holds them chest-up at eye level.`
+  // v1201: 주어가 없는 동작도 화면 안 사람의 것이다. 물건을 들어 보는 장면은 1인칭에서 '내가 들고
+  //   보는 화면' 으로 읽히기 쉽다 — 물건이 렌즈 쪽으로 오거나 화면을 채우면 그렇게 된다(9/30).
+  + ` Any action in this prompt that does not name the viewer as the one doing it is done by the person on screen.`
+  + ` What they pick up stays in their own hands on their side, unless this prompt says they hand it to the viewer.`
+  + ` When they raise something to look at it, it stays at their chest or face with their fingers on it in view —`
+  + ` it never comes toward the lens and never fills the frame.`;
+ // v1206: 손 동작이 없으면 '내 손' 을 부르지 않고, 화면에 보이는 손이 누구 것인지를 긍정문으로 적는다.
+ //   맨눈 · 손에 든 카메라가 같은 문장을 쓴다(쥔 손은 기기 조항이 화면 밖에 둔다).
  return hands
   ? `${head} The viewer's hands enter from the bottom edge only to do this: ${hands}. Nothing else is in them.`
-  : held
-   ? `${head} Apart from the hand holding the camera, the viewer's free hand stays out of frame — they only watch and listen.`
-   : `${head} The viewer's hands stay out of frame — the viewer only watches and listens.`;
+  : `${head} Every hand in the picture belongs to someone on screen and is joined to that person's own arm and`
+   + ` shoulder on their side of the table. The lower edge of the frame shows only the tabletop and what lies on it —`
+   + ` nothing reaches in from there. The viewer only watches and listens.`;
 };
 
 // ★ 두 번째 자리 — 내 대사가 화면 안 사람 입에 붙어 버린다.
@@ -1455,24 +1516,24 @@ const POV_STARTLE_RULE = 'STARTLE, SHOWN BY THE FRAME: when something appears cl
 const POV_SPEECH_RULE = 'WHO SPEAKS: only the people on screen, and their lines are lip-synced. The viewer makes no vocal sound at all — no dialogue, no gasp, no grunt, no scream, no whisper — unless a line in double quotes is written for them below; then it is heard from behind the frame, close and not lip-synced to any mouth. Their breathing stays faint under the room, never a performance. Whoever speaks to the viewer looks straight into the frame.';
 
 // v1150: 짧게, 그리고 앞쪽에. 긴 조항 속에 넣으면 묻힌다.
-const POV_FRAMING_LINE = 'FRAMING: medium close-up throughout. The person facing the viewer fills the frame from'
+const POV_FRAMING_LINE_FOR = (sizeFree) => 'FRAMING: medium close-up throughout. The person facing the viewer fills the frame from'
  + ' the chest up, head about a third of the frame height. No wide establishing view of the room, no full-body'
  + ' shot, nobody small in the distance. The room is seen only in pieces as the gaze moves.'
  + ' ONE SHOT: the whole take is a single unbroken shot — it never cuts and never jumps to another angle.'
- + ' Size changes only by zooming in or out.';
+ // v1204: 상황 묘사가 크기를 바꾸라고 할 때만 줌을 허락한다
+ + (sizeFree ? ' Size changes only by zooming in or out.'
+  : ' The size stays medium close-up from the first second to the last — no zoom in, no zoom out, no tightening on a face when someone speaks.');
 
 // v1157: 기기를 든 시점에만 붙는다.
-const POV_DEVICE_RULE = 'HELD IN ONE HAND: the viewer holds the camera in one hand the whole time. That forearm'
- + ' and hand sit at the edge of frame whenever it tilts their way, and the other hand is free to come into frame'
- + ' and do things. The weight shows: the frame sags and is corrected, the horizon tips and is straightened,'
+// v1206: 쥔 손은 화면 밖에 둔다. 전에는 '팔과 손이 화면 가장자리에 앉아 있다' 여서 늘 내 손이 보였다.
+const POV_DEVICE_RULE = 'HELD IN ONE HAND: the viewer holds the camera in one hand the whole time. The hand'
+ + ' holding it stays out of the picture and only grips the camera. The weight shows: the frame sags and is corrected, the horizon tips and is straightened,'
  + ' steps jolt it, a fast turn overshoots and settles back.'
  + ' FOCUS AND EXPOSURE: the lens hunts like an action camera — when the distance to what fills the frame changes,'
  + ' the image softens for a moment and then snaps sharp, and brightness re-adjusts a beat late moving between'
- + ' dark and light.'
- + ' IF IT IS FUMBLED, DROPPED OR SET DOWN: the view tumbles with it and comes to rest where it lands, askew, and'
- + ' from then until a hand lifts it again it lies still on the floor and belongs to no one — it does not pan,'
- + ' tilt or follow. In that state the viewer is filmed from outside like anyone else, their face alone out of'
- + ' frame. When a hand lifts it the view swings up and becomes their eyes again.';
+ + ' dark and light.';
+// v1202: 'IF IT IS FUMBLED, DROPPED OR SET DOWN …' 조건문을 뺐다. 늘 붙어 있어서, 떨어뜨리지 않는
+//   장면에서도 '나를 밖에서 찍는다 — 팔 · 몸통' 이 살아 있었다. 떨어뜨리는 장면이면 POV_DROP_LINE 이 붙는다.
 
 // v1160: 상황 묘사에 카메라를 놓치는 장면이 있을 때만, 맨 앞에서 한 번 더 못 박는다.
 //   뒤쪽 긴 조항 안에서는 앞의 '1인칭 내내' 에 진다.
@@ -1481,12 +1542,27 @@ const POV_UNSEEN_RULE = 'WHAT WE SEE THROUGH IS NOT IN THE SCENE: all of this sa
  + ' object stands there. No camera body, phone, lens or screen appears in frame at any time — we are looking'
  + ' through it, never at it. A glimpse in a mirror or a window is fine.';
 
+// v1202: 동사만 보면 '@무당이 붓을 내려놓고' 에도 붙었다(9/30). 그러면 '나를 밖에서 찍는다 — 다리 · 등 ·
+//   팔 · 몸통과 하는 일' 이 따라붙어, 무당이 종이를 드는 동작이 내 손으로 넘어왔다.
+//   카메라를 가리키는 말 뒤에 떨어뜨리는 말이 같은 문장 안에서 오거나('카메라를 … 놓쳤다'),
+//   떨어뜨린 카메라를 가리킬 때('떨어뜨린 폰') 만 본다.
+const POV_CAM_WORD = '(?:카메라|캠코더|액션캠|핸드폰|휴대폰|스마트폰|폰|기기|camera|phone|camcorder)';
+const POV_DROP_VERB = '(?:떨어뜨|떨어졌|떨어진|떨어지|떨어져|떨궜|떨군|놓치|놓쳤|놓쳐|놓친|내려놓|미끄러|drop|fumbl|slip|knock)';
+const POV_DROP_CUE = new RegExp(
+ // 카메라와 동사 사이에 다른 목적어('붓을 ')가 끼면 그 동사는 그 목적어의 것이다
+ //   ('카메라를' 의 '를' 은 카메라 자신의 것이라 먼저 건너뛴다)
+ POV_CAM_WORD + '(?:을|를|이|가|은|는|도)?(?:(?![을를]\\s)[^.!?。\\n]){0,20}?' + POV_DROP_VERB
+ + '|(?:떨어뜨린|떨군|놓친|놓쳐 버린|미끄러진)\\s*' + POV_CAM_WORD
+ + '|(?:drop|drops|dropped|dropping|fumbles?|fumbled|knocks?|knocked)\\s+(?:the\\s+|my\\s+|his\\s+|her\\s+)?' + POV_CAM_WORD, 'i');
 const POV_DROP_LINE = 'THE VIEW LEAVES THE HAND IN THIS TAKE. It is knocked loose, tumbles, and comes to rest low on the floor, tilted. From then until a hand lifts it again the view belongs to no one: it lies there without moving, panning or following, and simply sees whatever passes in front of it from that low angle. The person who lost it is now filmed from outside like anyone else — legs, back, arms, torso and what they do — with only their face out of frame, above the top edge or turned away. Nothing of what we see through is ever in the picture. It is still one unbroken shot: the fall, the floor and the moment a hand lifts the view back up all happen inside it, with no cut.';
 
-const POV_SELF_RULE = (gender) => {
+// v1206: 손 이야기는 '나' 의 손 동작이 있을 때만 — 없으면 '들어오는 손은 남자 손' 이라는 말 자체가 손을 부른다
+const POV_SELF_RULE = (gender, hasHands = false) => {
  const g = gender === 'female' ? 'woman' : 'man';
- return `The viewer is a ${g}, a different person from anyone on screen: hands that enter frame are a ${g}'s and`
-  + ` the voice behind the frame is a ${g}'s.`;
+ return hasHands
+  ? `The viewer is a ${g}, a different person from anyone on screen: hands that enter frame are a ${g}'s and`
+   + ` the voice behind the frame is a ${g}'s.`
+  : `The viewer is a ${g}, a different person from anyone on screen, and the voice behind the frame is a ${g}'s.`;
 };
 
 const seedancePovRulebook = (durationSec = 15, camera = 'eyes') => {
@@ -1497,8 +1573,9 @@ const seedancePovRulebook = (durationSec = 15, camera = 'eyes') => {
 ## ★ 이 영상은 '나' 가 손에 든 카메라로 찍는 것이다
 - ★ 카메라를 화면 속 물건으로 묘사하지 않는다. 우리는 그것을 '통해' 보는 것이지 '그것을' 보지 않는다.
   본체 · 렌즈 · 화면이 프레임에 나오지 않는다. 거울 · 유리에 언뜻 비치는 것은 괜찮다.
-- 나는 한 손으로 그것을 들고 있다. 그 팔과 손이 화면 가장자리에 들어올 수 있다.
-  남은 한 손은 자유롭다 — 무언가를 집거나 밀거나 붙잡는 일은 그 손이 한다.
+- 나는 한 손으로 그것을 들고 있다. 그 손은 화면 밖에 있다.
+- ★ 남은 한 손은 상황 묘사에 '나' 가 손으로 하는 일이 적혀 있을 때만 화면에 들어온다. 그 밖에는 아무것도
+  집지도 밀지도 붙잡지도 않는다.
 - 손에 든 무게가 화면에 보인다. 화면이 조금 처졌다 올라오고, 수평이 기울었다 바로잡히고,
   걸을 때마다 툭툭 흔들리고, 급히 돌리면 지나쳤다가 돌아온다.
 - 초점이 더듬는다. 화면을 채운 것까지의 거리가 바뀌면 잠깐 흐려졌다가 또렷해지고,
@@ -1531,9 +1608,10 @@ const seedancePovRulebook = (durationSec = 15, camera = 'eyes') => {
 - 시선은 사람이 보는 속도로 움직인다. 급한 순간에만 빨라진다.
 - ★ 구간마다 시선이 무엇을 하는지 적는다 — 무엇을 보고 있고, 그 안에서 어디로 조금씩 옮겨 가는지.
   한 사람을 보는 동안에도 눈 · 입 · 손 · 촛불로 작은 이동이 있다. '가만히 본다' 로 끝내면 화면이 굳는다.
-- ★ 구간마다 맨 앞에 샷 사이즈를 적는다 — MCU(가슴 위) · CU(얼굴) · ECU(눈 · 입 · 손).
-  예: "[0:00–0:03] MCU on [Image1]: 그는 …". 기본은 MCU 이고, 가까워지면 CU · ECU 로 간다.
+- ★ 첫 구간 맨 앞에 샷 사이즈를 적는다 — 기본은 MCU(가슴 위). 예: "[0:00–0:03] MCU on [Image1]: 그는 …".
   이 모델은 이 표기로 구도를 정한다. 렌즈 mm 로는 바뀌지 않는다.
+- ★ 상황 묘사에 줌 · 확대 · 클로즈업 · 다가간다 같은 말이 없으면 끝까지 같은 크기다. 대사한다고 CU 로 당기지
+  않는다 — 구간마다 CU · ECU 를 새로 적으면 모델은 그것을 줌으로 한다.
 - ★ 공간 설명으로 구간을 시작하지 않는다. '어두운 신당 내부가 보인다' 로 열면 방 전체를 담는
   넓은 구도가 된다. 사람과 그 앞의 것을 먼저 적고, 공간은 시선이 옮겨 갈 때 그 사이로 보인다.
 - ★ 앞에 앉은 사람은 가슴 위로 크게 잡힌다. 전신 샷 · 멀리 작게 보이는 구도는 쓰지 않는다.
@@ -1541,7 +1619,7 @@ const seedancePovRulebook = (durationSec = 15, camera = 'eyes') => {
 ## ★ 지켜야 하는 것
 - 컷이 없다. S1 · S2 로 나누지 않는다. 처음부터 끝까지 [Take] 하나다.
   시간 구간 표기는 컷이 아니라 한 테이크 안에서 시간이 흐른다는 표시다.
-- ★ 화면이 다른 각도로 튀지 않는다. 크기를 바꾸려면 줌인 · 줌아웃으로 쓴다 — 컷은 쓰지 않는다.
+- ★ 화면이 다른 각도로 튀지 않는다. 크기는 상황 묘사가 줌 · 확대 · 다가감을 말할 때만 바뀌고, 그때는 줌인 · 줌아웃으로 쓴다 — 컷은 쓰지 않는다.
 - '나' 를 밖에서 보여주지 않는다. 내 얼굴 · 뒷모습 · 전신 샷은 없다.
   내 손은 상황 묘사에 '나' 가 손으로 하는 일이 적혀 있을 때만 나온다. 그 밖에는 화면에 들어오지 않는다.
 - ★ 화면 안 인물의 동작은 문장마다 그 인물의 번호로 시작한다 — '[Image1] lifts the brush'.
@@ -1560,12 +1638,23 @@ const seedancePovRulebook = (durationSec = 15, camera = 'eyes') => {
 - ★ 다른 인물이 물건을 다루는 동안에는 그 사람의 손과 팔이 화면 안에 보이게 적는다 —
   "[Image1]'s hands, in full view across the table, lift [Image4]". 손이 보일 자리가 비면 모델이 아래에서
   올라오는 손으로 채운다.
+- ★ 상황 묘사에 '나' 가 하는 일이 적혀 있지 않으면, 모든 동작은 화면 안 인물이 한다. 주어가 빠진 문장
+  ('종이를 들고 유심히 본다') 도 화면 안 인물의 동작으로 쓰고, 그 인물의 번호로 시작한다.
+- ★ 화면은 남이 드는 물건을 따라 올라가지 않는다. 'the frame tilts up, following the paper' 는 1인칭에서 내가 들어
+  올리는 움직임과 똑같다. 화면은 그 사람의 얼굴 · 상체를 보고, 물건은 그 사람 손에서 그 자리에서 올라온다.
+- ★ 다른 인물이 든 물건을 화면 가득 잡지 않는다. 물건만 CU · ECU 로 따로 잡거나 '그 사람과 나 사이로
+  들어 올린다 · 화면 한가운데를 채운다' 고 쓰면, 1인칭에서는 내가 들고 보는 화면으로 읽혀 물건이 내 손으로
+  넘어온다. 그 사람이 물건을 들어 볼 때는 MCU 로, 탁자 건너편 그 사람의 가슴 · 얼굴 높이에서, 그 사람의
+  얼굴과 물건을 쥔 손가락이 같은 화면에 있게 적는다 — "[Image1] holds [Image2] up at his chest, his
+  fingers on its edges, his face above it".
 
 ## 그 밖의 절대 규칙
 - 출력은 영어. 대사만 한국어 원문 그대로 둔다. 영어 번역 병기 금지.
 - ★ 대사는 반드시 큰따옴표로 감싼다. 코드가 그 큰따옴표를 보고 대사 채널 {"..."} 로 배선한다.
 - 자막 부정 지시를 쓰지 않는다 — 코드가 붙인다.
 ${SOUND_WRITING_RULES}
+
+${ONSCREEN_WRITING_RULES}
 - 3000자 이내. 상단 제목 줄 금지. [Reference]로 바로 시작. 길이 ${sec}초.
 
 ${deviceBlock}
@@ -1608,14 +1697,14 @@ Audio: <내 귀에 들리는 소리 — 그 자리의 소리만. 거리만큼 �
 - 인물 레퍼런스는 '내가 보는 사람들' 이다. 내 레퍼런스가 붙어 있어도 화면에 세우지 않는다.
 
 ## [Notes] 필수
-- 시점: "the frame is this person's eyes while the camera is in their hand; if it leaves their hand it is a camera lying where it fell until someone picks it up."
-- 끊기지 않는 움직임: "motion continues across every time mark — nobody holds a pose and nothing freezes between them."
-- 시점 인물의 목소리: "the viewer makes no vocal sound — no gasp, grunt or scream — unless a quoted line is written for them."
-- 컷 없음: "one continuous take, no cuts, no edits."
-- 자기 노출: "the viewpoint character's face is never shown; their body is seen from outside only while the camera is out of their hand."
-- 동작의 주인: "every action is done by the person named doing it; the viewer only watches unless the VIEWER HANDS line says otherwise."
-- 시선 교환: "anyone speaking to them looks directly into frame."
-- 복제 방지: "each person appears exactly once, no duplicated faces."
+- 시점: ${camera === 'device' ? 'the frame is this person\'s eyes while the camera is in their hand; if it leaves their hand it is a camera lying where it fell until someone picks it up.' : 'the frame is this person\'s own eyes — there is no camera in this world.'}
+- 끊기지 않는 움직임: motion continues across every time mark — nobody holds a pose and nothing freezes between them.
+- 시점 인물의 목소리: the viewer makes no vocal sound — no gasp, grunt or scream — unless a quoted line is written for them.
+- 컷 없음: one continuous take, no cuts, no edits.
+- 자기 노출: ${camera === 'device' ? 'the viewpoint character\'s face is never shown; their body is seen from outside only while the camera is out of their hand.' : 'the viewpoint character\'s face and body are never shown.'}
+- 동작의 주인: every action is done by the person named doing it; every hand in the picture is joined to that person's own arm.
+- 시선 교환: anyone speaking to them looks directly into frame.
+- 복제 방지: each person appears exactly once, no duplicated faces.
 
 ## 출력
 - 위 형식의 프롬프트만 출력. 설명 · 머리말 · 코드블록 금지.`;
@@ -1631,7 +1720,7 @@ const ToolImageGrid = ({ pool, onPick, busy }) => {
  {pool.map((p, i) => (
  <button key={i} disabled={busy} onClick={() => onPick(p.url)} title={p.label || '툴 이미지'}
  style={{ position: 'relative', width: 60, height: 60, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', padding: 0, cursor: busy ? 'default' : 'pointer', background: 'var(--bg-secondary)', flexShrink: 0 }}>
- <img src={p.url} alt={p.label || ''} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+ <ThumbImg max={200} src={p.url} alt={p.label || ''} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
  {p.label && <span style={{ position: 'absolute', bottom: 0, left: 0, right: 0, fontSize: 8, background: 'rgba(0,0,0,0.5)', color: '#fff', padding: '1px 0', textAlign: 'center' }}>{p.label}</span>}
  {/* v1138: 보이스가 붙은 캐릭터 */}
  {p.voice && (
@@ -2132,7 +2221,7 @@ const APP_CSS = `
  --shadow-lg: 0 8px 32px rgba(0,0,0,0.5);
  }
  .app-root.is-dark .app-header {
- background: rgba(40,40,41,0.92);
+ background: #282829;
  }
  .app-root.is-dark .character-tag.creature {
  background: #3A2618; color: #E8A876; border-color: #4A3525;
@@ -2216,7 +2305,7 @@ const APP_CSS = `
  .ff-chatbtn::before {
  content: ''; position: absolute; inset: 0; border-radius: 50%; z-index: 0; pointer-events: none;
  background: conic-gradient(from 0deg, var(--green-500) 0deg, var(--green-500) 100deg, transparent 100deg, transparent 360deg);
- animation: ffBorderSpin 1.05s linear infinite;
+ /* v1222: 회전은 호버할 때만 — 투명한 채로 계속 돌고 있었다 */
  opacity: 0; transition: opacity 0.15s ease;
  }
  .ff-chatbtn::after {
@@ -2227,7 +2316,7 @@ const APP_CSS = `
  .ff-chatbtn > * { position: relative; z-index: 2; }
  /* 호버 시 정지 외곽선 제거 → 회전하는 얇은 초록 호만 남김 */
  .ff-chatbtn:hover::after { box-shadow: none; }
- .ff-chatbtn:hover::before { opacity: 1; }
+ .ff-chatbtn:hover::before { opacity: 1; animation: ffBorderSpin 1.05s linear infinite; }
  .app-root.is-dark .ff-chatbtn, .app-root.is-dark .ff-chatbtn::after { background: #1b1d1b; }
 
  /* 단일작업 미선택 안내 — 소나 펄스 루프 애니메이션 */
@@ -2254,24 +2343,33 @@ const APP_CSS = `
  /* v734: 워크스페이스 초기화 버튼 — 행 호버 시에만 노출 */
  .ff-sidebar-item:hover .ff-hover-btns { opacity: 1; }
  /* v740: 작업 상태 도트 애니메이션 — 진행(차분한 주황 파동) vs 오류(급한 빨강 점멸+확장)로 확실히 구분 */
- @keyframes ffDotProgress {
-   0%, 100% { box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 0 rgba(234, 88, 12, 0.55); }
-   50%      { box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px rgba(234, 88, 12, 0); }
- }
+ /* v1222: 그림자(box-shadow)를 움직이면 매 프레임 다시 그린다. 테두리 고리는 고정하고,
+    퍼지는 파동은 ::after 를 키우고 흐리게(transform · opacity)만 한다 — 그래픽 카드가 알아서 처리한다. */
+ .ff-dot-progress, .ff-dot-error { position: relative; box-shadow: 0 0 0 2px var(--bg-primary); }
+ .ff-dot-progress::after, .ff-dot-error::after { content: ''; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; }
+ .ff-dot-progress::after { background: rgba(234, 88, 12, 0.55); animation: ffDotRing 1.6s ease-out infinite; }
+ .ff-dot-error::after { background: rgba(239, 68, 68, 0.75); animation: ffDotRing 1.05s ease-out infinite; }
+ @keyframes ffDotRing { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(2.4); opacity: 0; } }
  @keyframes ffDotError {
-   0%   { transform: scale(1);    opacity: 1;    box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 0 rgba(239, 68, 68, 0.75); }
-   30%  { transform: scale(1.55); opacity: 1;    box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 5px rgba(239, 68, 68, 0); }
-   48%  { transform: scale(1);    opacity: 0.2;  box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 0 rgba(239, 68, 68, 0); }
-   66%  { transform: scale(1.35); opacity: 1;    box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px rgba(239, 68, 68, 0.3); }
-   84%  { transform: scale(1);    opacity: 0.35; box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 0 rgba(239, 68, 68, 0); }
-   100% { transform: scale(1);    opacity: 1;    box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 0 rgba(239, 68, 68, 0.75); }
+   0%   { transform: scale(1);    opacity: 1; }
+   30%  { transform: scale(1.55); opacity: 1; }
+   48%  { transform: scale(1);    opacity: 0.2; }
+   66%  { transform: scale(1.35); opacity: 1; }
+   84%  { transform: scale(1);    opacity: 0.35; }
+   100% { transform: scale(1);    opacity: 1; }
  }
- .ff-dot-progress { animation: ffDotProgress 1.6s ease-in-out infinite; }
- .ff-dot-error    { animation: ffDotError 1.05s ease-in-out infinite; }
+ .ff-dot-error { animation: ffDotError 1.05s ease-in-out infinite; }
  @media (prefers-reduced-motion: reduce) {
-   .ff-dot-progress, .ff-dot-error { animation: none; }
+   .ff-dot-error, .ff-dot-progress::after, .ff-dot-error::after { animation: none; }
  }
- .ff-sidebar-item.is-sel::before { content: ''; position: absolute; inset: -60%; z-index: -2; background: conic-gradient(from 0deg, transparent 0deg, var(--green-400) 30deg, var(--green-500) 60deg, transparent 110deg); animation: ffBorderSpin 2.4s linear infinite; }
+ .ff-sidebar-item.is-sel::before { content: ''; position: absolute; inset: -60%; z-index: -2; background: conic-gradient(from 0deg, transparent 0deg, var(--green-400) 30deg, var(--green-500) 60deg, transparent 110deg); animation: ffBorderSpin 2.4s linear 2; }
+ /* v1222: 선택 테두리는 고른 직후 두 바퀴만 돌고 멈춘다(앱을 켜 두는 내내 돌았다). 올려 두면 다시 돈다. */
+ .ff-sidebar-item.is-sel:hover::before { animation-iteration-count: infinite; }
+ /* v1222: 진행 버튼 — 그림자 깜빡임 대신 퍼지는 고리(transform · opacity) */
+ #progress-floating-button.ff-pulse-progress::after, #progress-floating-button.ff-pulse-error::after { content: ''; position: absolute; inset: -2px; border-radius: 50%; pointer-events: none; border: 2px solid rgba(234, 88, 12, 0.6); animation: ffLaunchRing 1.6s ease-out infinite; }
+ #progress-floating-button.ff-pulse-error::after { border-color: rgba(239, 68, 68, 0.75); animation-duration: 0.9s; }
+ @keyframes ffLaunchRing { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.25); opacity: 0; } }
+ @media (prefers-reduced-motion: reduce) { #progress-floating-button::after { animation: none !important; } }
  .ff-sidebar-item.is-sel::after { content: ''; position: absolute; inset: 1.5px; border-radius: inherit; background: var(--green-50); z-index: -1; }
  @media (prefers-reduced-motion: reduce) { .ff-sidebar-item.is-sel::before { animation: none; } }
 
@@ -2672,8 +2770,7 @@ const APP_CSS = `
  .app-header {
  padding: 14px 0;
  border-bottom: 1px solid var(--border);
- background: rgba(255,255,255,0.92);
- backdrop-filter: blur(8px);
+ background: #ffffff;   /* v1222: 92% 불투명 + 흐림 → 불투명. 흐림은 거의 안 보이면서 스크롤마다 다시 계산됐다 */
  position: sticky; top: 0; z-index: 50;
  }
  .header-inner {
@@ -5726,6 +5823,47 @@ const SCALE_FIGURE_RULE = 'SIZE RULERS: an object reference image may show a fla
 
 const PROJECT_FINAL_LINE = 'FINAL: ' + SUBTITLE_NEG_CN + ' ' + SOUND_NEG_CN;   // v1171
 
+// v1209: 대본에 없는 대사. 프롬프트의 큰따옴표 안 말이 대본(과 그 번역)에 있는지 본다.
+//   띄어쓰기 · 문장부호는 무시한다 — 한 줄을 둘로 나눠 적어도 각각 대본 안에 있으면 통과.
+const dlgNorm = (t) => String(t || '').toLowerCase().replace(/[\s.,!?…~\-—–'"“”‘’「」『』()（）\[\]{}:;·、。！？，]/g, '');
+const findUnscriptedLines = (promptText, sources) => {
+ const pool = (sources || []).map(dlgNorm).join('|');
+ const out = [];
+ const re = /"([^"\n]{1,300})"/g;
+ let m;
+ while ((m = re.exec(String(promptText || '')))) {
+  const n = dlgNorm(m[1]);
+  if (n && !pool.includes(n)) out.push(m[1]);
+ }
+ return [...new Set(out)];
+};
+// 다시 써도 남은 것 — '이름: "말"' 이면 콜론째, 아니면 따옴표째 걷는다
+const stripUnscriptedLines = (text, lines) => {
+ let t = String(text || '');
+ for (const ln of (lines || [])) {
+  const q = `"${ln}"`;
+  t = t.split('\n').map(row => {
+   let r = row;
+   for (let k = 0; k < 5 && r.includes(q); k++) {
+    const i = r.indexOf(q);
+    const head = r.slice(0, i).replace(/\s*[:：]\s*$/, '');
+    r = (head + r.slice(i + q.length)).replace(/\s{2,}/g, ' ');
+   }
+   return r;
+  }).join('\n');
+ }
+ return t;
+};
+// [Notes] 칸의 큰따옴표를 뺀다 — 지침서를 고쳤어도 Claude 가 옛 형식으로 쓸 수 있다
+const unquoteNotes = (text) => {
+ let inNotes = false;
+ return String(text || '').split('\n').map(l => {
+  if (/^\s*\[Notes\]\s*$/.test(l)) { inNotes = true; return l; }
+  if (/^\s*\[[A-Za-z][^\]]*\]\s*$/.test(l) || /^[A-Z][A-Z ]{2,}:/.test(l)) inNotes = false;
+  return inNotes ? l.replace(/"/g, '') : l;
+ }).join('\n');
+};
+
 // v1126: 본문 정리. ① 소괄호를 대괄호로 — 대괄호는 채널이 아니고, [Image 1] 은
 //   arkRefTokens 가 'Image 1' 로 펴 준다. ② 큰따옴표 대사를 대사 채널로 배선한다.
 //   ★ 이미 [ ] · { } 안에 있는 따옴표는 건드리지 않는다. 영어 병기 ["..."] 까지
@@ -6304,6 +6442,8 @@ const PROJECT_VIDEO_PROMPT_SYS = `당신은 한국 드라마의 영상 생성 �
   큰따옴표 안에 남는 것은 대본의 말 그대로와 말줄임표 · 물음표 · 느낌표뿐입니다.
 ${SOUND_WRITING_RULES}
 
+${ONSCREEN_WRITING_RULES}
+
 - ★★ 속마음 · 나레이션 줄은 '소리로만 들리는 말' 입니다. 입으로 말하지 않습니다.
   ★ 어느 줄이 그것인지는 당신이 판단하지 마십시오. 입력의 [속마음 · 나레이션]
     블록에 뽑아 드립니다. 그 블록에 적힌 줄만 속마음이고, 나머지는 전부 입으로
@@ -6486,6 +6626,241 @@ ${SOUND_WRITING_RULES}
 - 영문 프롬프트 한 단락. 설명·머리말·따옴표 없이 프롬프트만.
 - 컷 하나에 25단어 안쪽, 클립 전체로 300단어 안쪽.`;
 
+// ═════════════════════════════════════════════════════════════════════
+// ★ 프로젝트 포맷 (v1207) — 실사 / 일본 2D 애니메이션(준비 중) / 3D 애니메이션
+//   ★ 실사 지침(PROJECT_VIDEO_PROMPT_SYS · PROJECT_VIDEO_RULES_REST · PROJECT_VIDEO_ACTION_RULE ·
+//     PROJECT_CUT_TEMPO_FOR)은 한 글자도 바꾸지 않는다. 실사 프로젝트는 그 상수를 그대로 쓴다.
+//   3D 는 실사 지침을 '바탕' 으로 쓰고 3D 조항만 얹는다 — 연속성 · 레퍼런스 결속 · 대사 · 컷 형식 ·
+//   컷 호흡 · 앞 클립 이어받기 · 일반씬/액션씬 구분은 실사에서 그대로 온다. 실사 지침이 좋아지면
+//   3D 도 같이 좋아진다.
+//   회사 · 작품 이름(Disney · Pixar …)은 프롬프트에 쓰지 않는다 — 심의에 걸리거나 특정 작품을
+//   베끼게 된다. 특징으로 풀어 적는다.
+//   레퍼런스 이미지는 사용자가 3D 로 만들어 넣는다(앱의 캐릭터 시트 생성은 실사 그대로).
+// ═════════════════════════════════════════════════════════════════════
+// v1210: 초안을 이어받아 다음 클립을 뽑을 때의 경고. 프로젝트마다 한 번만 묻는다(draftContOk).
+const PROJECT_DRAFT_CONT_WARN = '앞 클립이 아직 초안(480p)인 채로 다음 클립을 이어서 뽑습니다.\n\n'
+ + '· 다음 클립은 그 480p 초안에서 위치 · 시선 · 마지막 동작을 이어받습니다.\n'
+ + '· 이 클립을 나중에 1080p 로 올려도 이어받은 참조는 초안 그대로라, 연결 부분에 480p 의 흐릿함이 조금 남을 수 있습니다.\n'
+ + '· 앞 클립을 나중에 1080p 로 올려도 구성은 초안과 같아서(같은 프롬프트 · 시드) 연결은 대체로 맞습니다.\n\n'
+ + '이 프로젝트에서는 다시 묻지 않습니다.';
+const PROJECT_FORMATS = [
+ // 버튼에는 label 을 크게, desc 를 작게 적는다
+ { id: 'live', label: '실사', desc: '실사 드라마&영화' },
+ { id: 'anime2d', label: '2D', desc: '애니메이션', disabled: true },   // 준비 중
+ { id: 'anime3d', label: '3D', desc: '애니메이션' },
+];
+// 옛 프로젝트에는 format 이 없다 — 실사로 연다
+const projectFormatOf = (d) => (d && d.format === 'anime3d') ? 'anime3d' : 'live';
+// 로드맵 위 한 줄 — 실사는 '실사', 애니메이션은 '3D 애니메이션' 처럼 붙여 읽는다
+const projectFormatLabel = (d) => {
+ const f = PROJECT_FORMATS.find(x => x.id === projectFormatOf(d)) || PROJECT_FORMATS[0];
+ return f.id === 'live' ? f.label : `${f.label} ${f.desc}`;
+};
+
+// 영상 모델 — 맨 앞에 붙는 스타일 조항. 3D 에서만.
+const PROJECT_3D_STYLE_RULE = [
+ 'STYLE — A STYLIZED 3D ANIMATED FEATURE FILM, not live action. Polished CG character animation:',
+ 'appealing stylized characters, human or not, with expressive eyes and faces wherever their design has them,',
+ 'every surface true to its design — skin, fur, feathers, scales or metal — clean sculpted forms, richly',
+ 'detailed but stylized sets, cinematic lighting with clear warm and cool colour keys and a soft rim light',
+ 'separating each character from the background.',
+ 'Every person, place and object in every cut is rendered in this one style. The reference images are',
+ 'already in this style — keep their exact designs, proportions and colours; never turn anyone or',
+ 'anything photorealistic, and never mix in live-action footage.',
+].join('\n');
+
+// 영상 모델 — 실사 RULES_REST 에서 실사에만 맞는 문단(피부 질감 · 절제된 연기 · 사람 보조출연자)을 3D 로
+//   바꾸고 물리 조항을 더한다. 나머지(신원 · 빛 · 상태 · 컷 구성 · 줌 금지 · 소품)는 그대로.
+// v1208: 사람이 아닌 캐릭터도 있다 — 몸의 부위 · 표면 · 다루는 법을 사람으로 못 박지 않는다.
+const PROJECT_LIVE_SKIN_BLOCK = (() => {
+ const a = PROJECT_VIDEO_RULES_REST.indexOf('SKIN comes from the identity image too');
+ const b = PROJECT_VIDEO_RULES_REST.indexOf('belongs on it.', a);
+ return a >= 0 && b > a ? PROJECT_VIDEO_RULES_REST.slice(a, b + 'belongs on it.'.length) : '';
+})();
+const PROJECT_LIVE_PERFORMANCE = (() => {
+ const a = PROJECT_VIDEO_RULES_REST.indexOf('PERFORMANCE:');
+ return a >= 0 ? PROJECT_VIDEO_RULES_REST.slice(a) : '';
+})();
+const PROJECT_LIVE_BACKGROUND = (() => {
+ const a = PROJECT_VIDEO_RULES_REST.indexOf('BACKGROUND LIFE:');
+ const b = PROJECT_VIDEO_RULES_REST.indexOf('never an audible line.', a);
+ return a >= 0 && b > a ? PROJECT_VIDEO_RULES_REST.slice(a, b + 'never an audible line.'.length) : '';
+})();
+const PROJECT_3D_SURFACE = [
+ 'SURFACES come from the identity image too, at every shot size — skin stays smooth stylized skin, fur stays',
+ 'fur, feathers stay feathers, metal stays metal. A close-up shows the SAME surface as a wide — larger, not',
+ 'more realistic. Only what the story put there — sweat, tears, dirt, a scrape — belongs on it.',
+].join('\n');
+const PROJECT_3D_PERFORMANCE = [
+ 'PERFORMANCE: expressive animated acting, specific to the situation and to each body. Clear, readable',
+ 'poses — the silhouette alone shows what they are doing. The whole body plays the emotion, with every part',
+ 'that body has — ears, tail, wings, whiskers or antennae as much as shoulders and hands.',
+ 'A small anticipation before a big move, and follow-through after it: hair, fur, ears, tails, cloth and',
+ 'fingertips settle a beat late.',
+ 'Eyes and brows lead each change of thought where the design has them; the face follows.',
+ 'A character with no face or no hands acts through posture, tilt, bounce and rhythm, and is never given a',
+ 'human face, hands or stance its image does not show. A four-legged character moves on four legs.',
+ 'Lip-sync matches every spoken line for anyone who speaks with a mouth or beak; the head, and the hands if',
+ 'there are hands, move with the stresses of the words. Broad enough to read, true to the character, never',
+ 'jittery or random. No looking at camera.',
+ '',
+ 'PHYSICS is real even though the look is animated: weight, contact and momentum. Feet, paws or hooves',
+ 'plant on the ground, a seat gives under a body, a held object is gripped by fingers, paws, a beak, a mouth',
+ 'or a tail — whatever that body uses. Nothing floats or slides. Hair, fur, feathers and cloth swing with the',
+ 'motion and come to rest after it.',
+].join('\n');
+const PROJECT_3D_BACKGROUND = [
+ 'BACKGROUND LIFE: unless the script calls for an empty space, fill the location with beings who plausibly',
+ 'live in this world — the same kinds as the cast; if the cast are animals, the passers-by are animals too.',
+ 'Ordinary activity, out of focus, away from the action. Never at camera, never blocking the leads, never',
+ 'an audible line.',
+].join('\n');
+const PROJECT_VIDEO_RULES_REST_3D = PROJECT_VIDEO_RULES_REST
+ .replace(PROJECT_LIVE_SKIN_BLOCK, PROJECT_3D_SURFACE)
+ .replace(PROJECT_LIVE_BACKGROUND, PROJECT_3D_BACKGROUND)
+ .replace(PROJECT_LIVE_PERFORMANCE, PROJECT_3D_PERFORMANCE);
+
+// 영상 모델 — 의상. 옷 밖으로 드러난 곳을 '살' 로 못 박지 않는다 — 털 · 깃털 · 비늘일 수 있다.
+const PROJECT_LIVE_OUTFIT_SKIN = 'render THEIR OWN LIVING SKIN, in the tone from their identity image.';
+const PROJECT_3D_OUTFIT_SKIN = 'render THEIR OWN BODY as their identity image shows it — skin, fur, feathers or scales, in its own colour.';
+const PROJECT_OUTFIT_RULE_3D = OUTFIT_RULE.replace(PROJECT_LIVE_OUTFIT_SKIN, PROJECT_3D_OUTFIT_SKIN);
+const projectOutfitRuleFor = (format) => (format === 'anime3d' ? PROJECT_OUTFIT_RULE_3D : OUTFIT_RULE);
+
+// v1208: 몸 형태 — 인물 레퍼런스 이미지를 Claude(비전)가 보고 판단한다. 사람과 사람이 아닌 캐릭터가
+//   한 편에 함께 나올 수 있어서, 프로젝트 전체가 아니라 인물마다 정한다.
+const PROJECT_BODY_SYS = `You look at ONE character reference image from a stylized 3D animated film and judge the character's BODY TYPE only — not clothes, colours or personality.
+Reply with JSON only, no other text:
+{"kind":"human"|"humanoid"|"nonhuman","ko":"<한국어 한 줄>","en":"<one English line>"}
+- human: an ordinary human. Stylized proportions are still human.
+- humanoid: stands and moves on two legs and has hands, but is not human — an animal standing like a person, a humanoid robot, a person-like creature with ears, tail, horns or wings. Name those extra parts.
+- nonhuman: anything else — four legs, no hands, no face, a bird, a fish, a vehicle, an object, a blob.
+"en" is for the video model: what the body is and what it acts with. Example: "a four-legged corgi — big ears, short tail, four paws, no hands; acts with ears, tail, head and posture and carries things in its mouth". For a human, "en" is "a human".
+"ko" says the same in short Korean.`;
+const projectParseBody = (raw) => {
+ const m = /\{[\s\S]*\}/.exec(String(raw || ''));
+ if (!m) return null;
+ try {
+  const j = JSON.parse(m[0]);
+  const kind = ['human', 'humanoid', 'nonhuman'].includes(j.kind) ? j.kind : '';
+  if (!kind) return null;
+  return { kind, ko: String(j.ko || '').trim().slice(0, 200), en: String(j.en || '').trim().slice(0, 300) };
+ } catch { return null; }
+};
+const PROJECT_BODY_KIND_KO = { human: '사람', humanoid: '사람 같은 비인간(두 발 · 손)', nonhuman: '비인간' };
+// Claude 에게 — 사용자 메시지에 붙는 블록
+const projectBodyBlockKo = (notes) => (notes && notes.length
+ ? ['[몸 형태 — 붙은 인물 이미지를 보고 판단한 것. 이 몸대로 연기를 적으십시오]',
+  ...notes.map(n => `- ${n.name}: ${PROJECT_BODY_KIND_KO[n.kind] || n.kind}${n.kind === 'human' ? '' : ` — ${n.ko || n.en}`}`)].join('\n')
+ : '');
+// 영상 모델에게 — 사람이 아닌 캐릭터가 있을 때만
+const projectBodyRuleEn = (notes) => {
+ const odd = (notes || []).filter(n => n.kind !== 'human' && n.en);
+ if (!odd.length) return '';
+ return ['BODIES — each character moves in the body their identity image shows:',
+  ...odd.map(n => `- ${n.name}: ${n.en}`),
+  'Nobody gains a human face, hands or two-legged stance their image does not show, and nobody loses one they have.'].join('\n');
+};
+
+// 영상 모델 — 액션씬. 인과 · 접촉 · 컷 사이 연결 · 빠른 컷은 실사 그대로, 카메라만 3D 로.
+const PROJECT_LIVE_ACTION_CAMERA = [
+ 'ACTION SCENE: handheld and rough. The camera follows the bodies at shoulder',
+ 'height, jolts on impact, whips to catch a movement, and is locked off only for',
+ 'one held beat after an impact.',
+].join('\n');
+const PROJECT_3D_ACTION_CAMERA = [
+ 'ACTION SCENE: a dynamic animated-feature camera. It tracks fast with the bodies,',
+ 'arcs around a move, looks up from low angles, and shakes only for the instant of an',
+ 'impact; it holds still for one beat after an impact.',
+ 'IMPACT POSES: a body bends hard into a hit and springs out of it so the force reads,',
+ 'and every pose stays crisp and readable.',
+].join('\n');
+const PROJECT_VIDEO_ACTION_RULE_3D = PROJECT_VIDEO_ACTION_RULE.replace(PROJECT_LIVE_ACTION_CAMERA, PROJECT_3D_ACTION_CAMERA);
+
+// Claude — 클립 프롬프트 지침서. 실사 지침서 전부를 바탕으로, 첫 줄(누구인가)만 바꾸고
+//   [출력] 앞에 3D 조항을 넣는다. 다른 곳과 부딪치면 3D 조항이 이긴다고 못 박는다.
+const PROJECT_LIVE_SYS_HEAD = '당신은 한국 드라마의 영상 생성 프롬프트를 쓰는 연출자입니다.';
+const PROJECT_3D_SYS_HEAD = '당신은 3D 애니메이션 장편의 영상 생성 프롬프트를 쓰는 연출자입니다. 대사는 대본 그대로입니다.';
+const PROJECT_3D_DIRECTION_SYS = `[★ 이 프로젝트는 3D 애니메이션입니다 — 위 조항과 부딪치면 이 조항이 이깁니다]
+화면은 고급 3D 장편 애니메이션입니다. 실사 드라마가 아닙니다.
+위의 레퍼런스 결속 · 배치 · 앞 클립 연결 · 대사 · 속마음 · 컷 형식 · 컷 호흡 조항은 그대로 지키고,
+아래만 바꿉니다. 등장하는 캐릭터는 사람일 수도, 사람이 아닐 수도 있고, 둘이 함께 나올 수도 있습니다.
+
+① 회사 · 작품 이름을 쓰지 않습니다 — Disney · Pixar · DreamWorks · 작품 제목 모두.
+   스타일은 코드가 프롬프트 맨 앞에 따로 붙입니다. 컷마다 '3D 애니메이션' 을 되풀이하지 마십시오.
+
+② 연기 — 애니메이션 연기입니다. 실사의 절제된 연기가 아닙니다.
+   - 감정은 몸 전체로, 그 몸이 가진 모든 부위로 냅니다. 사람이면 어깨 · 등 · 손 · 발끝,
+     동물이면 귀 · 꼬리 · 수염 · 털, 새라면 날개와 깃. 얼굴만 연기하지 않습니다.
+   - 큰 동작 앞에는 반대쪽으로 살짝 당기는 준비 동작이 있고, 멈춘 뒤에는 머리카락 · 털 · 귀 · 꼬리 ·
+     옷자락 · 손끝이 한 박자 늦게 따라와 멈춥니다.
+   - 눈이 있는 캐릭터는 눈과 눈썹이 감정을 끌고 갑니다. 생각이 바뀌는 순간 눈이 먼저 움직이고
+     표정이 따라옵니다.
+   - 포즈는 실루엣만 봐도 무엇을 하는지 읽히게 적습니다.
+   - 과장하되 캐릭터를 벗어나지 않습니다. 장면의 감정만큼 — 코미디는 크고 탄력 있게, 슬픔은 작게
+     떨리는 쪽으로.
+   - 말하는 캐릭터는 고개가(손이 있으면 손도) 말의 강세를 따라 움직입니다.
+
+③ 화면 구성
+   - 색과 빛이 감정을 끌고 갑니다. 첫 컷에 그 장면의 색온도와 빛의 방향을 한 마디로 적으십시오
+     (등 뒤의 따뜻한 노을빛 · 창으로 드는 차가운 달빛처럼). 클립 안에서는 바꾸지 않습니다.
+   - 캐릭터가 배경에서 또렷이 떨어지게 — 얼굴(이나 몸)이 배경보다 밝고, 테두리에 빛이 걸립니다.
+   - 일반씬 카메라는 가상 카메라답게 매끈합니다 — 부드러운 달리 · 크레인 · 캐릭터를 감싸 도는 아크.
+     실사의 핸드헬드 흔들림은 쓰지 않습니다.
+   - 컷의 크기 · 각도 규칙은 위 실사 조항 그대로입니다 — 줌 금지, 같은 인물을 크기만 바꿔 잇지 않기,
+     와이드는 짧게.
+
+④ 물리 — 무게 · 접촉 · 관성은 실사처럼 진짜입니다. 3D 라고 몸이 떠다니거나 물건이 무게 없이
+   움직이지 않습니다. 앉으면 쿠션이 꺼지고, 발 · 앞발 · 발굽은 바닥을 딛고, 물건은 그 몸이 쓰는 것으로
+   쥡니다 — 손가락 · 앞발 · 입 · 부리 · 꼬리. 털 · 깃털 · 옷 · 머리카락은 움직임을 따라 흔들리고 늦게
+   멈춥니다. 액션씬의 인과 · 접촉 조항은 그대로입니다.
+
+⑤ 레퍼런스 — 인물 · 장소 · 오브제 이미지는 이미 이 3D 스타일로 만들어진 것입니다. 생김새와
+   비율(큰 눈, 머리와 몸의 비율, 몸의 크기)은 이미지가 정합니다. 실사처럼 묘사하지 마십시오 — 피부 결 ·
+   모공 · 주름 같은 사실적인 질감 낱말을 쓰지 않습니다. 털 · 깃털 · 비늘은 그 디자인 그대로입니다.
+
+⑥ 사람이 아닌 캐릭터 — 사람과 함께 나올 수 있습니다
+   - 입력의 [몸 형태] 블록이 인물마다 사람인지, 사람 같은 비인간인지, 비인간인지와 그 몸을 알려 줍니다.
+     붙은 이미지를 직접 보고 판단한 것이니 그대로 따르십시오. 블록에 없는 인물은 대본에서 읽어
+     판단합니다.
+   - 비인간은 그 몸으로 움직입니다. 네 발이면 네 발로 걷고 뛰고, 손이 없으면 앞발 · 입 · 부리 · 꼬리로
+     다루고, 날개가 있으면 날개로도 감정을 냅니다. 이미지가 그렇게 생기지 않았으면 두 발로 세우거나
+     손을 쥐여 주지 마십시오.
+   - 얼굴이나 손이 없는 캐릭터(자동차 · 램프 · 상자 로봇)는 몸의 기울기 · 튕김 · 리듬으로 연기합니다.
+     눈썹 · 미소 · 손짓을 적지 마십시오.
+   - 사람 같은 비인간(두 발로 서고 손이 있는 동물 · 로봇)은 사람처럼 연기하되 귀 · 꼬리 같은 부위를
+     함께 씁니다.
+   - 사람과 비인간이 한 컷에 있으면 이미지의 크기 차이를 지키고, 서로의 눈높이를 맞추는 동작을
+     적으십시오 — 사람이 몸을 낮추거나, 작은 캐릭터가 올려다봅니다.
+   - 비인간이 말하면 입 · 주둥이 · 부리가 대사에 맞게 움직입니다. 대본이 대사를 주지 않은 동물에게는
+     말을 시키지 마십시오 — 그 동물의 소리를 냅니다.
+   - 보조출연자는 위 [화면을 채우는 사람들] 대신 이 세계에 사는 존재로 채웁니다. 출연진이 동물이면
+     지나가는 이들도 동물입니다.`;
+const PROJECT_VIDEO_PROMPT_SYS_3D = PROJECT_VIDEO_PROMPT_SYS
+ .replace(PROJECT_LIVE_SYS_HEAD, PROJECT_3D_SYS_HEAD)
+ .replace('\n[출력]\n', '\n' + PROJECT_3D_DIRECTION_SYS + '\n\n[출력]\n');
+
+// Claude — 컷 호흡(사용자 메시지). 일반씬은 실사 그대로. 액션씬은 카메라 대목만 3D 로.
+const PROJECT_3D_ACTION_CAMERA_KO = [
+ '[카메라 — 액션씬 · 3D 애니메이션]',
+ '거친 핸드헬드가 아니라 동작을 따라 휘감는 역동적인 가상 카메라입니다.',
+ '- 인물을 따라가는 빠른 추적, 동작을 감싸 도는 아크, 낮은 앵글에서 올려보기, 부딪히기 직전의 짧은 다가섬.',
+ '- 흔들림은 충격 순간에만 짧게 — 그 밖에는 매끈합니다.',
+ '- 타격의 순간 몸이 크게 휘었다가 튕겨 나가듯 힘이 보이게, 그래도 포즈는 또렷이 읽히게.',
+ '- 줌인 · 줌아웃은 여기서도 쓰지 마십시오. 화면 크기는 컷으로 바꿉니다.',
+ '대사는 짧은 외침 정도입니다. 액션 도중에 긴 대사를 넣지 마십시오.',
+ '액션 중에는 말하는 사람이 화면 밖이어도 됩니다 — 몸이 먼저입니다.',
+].join('\n');
+const projectCutTempoFor = (kind, sec, format) => {
+ const base = PROJECT_CUT_TEMPO_FOR(kind, sec);
+ if (format !== 'anime3d' || kind !== 'action') return base;
+ const at = base.indexOf('[카메라 — 액션씬]');
+ return at >= 0 ? base.slice(0, at) + PROJECT_3D_ACTION_CAMERA_KO : base;
+};
+const projectVideoPromptSysFor = (format) => (format === 'anime3d' ? PROJECT_VIDEO_PROMPT_SYS_3D : PROJECT_VIDEO_PROMPT_SYS);
+const projectVideoRulesRestFor = (format) => (format === 'anime3d' ? PROJECT_VIDEO_RULES_REST_3D : PROJECT_VIDEO_RULES_REST);
+const projectVideoActionRuleFor = (format) => (format === 'anime3d' ? PROJECT_VIDEO_ACTION_RULE_3D : PROJECT_VIDEO_ACTION_RULE);
+// ═════════════════════════════════════════════════════════════════════ 포맷 끝
+
 // 구간을 씬 단위로 묶는다. 씬번호가 없으면 '기타' 로 몬다.
 const projectGroupByScene = (segments) => {
  const groups = [];
@@ -6646,6 +7021,11 @@ const projectTakeToClip = (tk) => ({
   clipPubUrl: '',
 });
 
+// v1215: 구간의 마지막 버전을 지웠을 때 — 지금 클립 칸을 비운 모양. 순번(genSeq)은 남겨 번호가 다시 쓰이지 않게 한다.
+const PROJECT_CLIP_EMPTY = {
+  clipUrl: '', clipFile: '', clipTs: 0, clipGenNo: 0, clipPubUrl: '',
+  clipIsDraft: false, clipDraftTaskId: '', clipDraftAt: 0, clipRes: '', clipUpgraded: false,
+};
 // v1188: 버전 배지. 1080p 로 올린 것 · 초안 · 그 밖의 해상도를 한눈에 가른다.
 //   해상도를 적어 두지 않던 옛 클립은 배지가 없다 — 모르는 것을 지어내지 않는다.
 const ProjectVerBadge = ({ upgraded, isDraft, res, big }) => {
@@ -7050,6 +7430,10 @@ const emptyProject = () => ({
  // 3단계 — 씬별 레퍼런스. { [sceneNo]: { characters:[], places:[], objects:[] } }
  //   레퍼런스는 씬 단위로 걸고, 그 씬에 속한 클립들이 자동으로 물려 쓴다.
  sceneRefs: {},
+ // v1207: 포맷 — 'live' | 'anime3d' ('anime2d' 는 준비 중). 옛 프로젝트에는 없다 — 실사로 연다.
+ format: 'live',
+ // v1218: 초안 모드 기본 켜짐 — 새 프로젝트만. 이미 있는 프로젝트는 저장된 설정 그대로 연다.
+ genDraft: true,
  error: '',
 });
 
@@ -8755,17 +9139,48 @@ const ArchiveVideoThumb = ({ src, onMeta, style, className }) => {
 // ─────────────────────────────────────────────────────────────
 const _tickSubs = new Set();
 let _tickTimer = null;
-const useSecondTick = () => {
- const [, setTick] = useState(0);
- useEffect(() => {
- const fn = () => setTick((t) => t + 1);
- _tickSubs.add(fn);
- if (!_tickTimer) _tickTimer = setInterval(() => { for (const f of [..._tickSubs]) { try { f(); } catch {} } }, 1000);
- return () => {
- _tickSubs.delete(fn);
- if (_tickSubs.size === 0 && _tickTimer) { clearInterval(_tickTimer); _tickTimer = null; }
- };
- }, []);
+// v1214: enabled — 진행 중일 때만 구독한다(끝난 줄 · 빈 패널은 타이머를 붙잡지 않는다)
+const useSecondTick = (enabled = true) => {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+  if (!enabled) return undefined;
+  const fn = () => setTick((t) => t + 1);
+  _tickSubs.add(fn);
+  if (!_tickTimer) _tickTimer = setInterval(() => { for (const f of [..._tickSubs]) { try { f(); } catch {} } }, 1000);
+  return () => {
+  _tickSubs.delete(fn);
+  if (_tickSubs.size === 0 && _tickTimer) { clearInterval(_tickTimer); _tickTimer = null; }
+  };
+  }, [enabled]);
+};
+
+// v1214: 진행 패널의 말단. 예전에는 루트의 nowTick 을 1초마다 바꿔서 진행 패널을 움직였고(v961),
+//   그 때문에 작업이 도는 내내 4만 8천 줄 컴포넌트 전체가 초당 한 번 다시 실행됐다.
+//   이제 루트는 '무엇이 도는가' 가 바뀔 때만 다시 그리고, 시간으로 바뀌는 값은 여기서만 1초마다 계산한다.
+//   build(now) 는 루트의 진행 항목 계산식 그대로다(시각만 인자로 받는다).
+const ProgressLive = ({ build, id, base, children }) => {
+  const ticking = !!base && base.status === 'progress';
+  useSecondTick(ticking);
+  let live = base;
+  if (ticking) { try { live = (build(Date.now()) || []).find(x => x.id === id) || base; } catch { live = base; } }
+  return children(live);
+};
+// 접힌 버튼의 평균 진행률 — 루트의 overallPct 와 같은 계산
+const progressOverallPct = (items) => {
+  const ongoing = (items || []).filter(i => i.status === 'progress');
+  if (ongoing.length === 0) return 0;
+  const known = ongoing.filter(i => i.pct != null && isFinite(Number(i.pct)));
+  if (known.length === 0) return null;
+  const avg = known.reduce((s, i) => s + Math.max(0, Math.min(99, Number(i.pct))), 0) / known.length;
+  return isFinite(avg) ? Math.max(0, Math.min(99, Math.round(avg))) : null;
+};
+const ProgressLivePct = ({ build, ids, fallback, children }) => {
+  const ticking = (ids || []).length > 0;
+  useSecondTick(ticking);
+  if (!ticking) return children(fallback);
+  let v = fallback;
+  try { v = progressOverallPct((build(Date.now()) || []).filter(x => ids.includes(x.id))); } catch { v = fallback; }
+  return children(v);
 };
 
 // v688: 생성 job 경과/잔여 시간 — 자체 1초 틱을 가진 leaf. 로딩 카드에만 마운트되어
@@ -8789,6 +9204,125 @@ const JobGauge = ({ job, style, fillStyle }) => {
  }} />
  </div>
  );
+};
+
+// v1222: 루트의 데이터가 필요한 블록을 1초마다 다시 그리는 말단(render-prop). on 이 거짓이면 시계를 달지 않는다.
+const SecondTick = ({ on, children }) => { useSecondTick(!!on); return children(Date.now()); };
+
+// v1222: 분석 진행률 — 예전엔 루트 상태를 1초(영상 분석) · 3초 · 8초(시나리오 분석)마다 바꿔 앱 전체가 다시 그려졌다.
+//   이제 '언제 시작했고 어떻게 오르는가' 만 상태에 두고, 보이는 곳(말단 · 진행 패널)이 시각으로 계산한다.
+// 시나리오 분석: pctRamp = { from, to, secPer, at } — at 부터 secPer 초마다 1%씩, to 에서 멈춘다
+const rampPct = (d, now) => {
+  const base = Number(d && d.progressPct) || 0;
+  const r = d && d.pctRamp;
+  if (!r || !d.isAnalyzing) return base;
+  return Math.max(base, Math.min(r.to, r.from + Math.floor(Math.max(0, now - r.at) / 1000 / r.secPer)));
+};
+// 영상 분석: 예상 시간의 70% 동안 80%까지, 그 뒤 95%까지 천천히(v323 곡선 그대로)
+const vaTimePct = (d, now) => {
+  const base = Number(d && d.progressPct) || 0;
+  if (!d || !d.isAnalyzing || !d.progressStartTime) return base;
+  const ratio = Math.min(Math.max(0, (now - d.progressStartTime) / 1000) / (d.estimatedTotalSec || 600), 1);
+  const pct = ratio < 0.7 ? (ratio / 0.7) * 80 : 80 + ((ratio - 0.7) / 0.3) * 15;
+  return Math.max(base, Math.min(95, Math.round(pct)));
+};
+
+// v1222: 썸네일 — 작은 칸에 큰 원본(2K~4K)을 그대로 올리면 보이는 크기와 상관없이 원본 크기로 풀려 메모리에 남는다.
+//   이미지가 쌓일수록 렌더러 메모리가 커지고 버벅인다. 원본을 한 번 읽어 긴 변 max 픽셀로 줄인 사본(blob)을 만들어 두고
+//   그걸 보여 준다. 읽기 실패 · 이미 작은 이미지 · 움직이는 GIF · SVG 는 원본을 그대로 쓴다.
+//   b64 + mime 으로 받으면 data URL 을 매 렌더마다 이어 붙이지 않는다(수 MB 문자열).
+const THUMB_ORIG = '\u0000orig';
+const THUMB_BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+const THUMB_CACHE_MAX = 600;
+const _thumbCache = new Map();    // key → blob URL | THUMB_ORIG
+const _thumbPending = new Map();  // key → Promise
+const _thumbQueue = [];
+let _thumbActive = 0;
+// 긴 data URL 을 그대로 키로 쓰면 캐시가 그 문자열(수 MB)을 붙잡는다 — 길이 + 앞뒤 조각을 '복사' 해서 키로 쓴다
+//   (slice 만 하면 V8 이 원본을 참조하는 조각 문자열을 만들어 원본이 풀리지 않는다)
+const _thumbCopy = (x) => x.split('').join('');
+const thumbKey = (x, max) => (x.length > 300 ? `L${x.length}:${_thumbCopy(x.slice(0, 64))}~${_thumbCopy(x.slice(-160))}` : x) + '|' + max;
+const _thumbMake = (url, max) => new Promise((resolve) => {
+  if (/^data:image\/(gif|svg)/i.test(url) || /\.(gif|svg)(\?|#|$)/i.test(url)) { resolve(THUMB_ORIG); return; }
+  const img = new Image();
+  img.decoding = 'async';
+  img.onload = () => {
+    try {
+      const w = img.naturalWidth, h = img.naturalHeight, long = Math.max(w, h);
+      if (!w || !h || long <= max * 1.25) { resolve(THUMB_ORIG); return; }
+      const k = max / long;
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+      const g = c.getContext('2d');
+      g.imageSmoothingQuality = 'high';
+      g.drawImage(img, 0, 0, c.width, c.height);
+      c.toBlob((b) => { resolve(b ? URL.createObjectURL(b) : THUMB_ORIG); c.width = 0; c.height = 0; }, 'image/webp', 0.86);
+    } catch { resolve(THUMB_ORIG); }
+  };
+  img.onerror = () => resolve(THUMB_ORIG);
+  img.src = url;
+});
+// 한꺼번에 수십 장을 풀면 순간 메모리가 튄다 — 3장씩
+const _thumbRun = (job) => new Promise((resolve) => {
+  const go = () => {
+    _thumbActive++;
+    job().then(resolve, () => resolve(THUMB_ORIG)).finally(() => { _thumbActive--; const nx = _thumbQueue.shift(); if (nx) nx(); });
+  };
+  if (_thumbActive < 3) go(); else _thumbQueue.push(go);
+});
+const thumbGet = (key, url, max) => {
+  if (_thumbCache.has(key)) return Promise.resolve(_thumbCache.get(key));
+  if (_thumbPending.has(key)) return _thumbPending.get(key);
+  const p = _thumbRun(() => _thumbMake(url, max)).then((v) => {
+    _thumbPending.delete(key);
+    _thumbCache.set(key, v);
+    if (_thumbCache.size > THUMB_CACHE_MAX) {
+      const [k0, v0] = _thumbCache.entries().next().value;
+      _thumbCache.delete(k0);
+      if (v0 !== THUMB_ORIG) { try { URL.revokeObjectURL(v0); } catch {} }
+    }
+    return v;
+  });
+  _thumbPending.set(key, p);
+  return p;
+};
+const ThumbImg = ({ src, b64, mime, max = 480, ...rest }) => {
+  const key = src ? thumbKey(src, max) : (b64 ? 'b64:' + (mime || '') + ':' + thumbKey(b64, max) : '');
+  const [, bump] = useState(0);
+  useEffect(() => {
+    if (!key || _thumbCache.has(key)) return undefined;
+    let alive = true;
+    thumbGet(key, src || `data:${mime || 'image/png'};base64,${b64}`, max).then(() => { if (alive) bump((x) => x + 1); });
+    return () => { alive = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  if (!key) return <img decoding="async" {...rest} />;
+  const hit = _thumbCache.get(key);
+  const shown = hit === undefined ? THUMB_BLANK
+    : hit === THUMB_ORIG ? (src || `data:${mime || 'image/png'};base64,${b64}`) : hit;
+  return <img decoding="async" {...rest} src={shown} />;
+};
+
+// v1222: 반복 재생 미리보기 — 화면 밖으로 스크롤되면 멈추고, 다시 보이면 이어서 튼다.
+//   사용자가 직접 멈춘 영상은 건드리지 않는다(앱이 멈춘 것만 다시 튼다).
+const PreviewVideo = (props) => {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return undefined;
+    let visible = true, autoPaused = false;
+    const sync = () => {
+      if (!visible && !el.paused) { autoPaused = true; el.pause(); }
+      else if (visible && autoPaused) { autoPaused = false; const p = el.play(); if (p && p.catch) p.catch(() => {}); }
+    };
+    const io = new IntersectionObserver((ents) => { visible = ents.some((e) => e.isIntersecting); sync(); }, { threshold: 0.05 });
+    io.observe(el);
+    // 화면 밖에 있는 동안 영상이 바뀌어 autoPlay 로 시작해도 바로 멈춘다
+    const onPlay = () => { if (!visible) sync(); };
+    el.addEventListener('play', onPlay);
+    return () => { io.disconnect(); el.removeEventListener('play', onPlay); };
+  }, []);
+  return <video ref={ref} {...props} />;
 };
 
 // v864: 경과 초 텍스트 — 위와 같은 이유로 말단에서 센다.
@@ -8928,7 +9462,6 @@ const MODEL_PRICING = {
 
 
 // TTS 비용 — 글자수 기반
-const estimateTtsCost = (chars) => (chars / 1000) * MODEL_PRICING['speech-tts'].per_1k_chars;
 
 // 영상 생성 비용 — 모델 + 초 단위
 // v639: Seedance 2.0 실제 과금(ByteDance 공식 · fal·Replicate 공통) — 토큰 기반
@@ -9186,6 +9719,20 @@ const ARK_MODELS = {
  image: 'dola-seedream-5-0-pro-260628',
  imageLite: 'seedream-5-0-lite',
 };
+// v1213: 검열 필터를 끈 내 엔드포인트. ModelArk 의 콘텐츠 필터는 엔드포인트마다 켜고 끈다
+//   (콘솔 › Online Inference › 엔드포인트 편집). 요청의 model 자리에 모델 이름 대신 엔드포인트 ID 를 넣는다.
+//   ★ 바꾸는 것은 '요청 본문의 model' 뿐이다. 단가 · 실측 시간 · 기능 판정은 모델 이름으로 찾으므로
+//     그쪽은 원래 이름 그대로 둔다(엔드포인트 ID 로는 단가를 못 찾는다).
+//   요금: 엔드포인트는 그 뒤의 모델 단가로 청구된다 — 필터를 끈다고 값이 바뀐다는 말은 문서에 없다.
+//   꺼도 BytePlus 의 기본 안전 정책과 공인 얼굴 · 목소리 필터는 그대로 돈다(문서 명시).
+const ARK_NOFILTER_EP = {
+ [ARK_MODELS.video25]: 'ep-20261006194942-2bx8k',   // Seedance 2.5
+ [ARK_MODELS.image]: 'ep-20261006195015-snst9',     // Seedream 5.0 Pro
+};
+const ARK_FILTER_OFF_KEY = 'oxyzn_ark_filter_off';
+const arkFilterOff = () => { try { return localStorage.getItem(ARK_FILTER_OFF_KEY) === '1'; } catch { return false; } };
+// 요청에 실을 model — 필터를 껐고 그 모델의 엔드포인트가 있으면 엔드포인트 ID
+const arkEndpointFor = (model) => (arkFilterOff() && ARK_NOFILTER_EP[model]) || model;
 // Seedream 5.0 출력 크기 — 총 픽셀 [921,600 ~ 4,624,220] · 화면비 [1/16 ~ 16] 범위 내에서
 // 각 화면비의 최대 해상도에 가깝게 잡은 값 (모두 정확한 비율)
 // ─────────────────────────────────────────────────────────────
@@ -9254,7 +9801,7 @@ const SHEET_SIZE_16_9 = '1920x1080';
 // v778: 캐릭터 시트는 ARK 픽셀 상한(4,624,220) 이내 16:9 최대치로 생성한다.
 //   2816x1584 = 4,460,544px (상한의 96%). Seedream 5.0 Pro는 2.36M px 초과 구간이라
 //   장당 $0.045 → $0.09. 얼굴 디테일이 중요한 시트라 화질을 택했다.
-//   (턴어라운드 시트·타이틀은 gpt-image-2를 쓰므로 SHEET_SIZE_16_9 그대로)
+//   (턴어라운드 시트·타이틀은 gpt-image-2를 쓰므로 SHEET_SIZE_16_9 그대로 — 단 v1223 부터 턴어라운드의 '캐릭터' 는 Seedream 이라 이 크기)
 const CHARACTER_SHEET_SIZE = ARK_IMG_SIZES['16:9'];
 // v835: 포스터 출력 비율 — 세로(9:16) / 가로(16:9) 중 사용자가 고른다.
 //   여기 값은 '비율'만 정하는 기준 크기다. 실제 픽셀은 falImageSize 가 해상도 등급
@@ -9313,6 +9860,27 @@ const bkClamp = (v, size, lo, hi) => (size >= hi - lo ? lo : Math.max(lo, Math.m
 // Seedance 2.0(ModelArk) 출력 스펙 — Fast/Mini는 1080p·4k 미지원이므로 standard 기준
 const ARK_VIDEO_RESOLUTIONS = ['480p', '720p', '1080p', '4k'];
 const ARK_VIDEO_RATIOS = ['21:9', '16:9', '4:3', '1:1', '3:4', '9:16', 'adaptive'];
+// v1201: 그림의 가로:세로 → 영상이 낼 수 있는 가장 가까운 화면비. 비율은 로그로 비교한다(16:9 와 9:16 이 대칭).
+const nearestArkRatio = (w, h) => {
+ const r = Number(w) / Number(h);
+ if (!(r > 0) || !Number.isFinite(r)) return '';
+ let best = '', bd = Infinity;
+ for (const k of ARK_VIDEO_RATIOS) {
+  const m = /^(\d+):(\d+)$/.exec(k); if (!m) continue;
+  const d = Math.abs(Math.log(r) - Math.log(Number(m[1]) / Number(m[2])));
+  if (d < bd) { bd = d; best = k; }
+ }
+ return best;
+};
+const imageSizeOf = (src) => new Promise((resolve) => {
+ try {
+  if (!src) { resolve(null); return; }
+  const im = new Image();
+  im.onload = () => resolve(im.naturalWidth && im.naturalHeight ? { w: im.naturalWidth, h: im.naturalHeight } : null);
+  im.onerror = () => resolve(null);
+  im.src = src;
+ } catch { resolve(null); }
+});
 // 앱의 화면비 값(auto)을 ModelArk 표기(adaptive)로 변환
 const arkRatio = (a) => (a === 'auto' ? 'adaptive' : a);
 
@@ -9412,7 +9980,9 @@ const audioDurationOf = (src) => new Promise((resolve) => {
 // 캐릭터에 저장된 보이스를 ARK에 넘길 소스 (공개 URL 우선, 없으면 base64)
 const voiceRefSrc = (vo) => {
  if (!vo) return null;
- if (vo.srcUrl && /^https?:\/\//i.test(vo.srcUrl)) return vo.srcUrl;
+ // v1199: 올린 파일은 앱 폴더(ffs://)에 둔다 — 보낼 때 공개 주소로 올린다(falPublicUrl).
+ //   앱 폴더에 못 옮긴 경우의 data: 도 그대로 받는다.
+ if (vo.srcUrl && /^(https?:\/\/|ffs:\/\/|data:audio\/)/i.test(vo.srcUrl)) return vo.srcUrl;
  if (vo.base64) return `data:${vo.mimeType || 'audio/mpeg'};base64,${vo.base64}`;
  return null;
 };
@@ -9567,6 +10137,90 @@ const parseFalError = (bodyText) => {
 };
 // v780: kind로 오류 문구를 구분한다. 예전에는 보이스 클로닝·음악·TTS 실패에도
 //   "영상 API 오류"가 뜨고, 정책 거부 안내가 Seedance 레퍼런스 설명을 띄워 혼란스러웠다.
+// ═════════════════════════════════════════════════════════════════════
+// ★ TTS — ElevenLabs Eleven v4 Turbo (fal) · v1211
+//   엔드포인트는 기본 목소리 21개만 받는다(직접 만든 · 복제 목소리 · 설명으로 목소리 만들기는 이 길에 없다).
+//   성별 · 나이 · 컨셉으로 가장 가까운 목소리를 앱이 고르고(자동 추천), 사용자가 바꿀 수 있다.
+//   목소리 설명은 ElevenLabs 기본 목소리 소개를 옮긴 것이다 — 들어 보고 바꾸면 된다.
+//   비용: fal 표기 '$0.04 per 1000 characters' (2026-10). 말투 태그도 글자 수에 든다.
+// ═════════════════════════════════════════════════════════════════════
+const TTS4_ENDPOINT = 'fal-ai/elevenlabs/tts/eleven-v4-turbo';
+const TTS4_PER_1K = 0.04;
+const tts4Cost = (text) => (String(text || '').length / 1000) * TTS4_PER_1K;
+const TTS4_GENDERS = [{ id: 'female', label: '여성' }, { id: 'male', label: '남성' }];
+const TTS4_AGES = [{ id: 'young', label: '20~30대' }, { id: 'middle', label: '40~50대' }, { id: 'old', label: '60대 이상' }];
+const TTS4_LANGS = [
+ { id: 'ko', label: '한국어' }, { id: 'en', label: '영어' }, { id: 'zh', label: '중국어' }, { id: 'ja', label: '일본어' },
+ { id: 'de', label: '독일어' }, { id: 'fr', label: '프랑스어' }, { id: 'es', label: '스페인어' }, { id: 'it', label: '이탈리아어' },
+ { id: 'pt', label: '포르투갈어' }, { id: 'ru', label: '러시아어' }, { id: 'vi', label: '베트남어' }, { id: 'th', label: '태국어' },
+ { id: 'id', label: '인도네시아어' },
+];
+const TTS4_CONCEPT_EXAMPLES = ['중후한 아저씨', '까칠한 미녀', '다정한 엄마', '활발한 청년', '차분한 내레이터', '능글맞은 악당'];
+// 순서가 동점일 때의 우선순위다 — 성별 · 나이마다 무난한 목소리를 앞에 둔다
+const TTS4_VOICES = [
+ { id: 'Rachel', g: 'female', age: 'young', ko: '차분한 젊은 여성 · 내레이션', tones: ['calm', 'soft'] },
+ { id: 'Sarah', g: 'female', age: 'young', ko: '부드러운 젊은 여성', tones: ['soft', 'calm'] },
+ { id: 'Jessica', g: 'female', age: 'young', ko: '발랄하고 표현이 큰 젊은 여성', tones: ['bright', 'warm'] },
+ { id: 'Laura', g: 'female', age: 'young', ko: '경쾌하고 톡 쏘는 젊은 여성', tones: ['bright', 'cold'] },
+ { id: 'Charlotte', g: 'female', age: 'young', ko: '매혹적이고 도도한 젊은 여성', tones: ['sexy', 'cold'] },
+ { id: 'Matilda', g: 'female', age: 'middle', ko: '따뜻하고 친근한 중년 여성', tones: ['warm', 'calm'] },
+ { id: 'Alice', g: 'female', age: 'middle', ko: '자신감 있고 단정한 중년 여성 · 영국', tones: ['confident', 'cold'] },
+ { id: 'Aria', g: 'female', age: 'middle', ko: '허스키하고 표현이 큰 중년 여성', tones: ['rough', 'confident'] },
+ { id: 'Lily', g: 'female', age: 'middle', ko: '따뜻하고 살짝 쉰 중년 여성 · 영국', tones: ['warm', 'rough'] },
+ { id: 'River', g: 'neutral', age: 'middle', ko: '차분한 중성 목소리', tones: ['calm'] },
+ { id: 'Liam', g: 'male', age: 'young', ko: '또렷하고 힘 있는 젊은 남성', tones: ['bright', 'confident'] },
+ { id: 'Will', g: 'male', age: 'young', ko: '편안하고 친근한 젊은 남성', tones: ['warm', 'bright'] },
+ { id: 'Brian', g: 'male', age: 'middle', ko: '깊고 울림 있는 중년 남성', tones: ['deep', 'calm', 'confident'] },
+ { id: 'Chris', g: 'male', age: 'middle', ko: '털털하고 편한 중년 남성', tones: ['warm', 'bright'] },
+ { id: 'Eric', g: 'male', age: 'middle', ko: '부드럽고 매끈한 중년 남성', tones: ['soft', 'warm', 'calm'] },
+ { id: 'Charlie', g: 'male', age: 'middle', ko: '자연스럽고 캐주얼한 남성 · 호주', tones: ['bright', 'warm'] },
+ { id: 'Roger', g: 'male', age: 'middle', ko: '자신감 있고 세련된 중년 남성', tones: ['confident', 'sly'] },
+ { id: 'Daniel', g: 'male', age: 'middle', ko: '권위 있고 단호한 중년 남성 · 영국', tones: ['confident', 'deep', 'cold'] },
+ { id: 'George', g: 'male', age: 'middle', ko: '따뜻하고 거친 이야기꾼 중년 남성 · 영국', tones: ['warm', 'rough', 'deep'] },
+ { id: 'Callum', g: 'male', age: 'middle', ko: '거칠고 강렬한 중년 남성', tones: ['rough', 'sly', 'deep'] },
+ { id: 'Bill', g: 'male', age: 'old', ko: '믿음직한 노년 남성', tones: ['deep', 'warm', 'calm'] },
+];
+// 컨셉 낱말 → 목소리의 결
+const TTS4_TONES = {
+ deep: /중후|묵직|낮은|굵은|저음|울림|카리스마|deep/i,
+ warm: /다정|따뜻|포근|자상|엄마|아빠|친절|warm/i,
+ cold: /까칠|차가|도도|냉정|시크|새침|퉁명|싸늘|cold/i,
+ bright: /활발|밝은|명랑|발랄|경쾌|신난|쾌활|bright|cheer/i,
+ calm: /차분|담담|내레이|나레이|조용|침착|calm|narrat/i,
+ sly: /능글|악당|교활|비열|건들|음흉|villain/i,
+ confident: /당당|자신감|리더|권위|앵커|뉴스|아나운서|단호|confident/i,
+ soft: /부드러운|수줍|여린|조곤|soft|gentle/i,
+ rough: /거친|허스키|걸걸|쉰|탁한|husky|rough/i,
+ sexy: /섹시|유혹|관능|매혹|요염|seduct/i,
+};
+const TTS4_TONE_KO = { deep: '낮고 울림', warm: '따뜻함', cold: '차갑고 까칠함', bright: '밝고 활발함', calm: '차분함', sly: '능글맞음', confident: '당당함', soft: '부드러움', rough: '허스키', sexy: '매혹적' };
+// 말투 태그 — ElevenLabs 문서 예시에 있는 것만 쓴다. 나머지 결은 목소리 · stability 로만 낸다.
+const TTS4_TONE_TAG = { cold: '[sarcastic]', bright: '[excited]', sly: '[mischievously]' };
+// 자동 추천 — 성별 10 · 나이 5(한 칸 차이 2) · 컨셉이 맞는 결마다 3. 동점이면 목록 앞의 것.
+const tts4Pick = (gender, age, concept) => {
+ const tones = Object.keys(TTS4_TONES).filter(k => TTS4_TONES[k].test(String(concept || '')));
+ const ages = ['young', 'middle', 'old'];
+ let best = null;
+ for (const v of TTS4_VOICES) {
+  let sc = v.g === gender ? 10 : v.g === 'neutral' ? 4 : 0;
+  const d = Math.abs(ages.indexOf(v.age) - ages.indexOf(age));
+  sc += d === 0 ? 5 : d === 1 ? 2 : 0;
+  sc += tones.filter(t => v.tones.includes(t)).length * 3;
+  if (!best || sc > best.sc) best = { v, sc };
+ }
+ const v = best.v;
+ const matched = tones.filter(t => v.tones.includes(t)).map(t => TTS4_TONE_KO[t]);
+ const tagTone = tones.find(t => TTS4_TONE_TAG[t]);
+ const strong = tones.some(t => ['cold', 'bright', 'sly', 'sexy'].includes(t));
+ const steady = tones.some(t => ['calm', 'confident', 'deep'].includes(t));
+ const gap = (gender === 'female' && age === 'old') ? ' · 노년 여성 목소리가 없어 가장 가까운 목소리입니다' : '';
+ return {
+  voice: v.id, tag: tagTone ? TTS4_TONE_TAG[tagTone] : '', stability: strong ? 0.35 : steady ? 0.6 : 0.5,
+  why: `추천: ${v.id} — ${v.ko}${matched.length ? ` (컨셉: ${matched.join(' · ')})` : ''}${gap}`,
+ };
+};
+// ═════════════════════════════════════════════════════════════════════ TTS 끝
+
 const FAL_KIND_LABEL = { video: '영상', image: '이미지', music: '음악', tts: 'TTS', voice: '보이스 클로닝', upload: '파일 업로드' };
 // v858: MiniMax 클론 보이스 만료 판정.
 //   서버 보관 정책은 '7일 미사용'이다(앱의 삭제 안내에도 그렇게 적혀 있다).
@@ -9826,33 +10480,11 @@ const mixWavUrlsToWavUrl = async (urls) => {
 // v749: 앱의 평면 TTS 입력을 fal 스키마로 변환.
 //   MiniMax는 voice_setting/audio_setting 중첩 구조 + output_format 기본값이 hex이므로 'url'을 명시해야 한다.
 // v859: Chatterbox 분기를 제거했다 — 모델 선택 UI가 없어 도달할 수 없는 코드였다.
-const falTtsPayload = (input) => {
- const vs = {};
- if (input.voice_id != null) vs.voice_id = input.voice_id;
- if (input.speed != null) vs.speed = input.speed;
- if (input.pitch != null) vs.pitch = input.pitch;
- if (input.volume != null) vs.vol = input.volume;
- if (input.emotion && input.emotion !== 'auto') vs.emotion = input.emotion;
- const payload = {
- prompt: input.text,
- output_format: 'url',
- voice_setting: vs,
- audio_setting: {
- format: ['mp3', 'flac'].includes(input.audio_format) ? input.audio_format : 'mp3',
- sample_rate: 32000, bitrate: 128000, channel: 1,
- },
- };
- if (input.language_boost && input.language_boost !== 'Automatic') payload.language_boost = input.language_boost;
- return { endpoint: FAL_MODELS.ttsMinimax, payload };
-};
 
 // v859: TTS 모델은 MiniMax 하나다. 프리셋 샘플 캐시 key에 쓰이므로
 //   기존 캐시가 그대로 맞도록 예전 ttsModel 기본값 문자열을 유지한다.
-const TTS_MODEL_ID = 'minimax/speech-2.8-turbo';
-const TTS_MODEL_LABEL = 'MiniMax Speech 2.8';
 // fal 스키마의 prompt maxLength (2026-08 확인). 예전엔 Chatterbox 한도인 500자로
 //   쪼개고 있었고, 여러 조각이 나오면 첫 조각만 반환해 뒤가 조용히 사라졌다.
-const TTS_MAX_CHARS = 10000;
 
 // 앱이 쓰는 모델 이름 → fal 엔드포인트. base=텍스트→이미지, edit=레퍼런스 첨부 부분수정
 // fal에서는 텍스트→이미지 엔드포인트에 레퍼런스 입력 파라미터가 없어서, 레퍼런스가 있으면 반드시 edit으로 가야 한다.
@@ -10781,6 +11413,44 @@ const estVideoGenSeconds = (resolution, durationSec = 5) => {
 // ─────────────────────────────────────────────
 const CREDIT_LOG_KEY = 'oxyzn_credit_log';
 const CREDIT_LOG_MAX = 5000; // 최대 이벤트 (localStorage 용량 보호)
+// v1225: 월별 장부 — { 'YYYY-MM': { total, count, byCat, byWorkCat } }. 지우지 않는다.
+//   건별 기록(위)은 5,000건을 넘으면 오래된 것부터 버려져 '전체' 가 줄어들었다. 월별 합계는 몇 년을 쌓아도 작다.
+//   오늘 · 이번 주는 건별 기록에서, 이번 달 · 지난달들 · 전체는 이 장부에서 센다.
+const CREDIT_MONTHLY_KEY = 'oxyzn_credit_monthly';
+const creditMonthKey = (t) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
+const creditMonthLabel = (k) => { const [y, m] = String(k).split('-'); return `${y}년 ${Number(m)}월`; };
+const creditMonthAdd = (book, t, usd, cat, workCat) => {
+ const k = creditMonthKey(t);
+ const m = book[k] || (book[k] = { total: 0, count: 0, byCat: {}, byWorkCat: {} });
+ m.total = Math.round((m.total + usd) * 1e6) / 1e6;
+ m.count += 1;
+ m.byCat[cat] = Math.round(((m.byCat[cat] || 0) + usd) * 1e6) / 1e6;
+ m.byWorkCat[workCat] = Math.round(((m.byWorkCat[workCat] || 0) + usd) * 1e6) / 1e6;
+};
+// 장부를 읽는다. 처음이면(v1225 이전 기록뿐이면) 남아 있는 건별 기록으로 한 번 채운다.
+function readCreditMonthly(account) {
+ try {
+  const raw = localStorage.getItem(CREDIT_MONTHLY_KEY);
+  if (raw) { const all = JSON.parse(raw) || {}; return all[account] || {}; }
+  let log = {};
+  try { log = JSON.parse(localStorage.getItem(CREDIT_LOG_KEY)) || {}; } catch { log = {}; }
+  const book = {};
+  for (const e of (Array.isArray(log[account]) ? log[account] : [])) {
+   const usd = Number(e.usd) || 0;
+   if (usd > 0 && e.t) creditMonthAdd(book, e.t, usd, e.cat || 'etc', e.workCat || LEGACY_CAT_TO_WORKCAT[e.cat || 'etc'] || 'etc');
+  }
+  localStorage.setItem(CREDIT_MONTHLY_KEY, JSON.stringify({ [account]: book }));
+  return book;
+ } catch { return {}; }
+}
+function writeCreditMonthly(account, book) {
+ try {
+  let all = {};
+  try { all = JSON.parse(localStorage.getItem(CREDIT_MONTHLY_KEY)) || {}; } catch { all = {}; }
+  all[account] = book;
+  localStorage.setItem(CREDIT_MONTHLY_KEY, JSON.stringify(all));
+ } catch {}
+}
 
 // 로컬 기록을 묶는 고정 계정 키.
 //   크레딧 로그와 워크스페이스 저장은 아직 "계정별 맵" 구조다(전신 FLIMFILM Studio 의 잔재).
@@ -10811,10 +11481,15 @@ function recordCreditUsage(usd, cat, meta) {
  try { log = JSON.parse(localStorage.getItem(CREDIT_LOG_KEY)) || {}; } catch { log = {}; }
  const arr = Array.isArray(log[account]) ? log[account] : [];
  // v734: workCat = 작업 대분류(plan/image/video/sound/etc) — SINGLE_TASK_CATALOG 기준 집계용
- arr.push({ t: Date.now(), usd: rounded, cat: cat || 'etc', workCat: (meta && meta.workCat) || 'etc' });
+ // v1225: 월별 장부를 먼저 읽는다 — 처음이면 아직 이번 건이 들어가기 전의 건별 기록으로 채워야 이중 계산이 없다
+ const book = readCreditMonthly(account);
+ const ev = { t: Date.now(), usd: rounded, cat: cat || 'etc', workCat: (meta && meta.workCat) || 'etc' };
+ arr.push(ev);
  if (arr.length > CREDIT_LOG_MAX) arr.splice(0, arr.length - CREDIT_LOG_MAX);
  log[account] = arr;
  localStorage.setItem(CREDIT_LOG_KEY, JSON.stringify(log));
+ creditMonthAdd(book, ev.t, ev.usd, ev.cat, ev.workCat);
+ writeCreditMonthly(account, book);
  try { window.dispatchEvent(new CustomEvent('oxyzn-credit-updated')); } catch {}
  } catch {}
 }
@@ -10829,6 +11504,7 @@ function resetCreditLog() {
  try { log = JSON.parse(localStorage.getItem(CREDIT_LOG_KEY)) || {}; } catch { log = {}; }
  delete log[account];
  localStorage.setItem(CREDIT_LOG_KEY, JSON.stringify(log));
+ writeCreditMonthly(account, {});   // v1225: 월별 장부도 함께 비운다
  try { window.dispatchEvent(new CustomEvent('oxyzn-credit-updated')); } catch {}
  return true;
  } catch { return false; }
@@ -10838,7 +11514,7 @@ function resetCreditLog() {
 function aggregateCredits(email, nowMs) {
  const now = nowMs || Date.now();
  // v734: byWorkCat — 작업 대분류(plan/image/video/sound/etc) 기준 집계 (period별로도 동일)
- const empty = { day: 0, week: 0, month: 0, total: 0, byCat: {}, byWorkCat: {}, count: 0, periods: { day: { total: 0, byCat: {}, byWorkCat: {} }, week: { total: 0, byCat: {}, byWorkCat: {} }, month: { total: 0, byCat: {}, byWorkCat: {} }, total: { total: 0, byCat: {}, byWorkCat: {} } }, weekDays: [] };
+ const empty = { months: [], day: 0, week: 0, month: 0, total: 0, byCat: {}, byWorkCat: {}, count: 0, periods: { day: { total: 0, byCat: {}, byWorkCat: {} }, week: { total: 0, byCat: {}, byWorkCat: {} }, month: { total: 0, byCat: {}, byWorkCat: {} }, total: { total: 0, byCat: {}, byWorkCat: {} } }, weekDays: [] };
  try {
  const key = (email || '').trim().toLowerCase();
  if (!key) return empty;
@@ -10891,6 +11567,24 @@ function aggregateCredits(email, nowMs) {
  if (di >= 0 && di < 7) weekDays[di].total += usd;
  }
  }
+ // v1225: 이번 달 · 전체는 월별 장부로 — 건별 기록이 5,000건에서 잘려도 줄지 않는다
+ const book = readCreditMonthly(key);
+ const keys = Object.keys(book).sort().reverse();
+ if (keys.length) {
+  const cur = book[creditMonthKey(now)] || { total: 0, byCat: {}, byWorkCat: {} };
+  out.month = cur.total || 0;
+  periods.month = { total: cur.total || 0, byCat: { ...cur.byCat }, byWorkCat: { ...cur.byWorkCat } };
+  const tot = { total: 0, byCat: {}, byWorkCat: {} };
+  for (const k of keys) {
+   const m = book[k];
+   tot.total += m.total || 0;
+   for (const [c, v] of Object.entries(m.byCat || {})) tot.byCat[c] = (tot.byCat[c] || 0) + v;
+   for (const [c, v] of Object.entries(m.byWorkCat || {})) tot.byWorkCat[c] = (tot.byWorkCat[c] || 0) + v;
+  }
+  out.total = tot.total; out.byCat = tot.byCat; out.byWorkCat = tot.byWorkCat;
+  periods.total = tot;
+ }
+ out.months = keys.map(k => ({ key: k, label: creditMonthLabel(k), total: book[k].total || 0, count: book[k].count || 0, byCat: book[k].byCat || {}, byWorkCat: book[k].byWorkCat || {}, isCurrent: k === creditMonthKey(now) }));
  out.periods = periods;
  out.weekDays = weekDays;
  return out;
@@ -14445,7 +15139,7 @@ const polishGenPrompt = async (raw, { model, workCat } = {}) => {
  try {
  // v1196: 영상이면 소리 쓰는 법을 함께 준다 — 사용자가 적은 소리를 다듬는 데만 쓰고, 보태지 않는다
  const polishSys = workCat === 'video'
-  ? `${GEN_PROMPT_POLISH_SYSTEM}\n\n${SOUND_WRITING_RULES}\n(위 규칙은 사용자가 소리를 적었을 때 그 표현을 고치는 데만 쓴다. 적지 않은 소리를 보태지 않는다.)`
+  ? `${GEN_PROMPT_POLISH_SYSTEM}\n\n${SOUND_WRITING_RULES}\n(위 규칙은 사용자가 소리를 적었을 때 그 표현을 고치는 데만 쓴다. 적지 않은 소리를 보태지 않는다.)\n\n${ONSCREEN_WRITING_RULES}\n(위 규칙은 글씨를 적는 장면이 있을 때만 쓴다.)`
   : GEN_PROMPT_POLISH_SYSTEM;
  const out = String(await callClaude(polishSys, src, {
  model: model || 'claude-sonnet-4-5', maxTokens: 700, workCat: workCat || 'image',
@@ -15157,7 +15851,7 @@ const SINGLE_TASK_CATALOG = [
  ]},
  { cat: '사운드', items: [
  { id: 'sound-music', label: 'BGM', desc: '작품 장르·씬 분위기 기반 배경음악', status: 'wire' },
- { id: 'sound-tts', label: 'TTS', desc: '기존 기능', status: 'wire' },
+ { id: 'sound-tts', label: 'TTS', desc: '대사 · 인물 · 언어로 음성 생성 (ElevenLabs v4)', status: 'wire' },
  { id: 'sound-voice', label: 'VOICE', desc: '음성 파일로 목소리 복제(보이스 생성)', status: 'wire' },
  ]},
  { cat: '기타', items: [
@@ -15199,27 +15893,31 @@ const TURNAROUND_TEMPLATES = {
  label: '캐릭터', hint: '5각도 풀샷 + 하단 클로즈업 4컷, 정면에 치수 눈금',
  sizeField: 'height', // [HEIGHT]
  poseField: true, // [POSE] = auto (인간형=A-포즈, 비인간형=해부학 중립 자세)
- body: `Create a single CHARACTER TURNAROUND / MODEL SHEET image of [SUBJECT], rendered in the style defined by [STYLE].
+ // v1223: Seedream 5.0 Pro 로 만든다 — 레퍼런스는 'Image 1' 로 부르고([REFERENCE] 절), 피할 것은 AVOID 문단.
+ //   Seedream 은 영어 600단어를 넘기면 디테일을 흘린다(공식 권장). 예전 본문(597단어)에 스타일 · 묘사가
+ //   붙으면 700단어 가까이 됐다 — 규칙은 하나도 빼지 않고 문장만 줄였다.
+ seedream: true,
+ body: `Create ONE CHARACTER TURNAROUND / MODEL SHEET of [SUBJECT], rendered in the style defined by [STYLE].
 
-The SAME character must appear in every view with fully consistent identity: identical features, proportions, colors, materials, markings, and every design detail (for human / humanoid characters this includes the face, hairstyle, and outfit). This is ONE character shown from multiple angles — not variations or different characters.
+IDENTITY: one character in every view — identical features, proportions, colours, materials, markings and every design detail (for humans and humanoids: face, hairstyle and outfit). One character from multiple angles, never variations.
 
-POSE: by DEFAULT (humans and humanoid characters) use a neutral relaxed A-pose (standing straight, arms slightly away from the body, palms forward, feet shoulder-width), calm neutral expression — this keeps human results exactly as standard. ONLY if the subject is clearly non-humanoid (e.g. a serpent/snake monster, quadruped, insectoid, floating or limbless creature) use instead the natural neutral resting reference pose that suits that creature's real anatomy — do NOT force human arms, legs, hands, feet, or an upright stance onto it. If [POSE] is set to a value other than "auto", use that. The chosen pose stays identical across all full-body views.
+POSE: by default (humans and humanoids) a neutral relaxed A-pose — standing straight, arms slightly away from the body, palms forward, feet shoulder-width, calm neutral expression. Only if the subject is clearly non-humanoid (serpent, quadruped, insectoid, floating or limbless creature) use the neutral resting pose of its real anatomy — never force human arms, legs, hands, feet or an upright stance onto it. If [POSE] is not "auto", use that. The pose is identical in all full-body views.
 
-REQUIRED VIEWS — arrange left to right, all sharing ONE common ground baseline and identical height / scale:
-  1. Front view (0deg, facing camera)
-  2. Left-side profile (90deg to the left)
-  3. Right-side profile (90deg to the right)
-  4. Back view (180deg, facing away)
-  5. Three-quarter view (45deg front angle)
-All five full-body views are FULL SHOTS: the entire figure end to end — head-to-feet for upright forms, or the full length/extent for non-upright forms (e.g. a coiled or stretched-out creature) — evenly sized and aligned on the same guide lines.
+TOP ROW — FIVE FULL-BODY VIEWS left to right, on ONE common ground baseline at identical height and scale:
+  1. Front (0deg, facing camera)
+  2. Left profile (90deg left)
+  3. Right profile (90deg right)
+  4. Back (180deg, facing away)
+  5. Three-quarter (45deg front)
+Each is a FULL SHOT of the entire figure — head to feet for upright forms, the full length for non-upright forms (a coiled or stretched-out creature) — evenly sized on the same guide lines.
 
-HEIGHT MARKER (front full shot ONLY): to the LEFT of the front (0deg) full-body view, draw a single thin measurement line spanning the figure's main dimension — vertical from the ground baseline to the top for upright/standing forms, or along the longest axis (e.g. head-to-tail length) for elongated non-standing forms — with small end ticks, labeled with the value from [HEIGHT] (e.g. "170cm"). Add this ruler ONLY to the front full shot — none of the other views get it.
+HEIGHT MARKER — front view ONLY: left of the front full-body view, one thin measurement line along the figure's main dimension (ground to top for upright forms, the longest axis such as head-to-tail for elongated forms) with small end ticks, labelled with [HEIGHT] (e.g. "170cm"). No other view gets a ruler.
 
-Below the full-body row, add a strip of FOUR TIGHT SHOTS of the SAME character at front / 45deg / left profile / right profile. By DEFAULT (characters with a clear face/head) these are TIGHT BUST SHOTS framed from mid-chest up with the head near the top of the frame so the face is large and clearly readable — tighter than a waist-up medium shot, emphasizing face, expression, and any hair/head features (human results stay standard). If the character has no humanoid face (e.g. a creature/monster), instead make these four tight detail shots of its head or primary defining feature from the same four angles. Keep the same character, proportions, and colors as the full-body views.
+BOTTOM STRIP — FOUR TIGHT SHOTS of the same character: front / 45deg / left profile / right profile. With a clear face: TIGHT BUST SHOTS from mid-chest up, head near the top, face large and readable — tighter than waist-up. Without a humanoid face (creature, monster): tight shots of the head or main defining feature from the same four angles.
 
-BACKGROUND & LIGHTING: plain neutral studio background (light grey or white), flat even reference lighting, no dramatic shadows, no environment or props. The casting garment reads plainly as athletic kit — its own edges, seams and straps clear against the skin. Its colour never spills, tints or reflects onto the skin, hair or background; skin tone stays true, exactly as this person really is.
+BACKGROUND & LIGHTING: plain neutral studio background (light grey or white), flat even reference lighting, no dramatic shadows, no environment or props. The casting garment reads plainly as athletic kit — its own edges, seams and straps clear against the skin. Its colour never spills, tints or reflects onto skin, hair or background; skin tone stays true, exactly as this person really is.
 
-NEGATIVE: no varying outfit, hairstyle, markings, or surface details between views, no changing proportions, no different characters, no dynamic action poses, no busy background. For non-humanoid subjects, do NOT graft on human limbs, hands, feet, or faces. NO rendered text, captions, view names, or angle labels anywhere in the image — do NOT write words like "front", "back", "side", "3/4", "45", or any degree marks. The ONLY text permitted is the height value on the front-view measurement ruler.`,
+AVOID: outfit, hair, markings, surface details or proportions changing between views; different characters; dynamic action poses; busy background; human limbs, hands, feet or faces grafted onto non-humanoid subjects. NO rendered text, captions, view names or angle labels — no "front", "back", "side", "3/4", "45" or degree marks. The ONLY text is the height value on the front-view ruler.`,
  },
  character_closeup: {
  label: '인물 (클로즈업)', hint: '실사 얼굴 표정 시트 · 레퍼런스 사진만 등록',
@@ -15554,7 +16252,13 @@ const COSTUME_BODY_TYPES = [
 ];
 
 // 룰북 프롬프트 조립 — 스타일/묘사/크기 토큰 치환
-function buildTurnaroundPrompt({ sheetType, style, description, sizeValue, gender, bodyType }) {
+// v1223: Seedream 레퍼런스 절 — 붙인 이미지를 'Image 1', 'Image 2' 로 부른다(대괄호 없음, 순서 = 보낸 순서).
+//   캐릭터만 가져오고 구도 · 자세 · 배경 · 조명은 이 글이 이긴다고 못 박는다 — 없으면 사진의 배경과 구도가 따라온다.
+const turnaroundRefClause = (n) => `[REFERENCE] = ${n <= 1 ? 'Image 1 shows' : `Image 1 through Image ${n} show`} the character${n > 1 ? ' (same character, different angles)' : ''}. `
+ + 'Copy its identity exactly in every view — face, hair, build, colours, markings and design details. '
+ + 'Take only the character from it; the layout, pose, background and lighting written here override the image.';
+
+function buildTurnaroundPrompt({ sheetType, style, description, sizeValue, gender, bodyType, refCount = 0 }) {
  const tpl = TURNAROUND_TEMPLATES[sheetType];
  // refOnly 타입(인물 클로즈업): 묘사·스타일·크기 없이 레퍼런스 사진 + 룰북 프롬프트만 사용
  if (tpl.refOnly) return tpl.body;
@@ -15568,6 +16272,8 @@ function buildTurnaroundPrompt({ sheetType, style, description, sizeValue, gende
  if (tpl.poseField) {
  header += `\n[POSE] = auto`;
  }
+ // v1223: Seedream 종류는 레퍼런스를 번호로 부른다
+ if (tpl.seedream && refCount > 0) header += `\n${turnaroundRefClause(refCount)}`;
  // v757: 의상 시트 — 마네킹 프로포션
  if (tpl.genderField) {
  const g = COSTUME_GENDERS.find(x => x.id === gender) || COSTUME_GENDERS[0];
@@ -16257,10 +16963,6 @@ export default function DramaAutomation() {
  setScenarioMode(null);
  setAnalyzeSubMode(null);
  }
- if (next === 'tool-sound') {
- // 사운드 작업 → 모드 선택화면 (TTS/Music)
- setSoundMode(null);
- }
  }
  // tool-adapt 진입 시 → tool-scenario + adapt 모드로 변환
  if (next === 'tool-adapt') {
@@ -16547,16 +17249,19 @@ export default function DramaAutomation() {
   const handleGenerateCharacter = async (feedbackText = '') => {
  const d = characterWsData;
  const up = (patch) => setCharacterWsData(p => typeof patch === 'function' ? patch(p) : ({ ...p, ...patch }));
- if (!d.features.trim()) { up({ error: '외적 특징을 입력해주세요.' }); return; }
+ const isFeedback = !!feedbackText.trim();
+ // v1224: 피드백은 고른 시트가 원본이다 — 외적 특징 칸이 비어 있어도 된다
+ const srcGen = isFeedback ? (d.generations || []).find(g => !g.loading && (g.urls || []).includes(d.selectedUrl)) : null;
+ if (isFeedback && !srcGen) { up({ error: '피드백을 반영할 시트를 생성기록에서 먼저 골라주세요.' }); return; }
+ if (!isFeedback && !d.features.trim()) { up({ error: '외적 특징을 입력해주세요.' }); return; }
  // ModelArk 키가 없으면 생성 자체가 불가 — 명확히 안내
  try { arkKey(); } catch (e) { up({ error: e.message }); return; }
-
- const isFeedback = !!feedbackText.trim();
+ const srcP = srcGen?.params || {};
  // v767: 피드백 재생성은 기존 이름 뒤에 버전을 붙인다 (김서준 → 김서준_v002 → _v003 …)
  //   v1117: 레퍼런스 이미지를 받는다. Seedream 은 text-to-image 출력만 신뢰 출력이라,
  //   레퍼런스를 붙이면 결과는 파생(이차 편집)이 된다 — derived 로 표시해 두고,
  //   영상에 쓰려면 아카이브에서 AIGC 자산으로 등록한다(v1115).
- const baseName = String(d.name || '').trim();
+ const baseName = String((isFeedback ? (srcP.name ?? d.name) : d.name) || '').trim();
  const nextVersionName = (nm) => {
  if (!nm) return nm;
  const m = nm.match(/^(.*)_v(\d{3})$/);
@@ -16564,13 +17269,11 @@ export default function DramaAutomation() {
  return `${nm}_v002`;
  };
  const genName = isFeedback ? nextVersionName(baseName) : baseName;
- const basePrompt = buildCharacterPrompt({ ...d, name: genName });
- const prompt = isFeedback
- ? `${basePrompt}\n\n[REVISION — apply this change while keeping everything else identical]\n${feedbackText.trim()}`
- : basePrompt;
+ // v1224: 피드백은 쓴 글이 그대로 프롬프트다 — 규칙서 · Claude 를 거치지 않는다. 원본 시트는 Image 1 로 붙는다(아래).
+ const prompt = isFeedback ? feedbackText.trim() : buildCharacterPrompt({ ...d, name: genName });
  // v1117: 레퍼런스 이미지 (선택). 얼굴 · 인상만 가져오게 한다 — 안 그러면 레퍼런스의
  //   옷 · 배경 · 구도까지 따라가 캐스팅 시트 규격(캐스팅 의상 · 흰 배경 · 5칸)이 무너진다.
- const refList = (d.refs || []).filter(r => r && r.assetUrl).slice(0, 3);
+ const refList = isFeedback ? [] : (d.refs || []).filter(r => r && r.assetUrl).slice(0, 3);
  const promptFinal = refList.length
   ? `${prompt}\n\nREFERENCE IMAGES are attached. Use them ONLY for the performer's face, likeness and any detail [APPEARANCE] points to. Everything else — the five-panel layout, the casting garment, the background, the lighting and the framing — comes from this brief and not from the reference images. Nothing worn or held in the reference images appears here.`
   : prompt;
@@ -16578,10 +17281,14 @@ export default function DramaAutomation() {
  const jobNum = d.numOutputs;
  characterJobSeq.current += 1;
  const jobId = `ch_${Date.now()}_${characterJobSeq.current}`;
- const params = {
+ const params = isFeedback
+ // v1224: 피드백 결과는 원본 시트의 설정을 잇는다. 원본을 붙여 만든 이미지라 파생(이차 편집) — 영상에 쓰려면 자산 등록
+ ? { ...srcP, name: genName, numOutputs: jobNum, feedback: feedbackText.trim(), voice: srcP.voice ?? d.voice ?? null,
+     derived: true, refCount: 1, feedbackOf: srcGen.id }
+ : {
  name: genName, gender: d.gender, age: String(d.age || '').trim(),
  height: String(d.height || '').trim(), features: d.features.trim(),
- numOutputs: jobNum, feedback: feedbackText.trim() || null,
+ numOutputs: jobNum, feedback: null,
  voice: d.voice || null, // v773: 보이스는 이미지 생성에는 영향 없고, 캐릭터 저장 시 함께 보관된다
  derived: refList.length > 0, refCount: refList.length, // v1117: 레퍼런스로 만들면 파생
  };
@@ -16602,6 +17309,13 @@ export default function DramaAutomation() {
   if (!b?.base64) throw new Error(`레퍼런스 이미지를 읽지 못했습니다 — ${r.name || '이미지'}`);
   const c = await compressBase64Image(b.base64, b.mimeType, 2048, 0.9);
   refImages.push({ base64: c.base64, mimeType: c.mimeType });
+ }
+ // v1224: 피드백 — 고른 시트의 원본 바이트를 공개 주소로 올려 Image 1 로 붙인다(다시 인코딩하지 않는다)
+ if (isFeedback) {
+  let u = String(d.selectedUrl || '');
+  if (/^(file|ffs):\/\//i.test(u)) u = (await assetSrcForModel(u)) || '';
+  if (!u) throw new Error('원본 시트를 읽지 못했습니다. 생성기록에서 다시 골라주세요.');
+  refImages.push({ url: /^https?:\/\//i.test(u) ? u : await falPublicUrl(u, '원본 시트') });
  }
  const raw = await callArkImage(promptFinal, { size: CHARACTER_SHEET_SIZE, model: ARK_MODELS.image, numOutputs: jobNum, refImages });
  const urls = (raw || []).map(x => (x && typeof x === 'object' && x.url) ? x.url : x).filter(Boolean);
@@ -17002,38 +17716,9 @@ export default function DramaAutomation() {
  };
  // 시나리오 도구 모드 — null이면 모드 선택 화면, 'creative' = 시나리오 생성, 'adapt' = 콘텐츠 각색
  const [scenarioMode, setScenarioMode] = useState(null);
- const [soundMode, setSoundMode] = useState(null); // null | 'tts' | 'music'
- // v453: TTS 결과별 히스토리 펼침 상태 — { [lineIdx]: true/false }
- const [ttsHistoryOpen, setTtsHistoryOpen] = useState({});
- // TTS 도구 state
- const [ttsToolData, setTtsToolData] = useState({
- // step: 'input' | 'mapping' | 'generate'
- step: 'input',
- // 입력
- srtRaw: '', // 원본 SRT 또는 직접 입력 텍스트
- srtLines: [], // 파싱된 [{idx, startMs, endMs, text, character, refLineIdx}]
- scenarioText: '', // 시나리오 본문 (선택)
- scenarioFileName: '',
- scenarioAnalysis: null, // 시나리오 첨부 시 분석 결과
- // 추출된 인물별 데이터 — { '우진': { voiceRef: {...}, lines: [idx, ...] } }
- characters: {},
- // 라인 단위 보이스 오버라이드 (인물 매핑 없는 라인들에 직접 할당) — { [lineIdx]: voiceRef }
- lineVoiceOverrides: {},
- // 생성 결과 — { [lineIdx]: { audioUrl, status, error, startedAt } }
- results: {},
- // 전체 생성 상태
- isGenerating: false,
- currentLineIdx: null,
- generationStartedAt: null,
- error: '',
- // v358: 다국어 TTS 지원
- currentLanguage: 'ko', // 현재 작업 중인 언어 코드
- languageHistory: {}, // { 'ko': { srtRaw, srtLines, results }, 'en': {...} } — 언어별 백업
- });
- const ttsSrtInputRef = React.useRef(null);
- const ttsScenarioInputRef = React.useRef(null);
- const ttsCharVoiceInputRefs = React.useRef({});
-
+  // v453: TTS 결과별 히스토리 펼침 상태 — { [lineIdx]: true/false }
+  // TTS 도구 state
+    
  // ─────────────────────────────────────────────────────────────
  // v306: Music 툴 state (elevenlabs/music 기반)
  // ─────────────────────────────────────────────────────────────
@@ -17098,18 +17783,11 @@ export default function DramaAutomation() {
  });
  // v737: BGM 결과 카드 — 가사 보기 펼침 상태 (열린 버전 번호, 없으면 null)
  const [musicLyricsOpenVer, setMusicLyricsOpenVer] = useState(null);
- const [ttsSrtDragOver, setTtsSrtDragOver] = useState(false);
- const [ttsScenarioDragOver, setTtsScenarioDragOver] = useState(false);
- // v709: SRT 입력 방식 — 'upload'(파일 업로드, 기본) | 'text'(직접 입력)
- const [ttsSrtInputMode, setTtsSrtInputMode] = useState('upload');
- // STEP 2 일괄 선택 — 선택된 라인 idx 집합 (Set 대신 array)
- const [ttsBulkSelection, setTtsBulkSelection] = useState([]);
- // TTS 생성 확인 모달 (window.confirm 대신 프로그램 안내창)
- const [ttsConfirmModal, setTtsConfirmModal] = useState(null);
- // TTS 일시정지 — 영상화 도구와 동일 패턴 (pauseRef + waitIfPaused)
- const [ttsIsPaused, setTtsIsPaused] = useState(false);
- const ttsPauseRef = useRef(false);
- // {type:'missing-voice'|'cost'|'final', title, lines: [...], onProceed: fn, onCancel: fn, missingChars?:[], costInfo?:{}}
+   // v709: SRT 입력 방식 — 'upload'(파일 업로드, 기본) | 'text'(직접 입력)
+  // STEP 2 일괄 선택 — 선택된 라인 idx 집합 (Set 대신 array)
+  // TTS 생성 확인 모달 (window.confirm 대신 프로그램 안내창)
+  // TTS 일시정지 — 영상화 도구와 동일 패턴 (pauseRef + waitIfPaused)
+   // {type:'missing-voice'|'cost'|'final', title, lines: [...], onProceed: fn, onCancel: fn, missingChars?:[], costInfo?:{}}
 
  // ─── 클론된 MiniMax 보이스 라이브러리 (localStorage 영구 저장) ───
  // 한 번 클론한 voice_id는 영구 재사용 가능. 라이브러리 형태로 보관.
@@ -17139,10 +17817,13 @@ const ACTOR_VOICE_KEY = 'oxyzn_actor_voices';
  setClonedVoiceLibrary(lib);
  };
  // 인물별 클로닝 진행 상태 — { [characterName]: { isCloning: bool, progress: string, error: string } }
- const [ttsCloningStatus, setTtsCloningStatus] = useState({});
-
+ 
  // v375: 독립 보이스 클로닝 도구 state (캐릭터에 묶이지 않음)
  // v378: 다중 파일 지원 — files 배열로 변경
+ // v1211: 새 TTS — 입력 · 기록. tag · stability 가 null 이면 자동(컨셉에서 정한다).
+ const [tts4Data, setTts4Data] = useState({ text: '', gender: 'female', age: 'young', lang: 'ko', concept: '', voice: '', tag: null, stability: null, jobs: [], error: '' });
+ // v1213: 검열 필터 끄기 — 화면용 상태. 실제 값은 localStorage(arkFilterOff)가 정한다.
+ const [arkFilterOffUi, setArkFilterOffUi] = useState(() => arkFilterOff());
  const [standaloneCloneData, setStandaloneCloneData] = useState({
  baseLabel: '', // 기본 이름 (예: "민수")
  files: [], // [{ id, name, base64, mimeType, dataUrl, sizeKB, emotion, customLabel }]
@@ -17165,8 +17846,7 @@ const ACTOR_VOICE_KEY = 'oxyzn_actor_voices';
  const standaloneScriptLangState = useState('ko'); // 'ko' | 'en'
  const standaloneScriptCopiedState = useState(null); // 복사 토스트 키
  // 클로닝 라이브러리 모달
- const [showVoiceLibraryModal, setShowVoiceLibraryModal] = useState(null); // null | characterName
- // 클론 보이스 라벨 인라인 편집 — { voiceId: 'editing label' } 형태로 임시 보관
+  // 클론 보이스 라벨 인라인 편집 — { voiceId: 'editing label' } 형태로 임시 보관
  const [editingVoiceLabel, setEditingVoiceLabel] = useState(null); // { voiceId, value }
  // v454: voice_id 직접 추가 다이얼로그 — null이면 닫힘, { voiceId, label } 객체면 열림
  const [addVoiceIdDialog, setAddVoiceIdDialog] = useState(null);
@@ -17220,35 +17900,9 @@ const ACTOR_VOICE_KEY = 'oxyzn_actor_voices';
  // voice_id는 매우 엄격함. 정확한 ID가 아니면 "voice id not exist" 에러 발생
  // 아래 ID들은 스키마/문서에 명시된 것 기반. 추가 ID는 사용자가 "직접 입력" 옵션으로 추가 가능
  // (Replicate 페이지 README의 "Available voices" 섹션 참고)
- const MINIMAX_VOICE_PRESETS = [
- // ── 영어 (스키마에 직접 명시된 ID — 확실) ──
- { id: 'English_Wiselady', lang: 'en', gender: 'F', tone: 'English · Wise Lady', verified: true },
- { id: 'English_Deep-VoicedGentleman', lang: 'en', gender: 'M', tone: 'English · Deep-Voiced Gentleman', verified: true },
- // ── 영어 (Replicate README에 알려진 ID들) ──
- { id: 'English_Trustworthy_Man', lang: 'en', gender: 'M', tone: 'English · Trustworthy Man' },
- { id: 'English_Graceful_Lady', lang: 'en', gender: 'F', tone: 'English · Graceful Lady' },
- { id: 'English_ReservedYoungMan', lang: 'en', gender: 'M', tone: 'English · Reserved Young Man' },
- { id: 'English_Comedian', lang: 'en', gender: 'M', tone: 'English · Comedian' },
- { id: 'English_BossyLeader', lang: 'en', gender: 'M', tone: 'English · Bossy Leader' },
- { id: 'English_ConfidentWoman', lang: 'en', gender: 'F', tone: 'English · Confident Woman' },
- { id: 'English_Aussie_Bloke', lang: 'en', gender: 'M', tone: 'English · Aussie Bloke' },
- // ── 중국어 (만다린) ──
- { id: 'Chinese (Mandarin)_Warm_Bestie', lang: 'zh', gender: 'F', tone: '中文 · 친한 친구 (따뜻한 여성)' },
- { id: 'Chinese (Mandarin)_Stubborn_Friend', lang: 'zh', gender: 'M', tone: '中文 · 고집있는 친구' },
- { id: 'Chinese (Mandarin)_Lyrical_Voice', lang: 'zh', gender: 'F', tone: '中文 · 서정적 여성' },
- { id: 'Chinese (Mandarin)_Crisp_Girl', lang: 'zh', gender: 'F', tone: '中文 · 명료한 소녀' },
- // ── 일본어 ──
- { id: 'Japanese_KindLady', lang: 'ja', gender: 'F', tone: '日本語 · 친절한 여성' },
- { id: 'Japanese_Wisewoman', lang: 'ja', gender: 'F', tone: '日本語 · 지혜로운 여성' },
- { id: 'Japanese_FriendlyMan', lang: 'ja', gender: 'M', tone: '日本語 · 친근한 남성' },
- // ── 사용자 정의 옵션 (직접 voice_id 입력) ──
- { id: '__custom__', lang: 'custom', gender: '?', tone: '직접 voice_id 입력 (Voice Cloning ID 등)', isCustom: true },
- ];
-
+ 
  // 프리셋 샘플 캐시 — 모델별 (key: `${modelId}::${voiceId}` → blobUrl)
- const [ttsVoiceSamples, setTtsVoiceSamples] = useState({});
- const [ttsSampleGeneratingId, setTtsSampleGeneratingId] = useState(null);
-
+  
  // ── MiniMax 전용 설정 ──
  const [minimaxFallbackVoice, setMinimaxFallbackVoice] = useState(() => {
  try { return localStorage.getItem('oxyzn_minimax_fallback_voice') || 'English_Wiselady'; } catch { return 'English_Wiselady'; }
@@ -17345,29 +17999,8 @@ const ACTOR_VOICE_KEY = 'oxyzn_actor_voices';
  // eslint-disable-next-line react-hooks/exhaustive-deps
  }, []);
 
- // v323: 영상 분석 진행률 시간 기반 갱신 (실제 진행 콜백 없으므로 추정)
- // 추정 시간에 도달하면 95%에서 멈추고 실제 완료 시 100%로 점프
- useEffect(() => {
- if (!videoAnalyzeData.isAnalyzing || !videoAnalyzeData.progressStartTime) return;
- const interval = setInterval(() => {
- setVideoAnalyzeData(p => {
- if (!p.isAnalyzing || !p.progressStartTime) return p;
- const elapsed = (Date.now() - p.progressStartTime) / 1000; // 초
- const total = p.estimatedTotalSec || 600;
- // 로그 곡선 — 초반엔 빠르게, 후반엔 느리게 95%까지 도달
- const ratio = Math.min(elapsed / total, 1);
- // 부드러운 곡선: 처음 70% 시간 안에 80%까지, 그 후 천천히 95%까지
- let pct;
- if (ratio < 0.7) {
- pct = (ratio / 0.7) * 80;
- } else {
- pct = 80 + ((ratio - 0.7) / 0.3) * 15;
- }
- return { ...p, progressPct: Math.min(95, Math.round(pct)) };
- });
- }, 1000);
- return () => clearInterval(interval);
- }, [videoAnalyzeData.isAnalyzing, videoAnalyzeData.progressStartTime]);
+ // v323 → v1222: 영상 분석 진행률은 시간으로 추정한다. 예전엔 1초마다 루트 상태를 바꿨다 —
+ //   이제 보이는 곳이 vaTimePct(d, 지금) 으로 계산한다(같은 곡선).
 
  // v309: 음악 설정 자동 저장
  useEffect(() => { try { localStorage.setItem('oxyzn_music_prompt_model', musicPromptModel); } catch {} }, [musicPromptModel]);
@@ -17600,9 +18233,6 @@ const ACTOR_VOICE_KEY = 'oxyzn_actor_voices';
  (standaloneCloneData.files || []).forEach(f => {
  if (f?.dataUrl) out.push({ label: f.customLabel || f.name || '음성 샘플', src: f.dataUrl, from: '클로닝 샘플' });
  });
- Object.values(ttsToolData?.results || {}).forEach(r => {
- if (r?.status === 'done' && r.audioUrl) out.push({ label: 'TTS 생성본', src: r.audioUrl, from: 'TTS' });
- });
  return out.slice(0, 24);
  };
  // { voice } 또는 { error } 를 돌려준다 (호출부가 각자 방식으로 오류를 표시)
@@ -17787,21 +18417,7 @@ const ACTOR_VOICE_KEY = 'oxyzn_actor_voices';
 
  // v604: 첨부 레퍼런스가 "실제 촬영된 실사 인물 사진"인지 Claude 비전으로 판별.
  //        (일러스트/2D/3D/CG/사물/동물/크리처 등은 false) → 캐릭터 시트의 Nano Banana 자동선택 오탐 방지
- const detectRealPersonRefs = async (refImages) => {
- const imgs = (refImages || []).filter(r => r && r.base64 && r.mimeType).slice(0, 3);
- if (!imgs.length) return false;
- try {
- const compressed = await Promise.all(imgs.map(r => compressBase64Image(r.base64, r.mimeType, 768, 0.75)));
- const content = [
- { type: 'text', text: 'Do the attached reference image(s) show a REAL, PHOTOGRAPHIC human being — an actual live-action photo of a real person (real human face/skin)? Reply with ONLY "yes" or "no". Reply "no" if they are illustrations, 2D/anime art, 3D/CG renders, paintings, drawings, sketches, objects, animals, creatures/monsters, logos, or anything that is not a genuine photograph of a real human.' },
- ...compressed.map(c => ({ type: 'image', source: { type: 'base64', media_type: (c.mimeType && c.mimeType.startsWith('image/')) ? c.mimeType : 'image/jpeg', data: c.base64 } })),
- ];
- const ans = await callClaude('You are a strict image classifier. Reply with only "yes" or "no".', content, { model: 'claude-haiku-4-5', maxTokens: 8, workCat: 'image' });
- const yes = /\byes\b/i.test(String(ans || ''));
- console.log('[Sheet] 실사 인물 레퍼런스 판별:', ans, '→', yes ? 'Nano Banana 2' : 'GPT Image 2');
- return yes;
- } catch (e) { console.warn('실사 인물 판별 실패(기본 GPT 유지):', e.message); return false; }
- };
+ // v1223: 실사 인물 레퍼런스 판별(detectRealPersonRefs)은 걷었다 — 캐릭터 시트는 레퍼런스와 상관없이 Seedream 으로 만든다.
 
  // 턴어라운드 시트 생성 — 룰북 프롬프트 조립 → callFalImage (16:9, 2K 고정)
  // v1116: 인물+의상 시트 — Seedream(ModelArk 이미지)으로 만든다. 다른 시트는 fal 을 쓴다.
@@ -17891,16 +18507,23 @@ const ACTOR_VOICE_KEY = 'oxyzn_actor_voices';
  const fbEntry = isFeedback ? (s.history || []).find(h => !h.loading && h.url === s.selectedUrl) : null;
  const fbType = fbEntry?.params?.sheetType || s.sheetType;
  const isSingleFrame = !!TURNAROUND_TEMPLATES[fbType]?.singleFrame;
+ // v1223: 캐릭터 시트는 Seedream 5.0 Pro — 실사 인물 레퍼런스도 그대로 Seedream 으로(예전엔 판별 후 Nano Banana)
+ const sheetArk = !!TURNAROUND_TEMPLATES[fbType]?.seedream;
+ const ownRefN = (s.refs || []).filter(r => r && r.base64 && r.mimeType).length;
  const feedbackPrompt = isSingleFrame
  ? `Reference image attached: the previously generated image. Keep the EXACT same location, style, viewpoint, framing, and composition from the reference. Apply ONLY the following change, leaving everything else identical to the reference:\n"${feedbackText.trim()}"
 
 The output is ONE SINGLE continuous image filling the whole canvas — exactly like the reference. NOT a sheet, NOT a grid, NOT multiple panels.
 
 NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, no collage, no inset or thumbnail images, no additional camera angles, no close-up or detail crops, no repeated views of the same place, no turnaround/elevation views. NO rendered text, captions, view names, or angle labels anywhere in the image.`
+ : sheetArk
+ // v1223: Seedream 은 붙인 순서대로 Image 1, Image 2 … 로 부른다 — 이전 시트가 Image 1
+ ? `Image 1 is the previously generated turnaround sheet. Keep the EXACT same subject identity, style, layout, and camera views from Image 1. Apply ONLY the following change, leaving everything else identical to Image 1:\n"${feedbackText.trim()}"`
+   + (ownRefN > 0 ? `\n\n${ownRefN === 1 ? 'Image 2 shows' : `Image 2 through Image ${ownRefN + 1} show`} the same character — use ${ownRefN === 1 ? 'it' : 'them'} only to keep the identity exact.` : '')
  : `Reference image attached: the previously generated turnaround sheet. Keep the EXACT same subject identity, style, layout, and camera views from the reference. Apply ONLY the following change, leaving everything else identical to the reference:\n"${feedbackText.trim()}"`;
  const prompt = isFeedback
  ? feedbackPrompt
- : buildTurnaroundPrompt({ sheetType: s.sheetType, style: s.style, description: s.description.trim(), sizeValue: s.sizeValue, gender: s.gender, bodyType: s.bodyType });
+ : buildTurnaroundPrompt({ sheetType: s.sheetType, style: s.style, description: s.description.trim(), sizeValue: s.sizeValue, gender: s.gender, bodyType: s.bodyType, refCount: sheetArk ? ownRefN : 0 });
  // v582: 파라미터 스냅샷 + 로딩 플레이스홀더 (생성기록에서 로딩, 미리보기 안 잠김)
  // v838: 피드백 재생성은 원본과 같은 종류로 기록한다 — 생성기록 라벨이 어긋나지 않게
  const params = { description: s.description.trim(), sheetType: fbType, style: s.style, sizeValue: s.sizeValue || '', gender: s.gender, bodyType: s.bodyType, numOutputs: s.numOutputs, refsSnapshot: (s.refs || []).map(r => ({ ...r })), feedback: feedbackText.trim() || null };
@@ -17908,16 +18531,15 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
  const jobNum = s.numOutputs;
  const jobSelectedUrl = s.selectedUrl;
  // v603/604: 모델은 아래 try 안에서 결정 (실사 캐릭터는 레퍼런스가 진짜 실사 인물일 때만 Nano Banana)
- const hasOwnRef = (jobRefs || []).some(r => r && r.base64);
- let genModel = imageModel;
+ let genModel = sheetArk ? ARK_MODELS.image : imageModel;
  sheetJobSeq.current += 1;
  const jobId = `sh_${Date.now()}_${sheetJobSeq.current}`;
  const genVersion = sheetJobSeq.current; // v703: 생성 순번 = 파일명 버전
- setSheetWsData(p => ({ ...p, error: '', feedback: '', history: [{ id: jobId, version: genVersion, loading: true, count: jobNum, params, ts: Date.now(), estSec: estSecFor(durKeyImage(genModel, 'medium', jobNum), estImageGenSeconds('medium', jobNum)) }, ...p.history] }));
+ setSheetWsData(p => ({ ...p, error: '', feedback: '', history: [{ id: jobId, version: genVersion, loading: true, count: jobNum, params, ts: Date.now(), estSec: sheetArk ? estSecFor(durKeyArkImage(ARK_MODELS.image, CHARACTER_SHEET_SIZE, jobNum), estImageGenSeconds('medium', jobNum)) : estSecFor(durKeyImage(genModel, 'medium', jobNum), estImageGenSeconds('medium', jobNum)) }, ...p.history] }));
  try {
  let urls;
  let refImagesForGen = (jobRefs || []).filter(r => r && r.base64 && r.mimeType).map(r => ({ name: r.name || '레퍼런스', base64: r.base64, mimeType: r.mimeType }));
- if (feedbackText.trim() && jobSelectedUrl) {
+ if (!sheetArk && feedbackText.trim() && jobSelectedUrl) {   // Seedream 은 아래에서 공개 주소로 싣는다
  try {
  const res = await fetch(jobSelectedUrl); const blob = await res.blob();
  const dataUrl = await new Promise((rs2, rj) => { const rd = new FileReader(); rd.onload = () => rs2(rd.result); rd.onerror = rj; rd.readAsDataURL(blob); });
@@ -17926,18 +18548,12 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
  } catch {}
  }
  // v604: 이미지 모델 결정
+ //  - 캐릭터: Seedream 5.0 Pro (v1223 — 실사 인물 레퍼런스 판별 · Nano Banana 분기는 걷었다)
  //  - 인물(클로즈업): 항상 Nano Banana 2 (실사 인물 전용 타입)
- //  - 캐릭터 + 실사 스타일: 첨부한 "본인 레퍼런스"가 진짜 실사 인물 사진일 때만 Nano Banana 2 (비전 판별)
- //  - 피드백 재생성: 원본 생성 때 쓴 모델을 그대로 유지 (재판별/오탐 방지)
- if (isRefOnly) {
+ if (sheetArk) {
+ genModel = ARK_MODELS.image;
+ } else if (isRefOnly) {
  genModel = 'google/nano-banana-2';
- } else if (s.sheetType === 'character' && s.style === 'photoreal') {
- if (isFeedback) {
- const selEntry = (sheetWsData.history || []).find(h => !h.loading && h.url === jobSelectedUrl);
- genModel = selEntry?.params?.genModel || imageModel;
- } else if (hasOwnRef) {
- genModel = (await detectRealPersonRefs(jobRefs)) ? 'google/nano-banana-2' : imageModel;
- }
  }
  params.genModel = genModel; // 생성기록에 기록 → 피드백 시 동일 모델 재사용
  if (SAMPLE_MODE) {
@@ -17949,6 +18565,20 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}'><rect width='100%' height='100%' fill='hsl(${hue},40%,88%)'/><g stroke='hsl(${hue},40%,55%)' stroke-width='2' fill='none'>${[0,1,2,3,4].map(k=>`<rect x='${18+k*120}' y='40' width='104' height='160' rx='6'/>`).join('')}<rect x='18' y='215' width='224' height='120' rx='6'/><rect x='258' y='215' width='224' height='120' rx='6'/><rect x='498' y='215' width='124' height='120' rx='6'/></g><text x='50%' y='26' font-size='16' text-anchor='middle' fill='hsl(${hue},45%,32%)' font-family='sans-serif' font-weight='bold'>SAMPLE TURNAROUND — ${label}</text></svg>`;
  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
  });
+ } else if (sheetArk) {
+ // v1223: Seedream 5.0 Pro (2816x1584). 레퍼런스는 공개 주소로 — base64 를 본문에 실으면 두세 장에 400 이 난다.
+ //   원본 바이트를 그대로 올린다(다시 인코딩하면 '자기 생성물' 표시가 지워진다). 비용은 callArkImage 가 장마다 기록한다.
+ const toPublic = async (x, what) => {
+  let u = String(x || '');
+  if (/^(file|ffs):\/\//i.test(u)) u = (await assetSrcForModel(u)) || '';
+  if (!u) throw new Error(`${what} 이미지를 읽지 못했습니다. 다시 골라주세요.`);
+  return /^https?:\/\//i.test(u) ? u : await falPublicUrl(u, what);
+ };
+ const arkRefs = [];
+ if (isFeedback && jobSelectedUrl) arkRefs.push({ url: await toPublic(jobSelectedUrl, '이전 시트') });
+ for (const r of (jobRefs || []).filter(r => r && r.base64 && r.mimeType)) arkRefs.push({ url: await toPublic(`data:${r.mimeType};base64,${r.base64}`, r.name || '레퍼런스') });
+ const raw = await callArkImage(prompt, { size: CHARACTER_SHEET_SIZE, model: ARK_MODELS.image, numOutputs: jobNum, refImages: arkRefs });
+ urls = (raw || []).map(x => (x && typeof x === 'object' && x.url) ? x.url : x).filter(Boolean);
  } else {
  const raw = await callFalImage(prompt, '1920x1080', 'medium', refImagesForGen, jobNum, undefined, genModel);
  urls = (raw || []).map(x => (x && typeof x === 'object' && x.url) ? x.url : x).filter(Boolean);
@@ -18130,7 +18760,7 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
  const posterWsJobSeq = useRef(0);
  // v633: 비디오 커스텀 워크스페이스 (T2V — 프롬프트+비율+품질+레퍼런스)
  const [videoCustomData, setVideoCustomData] = useState({
- draft: false,   // v1164: 초안(480p) → 1080p 최종
+ draft: true, rawPrompt: false,   /* v1220: Claude 다듬기 끄기 */   /* v1218: 기본 켜짐 */   // v1164: 초안(480p) → 1080p 최종
  prompt: '',
  tier: 'video25', // v1061: 2.0 을 걷어냈다 — 영상은 Seedance 2.5 하나로 간다
  duration: 5, // 초 (4~티어 상한 · 1초 단위 슬라이더)
@@ -18152,7 +18782,7 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
  // v633: 비디오 내러티브(15s) 워크스페이스 — 상황묘사 → 룰북 프롬프트 → Seedance
  // v1100: 부가콘텐츠 — 비하인드 · 인터뷰. 단일 컷, 앞 클립 연결 없음, 프로젝트와 무관.
  const [extraData, setExtraData] = useState({
-  draft: false,   // v1164: 초안(480p) → 1080p 최종
+  draft: true,   /* v1218: 기본 켜짐 */   // v1164: 초안(480p) → 1080p 최종
   mode: 'behind',            // 'behind' | 'interview'
   situation: '',             // 비하인드=상황묘사 / 인터뷰=인터뷰 대본
   lang: 'ko',                // 비하인드 대사 · 인터뷰이 언어 (인터뷰어는 한국어 고정)
@@ -18185,7 +18815,7 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
  // 레퍼런스 4종: 상황(콘티뉴이티)/인물/공간/오브제 — 각 이미지 or 비디오
  refs: { situation: [], character: [], space: [], object: [] }, // 각 항목: { kind:'image'|'video', refName, name, base64?, mimeType?, dataUrl? }
  refSource: 'upload',
- draft: false,   // v1163: 초안(480p) → 1080p 최종
+ draft: true,   /* v1218: 기본 켜짐 */   // v1163: 초안(480p) → 1080p 최종
  extracting: false,   // v1128: 레퍼런스 추출 중
  fillTarget: null,    // v1128: 지금 채우기를 기다리는 대기 칸 { key, i }
  // v641: 비차단 생성 — 생성기록(jobs) 스택
@@ -18203,7 +18833,7 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
   refs: { situation: [], character: [], space: [], object: [] }, refSource: 'upload',
   extracting: false, fillTarget: null,
   camera: 'eyes',   // 'eyes' | 'device'
-  draft: false,   // v1154: 초안(480p) 먼저 뽑고, 마음에 들면 그 id 로 1080p 최종
+  draft: true,   /* v1218: 기본 켜짐 */   // v1154: 초안(480p) 먼저 뽑고, 마음에 들면 그 id 로 1080p 최종
   povGender: 'male',   // 'male' | 'female' — 화면에 들어오는 손과 프레임 뒤의 목소리
   startFrame: null, endFrame: null,   // v1132: { name, dataUrl }
   frameMode: 'exact',   // 'exact' (first/last_frame) | 'keyframe' (레퍼런스로 싣는다)
@@ -18213,7 +18843,7 @@ NEGATIVE: no grid, no 2x2 layout, no multiple panels or cells, no split screen, 
  const [videoDocuData, setVideoDocuData] = useState({
   situation: '', tier: 'video25', duration: 15, aspect: '16:9', resolution: '480p',
   refs: { situation: [], character: [], space: [], object: [] }, refSource: 'upload',
-  extracting: false, fillTarget: null, draft: false,   // v1163
+  extracting: false, fillTarget: null, draft: true,   // v1163
   camera: 'handheld',   // 'handheld' | 'fix'
   prevClip: null,       // { name, dataUrl } — 이어받을 앞 클립
   jobs: [], selectedUrl: null, feedbackOpen: false, feedback: '', error: '',
@@ -19292,7 +19922,7 @@ const projectRefLiveSrc = (item) => {
  for (const c of use.characters) {
  // v946: 인증된 배우는 asset:// 로 보낸다. 공개 URL 로 보내면 신뢰 자산으로
  //   인정되지 않아 실인물 얼굴이 심의를 통과하지 못한다.
- if (c.assetUri || c.assetUrl) out.push({ name: c.name, kindLabel: '인물', assetUrl: projectRefModelSrc(c) });
+ if (c.assetUri || c.assetUrl) out.push({ name: c.name, kindLabel: '인물', assetUrl: projectRefModelSrc(c), viewSrc: projectRefLiveSrc(c) });   // v1208: viewSrc — 몸 형태 판단용
  // v906: 의상은 그 인물의 옷이라는 게 드러나게 이름을 붙인다
  if (c.costumeUrl) out.push({ name: `${c.name}의 의상`, kindLabel: '의상', assetUrl: c.costumeUrl });
  }
@@ -19302,6 +19932,53 @@ const projectRefLiveSrc = (item) => {
  return out.slice(0, arkRefMax(PROJECT_TIER_FOR(seg?.kind), 'images'));
  };
 
+ // v1208: 3D — 인물 레퍼런스 이미지를 Claude(Sonnet 비전)가 보고 몸 형태를 판단한다.
+ //   그림마다 한 번만 묻고 프로젝트에 남긴다(bodyNotes). 같은 그림이면 다시 묻지 않는다.
+ //   못 읽으면 그 인물만 건너뛴다 — 생성은 멈추지 않는다(Claude 가 대본에서 판단한다).
+ const projectBodyKey = (src) => {
+  const t2 = String(src || '');
+  if (t2.length <= 300) return t2;
+  let h = 5381;
+  for (let i = 0; i < t2.length; i += 7) h = ((h * 33) ^ t2.charCodeAt(i)) >>> 0;
+  return `h${h.toString(36)}_${t2.length}`;
+ };
+ const projectBodyNotesFor = async (chars) => {
+  const notes = { ...(projectDataRef.current.bodyNotes || {}) };
+  let added = false;
+  const out = [];
+  for (const c of chars) {
+   const src = String(c.viewSrc || '');
+   if (!src || /^asset:\/\//.test(src)) continue;
+   const key = projectBodyKey(src);
+   let n = notes[key];
+   if (!n) {
+    try {
+     let b64 = '', mime = 'image/jpeg';
+     const m = /^data:([^;]+);base64,(.+)$/.exec(src);
+     if (m) { mime = m[1]; b64 = m[2]; }
+     else {
+      const r = await fetch(src);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const blob = await r.blob();
+      const du = await new Promise((rs, rj) => { const rd = new FileReader(); rd.onload = () => rs(String(rd.result || '')); rd.onerror = rj; rd.readAsDataURL(blob); });
+      const m2 = /^data:([^;]+);base64,(.+)$/.exec(du);
+      if (!m2) throw new Error('이미지가 아닙니다');
+      mime = m2[1]; b64 = m2[2];
+     }
+     const comp = await compressBase64Image(b64, mime, 768, 0.8);
+     const ans = await callClaude(PROJECT_BODY_SYS, [
+      { type: 'text', text: `Character name: ${c.name}` },
+      { type: 'image', source: { type: 'base64', media_type: (comp.mimeType && comp.mimeType.startsWith('image/')) ? comp.mimeType : 'image/jpeg', data: comp.base64 } },
+     ], { model: 'claude-sonnet-4-5', maxTokens: 300, workCat: 'video' });
+     n = projectParseBody(ans);
+     if (n) { notes[key] = n; added = true; }
+    } catch (e) { console.warn('[프로젝트] 몸 형태를 읽지 못했습니다 —', c.name, e?.message); }
+   }
+   if (n) out.push({ name: c.name, ...n });
+  }
+  if (added) setProjectData(p => ({ ...p, bodyNotes: { ...(p.bodyNotes || {}), ...notes } }));
+  return out;
+ };
  // v912: 앞 클립에서 '인물별 컷' 과 '전원 컷' 을 골라 다음 클립의 참조로 쓴다.
  //   마지막 프레임 한 장은 그 순간의 구도에 갇히지만, 인물별 컷은 그 인물이
  //   실제로 어떻게 생겼고 무엇을 입고 있었는지를 더 곧게 알려준다.
@@ -19483,7 +20160,7 @@ const projectRefLiveSrc = (item) => {
   try {
    const { url } = await callSeedanceFinalFromDraft(seg.clipDraftTaskId, { dur: seg.sec, aspect: projectRatioOf(projectDataRef.current),
     onStatus: (st) => setProjectGenJob(j => (j && j.segId === seg.id
-     ? { ...j, phase: st === 'queued' ? '대기열에서 기다리는 중' : '영상 만드는 중' } : j)),
+     ? ((ph) => (j.phase === ph ? j : { ...j, phase: ph }))(st === 'queued' ? '대기열에서 기다리는 중' : '영상 만드는 중') : j)   /* v1214: 같으면 그대로 */),
    });
    const clipTs = Date.now();
    let clipFile = '';
@@ -19578,9 +20255,12 @@ const projectRefLiveSrc = (item) => {
  // v1167: 초안 모드의 일괄 생성은 두 번째 클립에서 어차피 위 가드에 걸린다.
  //   들어가기 전에 이유를 말해 준다 — 클립 하나씩 뽑고 최종으로 올리는 것이
  //   초안을 쓰는 올바른 순서다.
- if (projectDataRef.current.genDraft && todo.length > 1 && projectContVideoOn(projectDataRef.current)) {
-  projectUp({ error: '초안 모드에서는 일괄 생성을 하지 않습니다. 앞 클립을 1080p 최종으로 올려야 다음 클립이 그 화면을 이어받습니다 — 클립을 하나씩 뽑아주세요.' });
-  return;
+ // v1210: 초안 모드에서도 일괄 생성을 한다 — 시작 전에 한 번 알리고, 클립마다 다시 묻지 않는다.
+ if (projectDataRef.current.genDraft && todo.length > 1 && projectContVideoOn(projectDataRef.current) && !projectDataRef.current.draftContOk) {
+  const ok = await askConfirm({ title: '초안을 이어받아 일괄 생성합니다', message: PROJECT_DRAFT_CONT_WARN, confirmLabel: '이어서 뽑기' });
+  if (!ok) return;
+  projectDataRef.current = { ...projectDataRef.current, draftContOk: true };
+  projectUp({ draftContOk: true });
  }
  projectBatchStop.current = false;
  setProjectBatch({ scope, total: todo.length, done: 0, stopping: false });
@@ -19647,9 +20327,12 @@ const projectRefLiveSrc = (item) => {
  //   그 참조는 바뀌지 않는다 — 초안 태스크의 레퍼런스를 모델이 그대로
  //   가져오기 때문이다(다시 보내면 오류). 되돌리려면 재생성뿐이다.
  const editingSelf = !!fb && !!seg.clipUrl;
- if (!editingSelf && !noCont && prevSameScene && prev?.clipIsDraft && projectContVideoOn(now)) {
-  projectUp({ error: '앞 클립이 아직 초안(480p)입니다. 앞 클립을 1080p 최종으로 올린 뒤에 이 클립을 뽑아주세요 — 초안을 이어받으면 480p 화면이 이 클립의 최종에도 그대로 남습니다.' });
-  return false;
+ // v1210: 막지 않는다 — 한 번 알리고 뽑는다. 알린 뒤로는 이 프로젝트에서 다시 묻지 않는다.
+ if (!editingSelf && !noCont && prevSameScene && prev?.clipIsDraft && projectContVideoOn(now) && !projectDataRef.current.draftContOk) {
+  const ok = await askConfirm({ title: '앞 클립이 초안입니다', message: PROJECT_DRAFT_CONT_WARN, confirmLabel: '이어서 뽑기' });
+  if (!ok) return false;
+  projectDataRef.current = { ...projectDataRef.current, draftContOk: true };
+  projectUp({ draftContOk: true });
  }
 
  setProjectGenJob({ segId, ts: Date.now(), estSec: 30, phase: '프롬프트 쓰는 중' });
@@ -19708,6 +20391,11 @@ const projectRefLiveSrc = (item) => {
      throw new Error(`레퍼런스를 읽지 못해 멈췄습니다 — ${who}. 파일이 옮겨졌거나 지워졌을 수 있습니다. 자료 탭에서 해당 항목의 이미지를 다시 넣어주세요. (생성 비용은 나가지 않았습니다)`);
    }
    fullList = fullList.map((x, i) => ({ ...x, assetUrl: resolved[i] }));
+ }
+ // v1208: 3D — 붙은 인물 이미지를 보고 몸 형태를 판단한다(사람 · 사람 같은 비인간 · 비인간). 실사면 하지 않는다.
+ let bodyNotes = [];
+ if (projectFormatOf(projectDataRef.current) === 'anime3d') {
+  try { bodyNotes = await projectBodyNotesFor(fullList.filter(x => x.kindLabel === '인물')); } catch { bodyNotes = []; }
  }
  const prevAlive = !!prev?.clipUrl && arkUrlFresh(prev.clipTs);
  if (!isEdit && !noCont && projectContVideoOn(now) && prevSameScene && prev?.clipUrl) {
@@ -19822,7 +20510,7 @@ const projectRefLiveSrc = (item) => {
  ? `${who} — Image ${ci + 1} is the face and body of ${who}, Image ${i + 1} is what ${who} wears. Both images are ${who}; neither is optional.`
  : `${who} — wardrobe Image ${i + 1}. No identity image for ${who}; take the garment from it and nothing else.`);
  });
- const outfitDirectives = outfitPairs.length ? [OUTFIT_RULE, ...outfitPairs] : [];
+ const outfitDirectives = outfitPairs.length ? [projectOutfitRuleFor(projectFormatOf(projectDataRef.current)), ...outfitPairs] : [];   // v1208
  // v979: 장소도 같은 방식으로 못 박는다 — 이 이미지가 공간의 유일한 출처다
  const placePairs = [];
  fullList.forEach((x, i) => {
@@ -19960,9 +20648,10 @@ const projectRefLiveSrc = (item) => {
  //   맞춘 컷 수를 코드가 계산해 넘긴다 — '빠르게' 라는 말만으로는 안 움직인다.
  //   v1062: 액션씬은 반대다. Seedance 2.5 는 컷 나누기를 스스로 하므로 개수를
  //     넘기지 않고 방향만 준다 — 인과 · 물리적 접촉 · 컷 사이 동작 연결.
- PROJECT_CUT_TEMPO_FOR(seg.kind, seg.sec),
+ projectCutTempoFor(seg.kind, seg.sec, projectFormatOf(projectDataRef.current)),   // v1207: 실사면 예전과 같다
  m.no || m.place || m.time ? `[씬] ${[m.no ? `S#${m.no}` : '', m.place, m.time].filter(Boolean).join(' / ')}` : '',
  refLine ? `[이 구간에 등장] ${refLine}` : '',
+ projectBodyBlockKo(bodyNotes),   // v1208: 3D 에서만 채워진다
  // v1018: 대본은 같은 자리에 계속 있는 사람을 매번 다시 적지 않는다. 그래서
  //   이름이 안 나온 인물이 화면에서 통째로 사라졌다 — 클립1 에서 가온 옆에 있던
  //   지설이 클립2 에 한 번도 안 나왔다. 누가 그런 경우인지 코드가 짚어 준다.
@@ -20109,7 +20798,7 @@ const projectRefLiveSrc = (item) => {
  //   Sonnet 보다 3할 더 많은 토큰으로 쓰는데 한도는 1600 그대로였다.
  //   한도는 상한일 뿐이라 올려 둬도 안 쓴 만큼은 청구되지 않는다.
  const writePrompt = async (extra) => {
-   const ask = (mt) => callClaude(PROJECT_VIDEO_PROMPT_SYS, extra ? `${user}\n\n${extra}` : user, {
+   const ask = (mt) => callClaude(projectVideoPromptSysFor(projectFormatOf(projectDataRef.current)), extra ? `${user}\n\n${extra}` : user, {   // v1207
      model: clipPromptModel(), maxTokens: mt, workCat: 'video',   // v1186
    });
    let raw;
@@ -20161,6 +20850,24 @@ const projectRefLiveSrc = (item) => {
      if (retry) prompt = retry;
    }
  }
+ // v1209: 대본에 없는 대사 — 한 번 다시 쓰게 하고, 그래도 남으면 걷어낸다
+ {
+   const srcs = [seg.text, ...(seg.dlg || []).map(x => x && x.loc)].filter(Boolean);
+   let extraLines = findUnscriptedLines(prompt, srcs);
+   if (extraLines.length) {
+     console.warn(`[프로젝트] 대본에 없는 대사가 있어 다시 씁니다 — ${extraLines.join(' / ')}`);
+     const retry = await writePrompt(['[다시 쓰십시오]',
+       `대본에 없는 말을 큰따옴표로 적었습니다: ${extraLines.map(x => `"${x}"`).join(' · ')}`,
+       '말은 대본에 적힌 대사만 합니다. 이 말들을 빼십시오. 말이 아닌 것(글씨 · 강조 · 메모)은 큰따옴표 없이 적으십시오.',
+       '나머지는 손대지 말고 다시 쓰십시오.'].join('\n'));
+     if (retry) prompt = retry;
+     extraLines = findUnscriptedLines(prompt, srcs);
+     if (extraLines.length) {
+       console.warn(`[프로젝트] 다시 써도 대본에 없는 대사가 남아 걷어냅니다 — ${extraLines.join(' / ')}`);
+       prompt = stripUnscriptedLines(prompt, extraLines);
+     }
+   }
+ }
  }
  // v1010: 컷 사이를 빈 줄로 나눠 오는 경우가 있다. 지침은 'Cut to 로만 넘기고
  //   문단을 나누지 말라' 고 적혀 있는데(그래야 컷이 한 순간으로 읽힌다) 지켜지지
@@ -20207,8 +20914,11 @@ const projectRefLiveSrc = (item) => {
  // v1010: 다만 맨 앞자리는 장소·의상에 돌려준다. 앞쪽 가중치가 가장 센 자리이고,
  //   그 자리를 음악에 내주자 인물·의상이 흔들렸다. 음악은 그 바로 뒤에 둔다 —
  //   12,000자 프롬프트에서 여전히 상위 14% 지점이다.
+ // v1207: 3D 면 스타일이 맨 앞 — 모든 인물 · 장소 · 물건이 한 스타일로. 실사면 빈 줄이라 빠진다.
+ projectFormatOf(projectDataRef.current) === 'anime3d' ? PROJECT_3D_STYLE_RULE : '',
  placeDirectives.join('\n'),
  outfitDirectives.join('\n'),
+ projectBodyRuleEn(bodyNotes),   // v1208: 사람이 아닌 캐릭터가 있을 때만
  PROJECT_SOUND_RULE,
  prompt,
  voiceLines.length ? `[Voice]\n${voiceLines.join('\n')}` : '',
@@ -20224,16 +20934,18 @@ const projectRefLiveSrc = (item) => {
  (!isEdit && !isSceneOpener && !contVideo && !contNote) ? PROJECT_VIDEO_MIDSCENE_RULE : '',
  // v1002: 대사 언어. 예전에는 RULES_REST 안에 한국어로 박혀 있었다.
  PROJECT_LANG_RULE_FOR(lang),
- PROJECT_VIDEO_RULES_REST,
+ projectVideoRulesRestFor(projectFormatOf(projectDataRef.current)),   // v1207
  // v972: 어느 줄이 속마음인지 대사를 그대로 실어 못 박는다. 고치기에도 붙인다.
  // v989: 액션씬은 카메라를 영상 모델에도 못 박는다
- seg.kind === 'action' ? PROJECT_VIDEO_ACTION_RULE : '',
+ seg.kind === 'action' ? projectVideoActionRuleFor(projectFormatOf(projectDataRef.current)) : '',   // v1207
  PROJECT_VIDEO_QUOTE_RULE,
  voLines.length
  ? PROJECT_VIDEO_VO_RULE_FOR(voLines.map(v => ({ ...v, line: localize(v.line) })), lang)
  : '',
  // v1143: 오브제 시트의 크기 자(회색 손 · 사람 실루엣)가 장면에 새어 나오지 않게
  fullList.some(x => x.kindLabel === '오브제') ? SCALE_FIGURE_RULE : '',
+ ONSCREEN_WRITING_CUE.test(String(seg.text || '')) ? ONSCREEN_WRITING_RULE : '',   // v1203
+ ONSCREEN_WRITING_ACT_CUE.test(String(seg.text || '')) ? ONSCREEN_WRITING_BLANK_START : '',   // v1204
  PROJECT_FINAL_LINE,   // v1007: 마지막에 읽는 줄
  // v1126: 조립이 끝난 블록마다 괄호를 정리한다(사운드 두 줄은 스스로 건너뛴다)
  ].filter(Boolean).map(t => soundChannelize(t)).join('\n\n');
@@ -20281,7 +20993,7 @@ const projectRefLiveSrc = (item) => {
  if (st === 'queued') T.queuedPolls++; else T.runPolls++;
  if (i === 0) mark('태스크 만들기(업로드 포함)');
  setProjectGenJob(j => (j && j.segId === segId
- ? { ...j, phase: st === 'queued' ? '대기열에서 기다리는 중' : '영상 만드는 중' } : j));
+ ? ((ph) => (j.phase === ph ? j : { ...j, phase: ph }))(st === 'queued' ? '대기열에서 기다리는 중' : '영상 만드는 중') : j)   /* v1214: 같으면 그대로 */);
  },
  });
  mark('영상 생성');
@@ -20397,7 +21109,7 @@ const projectRefLiveSrc = (item) => {
  const url = await resumeArkVideoTask(seg.pendingTaskId, {
  maxPolls: 200,
  onStatus: (st) => setProjectGenJob(j => (j && j.segId === segId
- ? { ...j, phase: st === 'queued' ? '대기열에서 기다리는 중' : '결과 이어받는 중' } : j)),
+ ? ((ph) => (j.phase === ph ? j : { ...j, phase: ph }))(st === 'queued' ? '대기열에서 기다리는 중' : '결과 이어받는 중') : j)   /* v1214: 같으면 그대로 */),
  });
  const resumedTs = Date.now();
  let resumedFile = '';
@@ -21287,7 +21999,7 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  posterWsData: setPosterWsData, promptVideoData: setPromptVideoData, scenarioAnalyzeData: setScenarioAnalyzeData,
  scenarioToolData: setScenarioToolData, scenarioTransData: setScenarioTransData, sheetToolData: setSheetToolData,
  sheetWsData: setSheetWsData, standaloneCloneData: setStandaloneCloneData, titleDesignData: setTitleDesignData,
- translateToolData: setTranslateToolData, ttsToolData: setTtsToolData, upscaleData: setUpscaleData,
+ translateToolData: setTranslateToolData, tts4Data: setTts4Data, upscaleData: setUpscaleData,
  vfxData: setVfxData, videoAnalyzeData: setVideoAnalyzeData, videoCustomData: setVideoCustomData,
  videoNarrativeData: setVideoNarrativeData, videoDocuData: setVideoDocuData, videoPovData: setVideoPovData, extraData: setExtraData,
  };
@@ -21295,7 +22007,7 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  actorAuthData, adaptToolData, adaptFeedback, bookletWsData, characterWsData, customImageData,
  musicToolData, posterComposeData, posterToolData, posterWsData, promptVideoData, scenarioAnalyzeData,
  scenarioToolData, scenarioTransData, sheetToolData, sheetWsData, standaloneCloneData, titleDesignData,
- translateToolData, ttsToolData, upscaleData, vfxData, videoAnalyzeData, videoCustomData, videoNarrativeData, videoDocuData, videoPovData, extraData,
+ translateToolData, tts4Data, upscaleData, vfxData, videoAnalyzeData, videoCustomData, videoNarrativeData, videoDocuData, videoPovData, extraData,
  };
  const sessionRestored = useRef(false);
  const sessionTimer = useRef(null);
@@ -21405,7 +22117,7 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  }, [actorAuthData, adaptToolData, bookletWsData, characterWsData, customImageData,
  musicToolData, posterComposeData, posterToolData, posterWsData, promptVideoData,
  scenarioAnalyzeData, scenarioToolData, scenarioTransData, sheetToolData, sheetWsData,
- standaloneCloneData, titleDesignData, translateToolData, ttsToolData, upscaleData, vfxData,
+ standaloneCloneData, titleDesignData, translateToolData, tts4Data, upscaleData, vfxData,
  videoAnalyzeData, videoCustomData, videoNarrativeData, videoDocuData, videoPovData, extraData]);
 
  // ─────────────────────────────────────────────────────────────
@@ -21548,7 +22260,7 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  case 'video-custom':
  setVideoCustomData({
  prompt: '', tier: 'video25', duration: 5, aspect: '16:9', resolution: '480p', refSource: 'upload',
- refs: [], jobs: [], selectedUrl: null, draft: false, feedbackOpen: false, feedback: '', error: '',
+ refs: [], jobs: [], selectedUrl: null, draft: true, rawPrompt: false, feedbackOpen: false, feedback: '', error: '',
  });
  setVideoRefSuggest(null);
  break;
@@ -21556,16 +22268,16 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  setVideoNarrativeData({
  situation: '', tier: 'video25', duration: 15, aspect: '16:9', resolution: '480p',
  refs: { situation: [], character: [], space: [], object: [] }, refSource: 'upload',
- extracting: false, fillTarget: null, draft: false,
+ extracting: false, fillTarget: null, draft: true,
  jobs: [], selectedUrl: null, feedbackOpen: false, feedback: '', error: '',
  });
  setNarrRefSuggest(null);
  break;
- case 'video-documentary':
+ case 'video-pov':   // v1217: 'video-documentary' 로 잘못 적혀 POV 초기화가 안 됐고, 다큐 초기화가 POV 를 지웠다
  setVideoPovData({
  situation: '', tier: 'video25', duration: 15, aspect: '16:9', resolution: '480p',
  refs: { situation: [], character: [], space: [], object: [] }, refSource: 'upload',
- extracting: false, fillTarget: null, camera: 'eyes', draft: false, povGender: 'male', prevClip: null,
+ extracting: false, fillTarget: null, camera: 'eyes', draft: true, povGender: 'male', prevClip: null,
  startFrame: null, endFrame: null, frameMode: 'exact',
  jobs: [], selectedUrl: null, feedbackOpen: false, feedback: '', error: '',
  });
@@ -21575,14 +22287,14 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  setVideoDocuData({
  situation: '', tier: 'video25', duration: 15, aspect: '16:9', resolution: '480p',
  refs: { situation: [], character: [], space: [], object: [] }, refSource: 'upload',
- extracting: false, fillTarget: null, camera: 'handheld', prevClip: null, draft: false,
+ extracting: false, fillTarget: null, camera: 'handheld', prevClip: null, draft: true,
  jobs: [], selectedUrl: null, feedbackOpen: false, feedback: '', error: '',
  });
  setNarrRefSuggest(null);
  break;
  case 'video-extra':
   setExtraData({
-   mode: 'behind', situation: '', lang: 'ko', draft: false, interviewerVoice: null, dlg: null, contRef: null,   // v1179
+   mode: 'behind', situation: '', lang: 'ko', draft: true, interviewerVoice: null, dlg: null, contRef: null,   // v1179
    duration: 10, aspect: '9:16', resolution: '720p',
  dlgTr: null, trLoading: false,
  step: 'write', extracting: false, preview: null,
@@ -21634,14 +22346,8 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  break;
  }
  case 'sound-tts':
- setTtsToolData({
- step: 'input', srtRaw: '', srtLines: [], scenarioText: '', scenarioFileName: '',
- scenarioAnalysis: null, characters: {}, lineVoiceOverrides: {}, results: {},
- isGenerating: false, currentLineIdx: null, generationStartedAt: null, error: '',
- currentLanguage: 'ko', languageHistory: {},
- });
- setTtsSrtInputMode('upload'); setTtsBulkSelection([]); setTtsConfirmModal(null); setTtsIsPaused(false);
- // clonedVoiceLibrary(보이스 라이브러리)는 건드리지 않음 — TTS·VOICE 공용 영구 자산
+ // v1211: 새 TTS — 입력만 비우고 기록은 남긴다
+ setTts4Data(p => ({ ...p, text: '', concept: '', error: '', voice: '', tag: null, stability: null }));
  break;
  case 'sound-voice':
  setStandaloneCloneData({ baseLabel: '', files: [], isCloning: false, progress: '', cloneProgress: null, error: '', results: [] });
@@ -21995,7 +22701,7 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  // eslint-disable-next-line react-hooks/exhaustive-deps
  }, []);
 
- const [nowTick, setNowTick] = useState(Date.now()); // 영상 생성 진행도 갱신용
+ // v1214: nowTick(루트 1초 틱)을 걷었다 — 진행 패널의 말단(ProgressLive)이 스스로 1초마다 다시 그린다.
  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
  // v457: 영상 일괄 생성 일시정지/취소 제어 — ref로 즉시 반영
  // null = 정상 진행, 'pause' = 일시정지 (resume 가능), 'cancel' = 취소 (중단)
@@ -22619,22 +23325,8 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  // v864: nowTick 갱신 effect 는 progressPanelOpen 선언 이후로 옮겼다
  //   (진행 패널이 보일 때만 돌린다 — 아래 '진행 패널 틱' 참고)
 
- useEffect(() => {
- const isActive = progress?.startTime || adaptToolData.progress?.startTime ||
- scenarioToolData.progress?.startTime || scenarioToolData.treatmentProgress?.startTime;
- if (!isActive) return;
- const t = setInterval(() => {
- if (progress?.startTime) setProgress(p => p ? { ...p, _t: Date.now() } : null);
- if (adaptToolData.progress?.startTime) setAdaptToolData(p => p.progress ? { ...p, progress: { ...p.progress, _t: Date.now() } } : p);
- if (scenarioToolData.progress?.startTime || scenarioToolData.treatmentProgress?.startTime)
- setScenarioToolData(p => ({
- ...p,
- ...(p.progress?.startTime ? { progress: { ...p.progress, _t: Date.now() } } : {}),
- ...(p.treatmentProgress?.startTime ? { treatmentProgress: { ...p.treatmentProgress, _t: Date.now() } } : {}),
- }));
- }, 1000);
- return () => clearInterval(t);
- }, [progress?.startTime, adaptToolData.progress?.startTime, scenarioToolData.progress?.startTime, scenarioToolData.treatmentProgress?.startTime]);
+ // v1222: 예전엔 각색 · 시나리오 진행 중 1초마다 루트 상태(_t)를 바꿔 앱 전체를 다시 그렸다.
+ //   시간으로 바뀌는 표시는 말단(SecondTick · ProgressLive)이 스스로 1초마다 다시 계산한다.
 
 
  // progress 표시용 — 단방향 안정 계산
@@ -22795,26 +23487,7 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  setPosterMode(null); // v496: 디자인 작업 모드 선택 화면으로 복귀
  }
  else if (toolKey === 'sound') {
- // 사운드 작업 초기화 — TTS 모든 데이터 초기화 (클론된 voice_id 라이브러리는 유지)
- setTtsToolData({
- step: 'input',
- srtRaw: '',
- srtLines: [],
- scenarioText: '',
- scenarioFileName: '',
- scenarioAnalysis: null,
- characters: {},
- lineVoiceOverrides: {},
- results: {},
- isGenerating: false,
- currentLineIdx: null,
- generationStartedAt: null,
- error: '',
- currentLanguage: 'ko',
- languageHistory: {},
- });
- setTtsBulkSelection([]);
- setTtsConfirmModal(null);
+ // v1211: 예전 TTS 를 걷어냈다 — 음악 · 클로닝만 초기화한다
  // v355: 음악 도구도 함께 초기화 (사운드 작업의 두 모드)
  setMusicToolData(p => ({
  ...p,
@@ -22829,7 +23502,6 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  isGeneratingPrompt: false, isGeneratingMusic: false, error: '',
  // duration/outputFormat은 글로벌 기본값을 유지 (사용자 선호도)
  }));
- setSoundMode(null); // 사운드 모드 선택 화면으로 복귀
  // v375: 독립 클로닝 데이터도 초기화 (라이브러리는 유지)
  setStandaloneCloneData({
  baseLabel: '', files: [], isCloning: false, progress: '',
@@ -22871,10 +23543,7 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  catch { return []; }
  });
  // v419: 추가 툴 임시저장 슬롯 — TTS, 음악, 음성변조, 시트, 각색, 시나리오 분석, 영상 분석
- const [ttsSlotsList, setTtsSlotsList] = useState(() => {
- try { return JSON.parse(localStorage.getItem('oxyzn_tts_slots') || '[]'); } catch { return []; }
- });
- const [musicSlotsList, setMusicSlotsList] = useState(() => {
+  const [musicSlotsList, setMusicSlotsList] = useState(() => {
  try { return JSON.parse(localStorage.getItem('oxyzn_music_slots') || '[]'); } catch { return []; }
  });
  const [vcSlotsList, setVcSlotsList] = useState(() => {
@@ -22898,8 +23567,7 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  const POSTER_SAVE_KEY = 'oxyzn_poster_slots';
  const TRANSLATE_SAVE_KEY = 'oxyzn_translate_slots';
  // v419: 새 키들
- const TTS_SAVE_KEY = 'oxyzn_tts_slots';
- const MUSIC_SAVE_KEY = 'oxyzn_music_slots';
+  const MUSIC_SAVE_KEY = 'oxyzn_music_slots';
  const VC_SAVE_KEY = 'oxyzn_vc_slots';
  const SHEET_SAVE_KEY = 'oxyzn_sheet_slots';
  const ADAPT_SAVE_KEY = 'oxyzn_adapt_slots';
@@ -22920,11 +23588,7 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  setTranslateSlotsList(slots);
  };
  // v419: 새 툴 persist 함수
- const persistTtsSlots = (slots) => {
- localStorage.setItem(TTS_SAVE_KEY, JSON.stringify(slots));
- setTtsSlotsList(slots);
- };
- const persistMusicSlots = (slots) => {
+  const persistMusicSlots = (slots) => {
  localStorage.setItem(MUSIC_SAVE_KEY, JSON.stringify(slots));
  setMusicSlotsList(slots);
  };
@@ -22966,8 +23630,6 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  } else if (toolKey === 'translate') {
  // v369: 번역 불러오기 — 진행 중 상태는 초기화
  setTranslateToolData((prev) => ({ ...prev, ...slot.data, isProcessing: false, progress: '', error: '' }));
- } else if (toolKey === 'tts') {
- setTtsToolData((prev) => ({ ...prev, ...slot.data, isGenerating: false, progress: '', error: '' }));
  } else if (toolKey === 'music') {
  setMusicToolData((prev) => ({ ...prev, ...slot.data, isGeneratingPrompt: false, isGeneratingMusic: false, progress: '', error: '' }));
  } else if (toolKey === 'sheet') {
@@ -22992,7 +23654,6 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  const slotConfigs = {
  poster: { list: posterSlotsList, persist: persistPosterSlots },
  translate: { list: translateSlotsList, persist: persistTranslateSlots },
- tts: { list: ttsSlotsList, persist: persistTtsSlots },
  music: { list: musicSlotsList, persist: persistMusicSlots },
  vc: { list: vcSlotsList, persist: persistVcSlots },
  sheet: { list: sheetSlotsList, persist: persistSheetSlots },
@@ -23018,7 +23679,6 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  const slotConfigs = {
  poster: { list: posterSlotsList, persist: persistPosterSlots },
  translate: { list: translateSlotsList, persist: persistTranslateSlots },
- tts: { list: ttsSlotsList, persist: persistTtsSlots },
  music: { list: musicSlotsList, persist: persistMusicSlots },
  vc: { list: vcSlotsList, persist: persistVcSlots },
  sheet: { list: sheetSlotsList, persist: persistSheetSlots },
@@ -23044,7 +23704,6 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  if (toolKey === 'poster') return posterSlotsList.length > 0;
  if (toolKey === 'translate') return translateSlotsList.length > 0;
  // v419: 7개 새 툴
- if (toolKey === 'tts') return ttsSlotsList.length > 0;
  if (toolKey === 'music') return musicSlotsList.length > 0;
  if (toolKey === 'vc') return vcSlotsList.length > 0;
  if (toolKey === 'sheet') return sheetSlotsList.length > 0;
@@ -23409,7 +24068,8 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  const callSeedanceFinalFromDraft = async (draftTaskId, { onStatus, dur, aspect } = {}) => {
   const apiKey = arkKey();
   const body = {
-   model: ARK_MODELS.video25,
+   // v1213: 초안을 만든 엔드포인트로 보낸다 — 다른 엔드포인트의 초안 id 는 못 찾는다
+   model: (draftCostInfo(draftTaskId) || {}).model || arkEndpointFor(ARK_MODELS.video25),
    content: [{ type: 'draft_task', draft_task: { id: String(draftTaskId || '') } }],
    resolution: '1080p',
    watermark: false,
@@ -23457,7 +24117,7 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
   up2({ error: '' });
   try {
    const url = await resumeArkVideoTask(tid, {
-    onStatus: (st) => mapJob(j => ({ ...j, phase: st === 'queued' ? '대기열에서 기다리는 중' : '결과 이어받는 중' })) });
+    onStatus: (() => { let last = ''; return (st) => { const ph = st === 'queued' ? '대기열에서 기다리는 중' : '결과 이어받는 중'; if (ph === last) return; last = ph; mapJob(j => ({ ...j, phase: ph })); }; })() });   // v1214: 단계가 바뀔 때만
    mapJob(j => ({ ...j, phase: '받아두는 중' }));
    const kept = await keepGenResult(ws, job.id, url, 'mp4');
    const wasDraft = !!job.pendingDraft;
@@ -23764,7 +24424,7 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  // ARK 이미지 API는 1회 1장 기준 — 요청 장수만큼 순차 호출
  for (let i = 0; i < Math.max(1, Math.min(3, Number(numOutputs) || 1)); i++) {
  const input = {
- model,
+ model: arkEndpointFor(model),   // v1213: 검열 필터를 껐으면 내 엔드포인트 (단가 · 기능 판정은 model 그대로)
  prompt,
  size,
  response_format: 'url',
@@ -24235,21 +24895,24 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  // v1182: 레퍼런스는 프레임과 함께 간다 — 프레임은 첫 컷의 그림이고, 레퍼런스는 누구인가다.
  //   ★ 순서가 중요하다. 프롬프트의 Image 1 은 첫 번째 reference_image 여야 하므로
  //     레퍼런스를 먼저 싣고 프레임을 뒤에 붙인다.
- // v1191: 단, 끝 프레임이 있으면 싣지 않는다. ModelArk 가 last_frame 과
- //   reference_image 를 한 요청에 받지 않는다(400). 부르는 쪽이 번호 토큰을
- //   이미 걷었어야 한다 — 여기는 마지막 방어선이다.
- const withLastFrame = !!(firstFrame && endFrame);
- if (!withLastFrame) for (const u of imageUrls) content.push(asImageEntry(u, 'reference_image'));
- else if (imageUrls.length) console.warn(`[ark] 끝 프레임이 있어 레퍼런스 이미지 ${imageUrls.length}장을 싣지 않았습니다 — ModelArk 가 함께 받지 않습니다.`);
+ // v1200: 단, 프레임이 있으면 레퍼런스 미디어(이미지 · 영상 · 오디오)를 하나도 싣지 않는다.
+ //   ModelArk 가 first/last frame 을 레퍼런스와 한 요청에 받지 않는다 — 끝 프레임만이 아니라
+ //   시작 프레임만이어도(400: "first/last frame content cannot be mixed with reference media content").
+ //   부르는 쪽이 번호 토큰을 이미 걷었어야 한다 — 여기는 마지막 방어선이다.
+ const withFrame = !!firstFrame;
+ if (!withFrame) for (const u of imageUrls) content.push(asImageEntry(u, 'reference_image'));
+ else if (imageUrls.length) console.warn(`[ark] 프레임이 있어 레퍼런스 이미지 ${imageUrls.length}장을 싣지 않았습니다 — ModelArk 가 함께 받지 않습니다.`);
  if (firstFrame) {
  // v1132: 프레임도 공개 주소로 올려 보낸다 — data URL 을 그대로 실으면 요청이 413 으로 막힌다(v1000)
  content.push(asImageEntry(await asPublicUrl(firstFrame, '시작 프레임'), 'first_frame'));
  if (endFrame) content.push(asImageEntry(await asPublicUrl(endFrame, '끝 프레임'), 'last_frame'));
  }
- for (const u of videoUrls) content.push({ type: 'video_url', video_url: { url: u }, role: 'reference_video' });
+ if (!withFrame) for (const u of videoUrls) content.push({ type: 'video_url', video_url: { url: u }, role: 'reference_video' });   // v1200
  // v773: 오디오 레퍼런스 — 최대 3개, 이미지/영상이 하나도 없으면 단독 입력 불가라 생략
  const audioUrls = [];
- for (const au of (audios || []).filter(Boolean)) {
+ // v1200: 프레임이 있으면 목소리도 레퍼런스 미디어라 싣지 않는다
+ if (withFrame && (audios || []).filter(Boolean).length) console.warn('[ark] 프레임이 있어 보이스 레퍼런스를 싣지 않았습니다 — ModelArk 가 함께 받지 않습니다.');
+ for (const au of (withFrame ? [] : (audios || [])).filter(Boolean)) {
  if (audioUrls.length >= arkRefMax(tierKey, 'audios')) break;
  // v1006: 여기서 조용히 빠지면 프롬프트의 'Audio 1' 이 다른 사람의 목소리를
  //   가리킨다. 호출부가 미리 올려 넘기므로 보통 여기서 실패하지 않지만,
@@ -24282,8 +24945,9 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  const res = draft ? '480p' : resBase;
  const ratio = ARK_VIDEO_RATIOS.includes(arkRatio(aspectRatio)) ? arkRatio(aspectRatio) : 'adaptive';
  const dur = Math.max(4, Math.min(ARK_VIDEO_MAX_SEC[tierKey] || 15, Math.round(Number(duration) || 5)));
+ const sendModel = arkEndpointFor(model);   // v1213: 검열 필터를 껐으면 내 엔드포인트
  const body = {
- model,
+ model: sendModel,
  content,
  generate_audio: !!generateAudio,
  resolution: res,
@@ -24363,7 +25027,7 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  : estimateSeedance2Cost(dur, res, aspForCost, { tier: tierKey, hasVideoInput, inputSec: dur });
  recordCreditUsage(usd, 'video', { workCat: 'video' });
  // v1198: 초안이면 1080p 변환 요금을 미리 셀 수 있게 실제 토큰을 남긴다
- if (draft) rememberDraftCost(taskId, { tokens, videoIn: hasVideoInput, dur, ratio: aspForCost });
+ if (draft) rememberDraftCost(taskId, { tokens, videoIn: hasVideoInput, dur, ratio: aspForCost, model: sendModel });
  } catch {}
  return url;
  };
@@ -25451,359 +26115,22 @@ ${titleStyleGuide ? `\n[레퍼런스 STYLE GUIDE — 타이포 마감·질감·�
  // ─── TTS 핸들러 ───
 
  // SRT 파일 첨부 또는 직접 입력 텍스트 반영
- const handleTtsSrtChange = (raw) => {
- const lines = parseSRT(raw);
- // v713: 무거운 매핑을 setState 업데이터 밖에서 1회만 실행 (StrictMode 이중 실행/렌더 블로킹 → 다운 방지)
- const cur = ttsToolData;
- // 시나리오 페어가 있으면 자동 매핑 + 분석 결과 재계산
- let mappedLines = lines;
- let newScenarioAnalysis = cur.scenarioAnalysis;
- if (cur.scenarioText) {
- const pairs = extractDialogPairsFromScenario(cur.scenarioText);
- const scenarioCharacters = [...new Set(pairs.map(pr => pr.character).filter(Boolean))];
- mappedLines = autoMapSrtToCharacters(lines, pairs);
- // 분석 통계 재계산
- const charNames = new Set(mappedLines.map(l => l.character).filter(Boolean));
- const totalSrtLines = mappedLines.length;
- const mappedCount = mappedLines.filter(l => l.character).length;
- const unmappedCount = totalSrtLines - mappedCount;
- const matchRate = totalSrtLines > 0 ? Math.round((mappedCount / totalSrtLines) * 100) : 0;
- const charLineCount = {};
- for (const cn of charNames) {
- charLineCount[cn] = mappedLines.filter(l => l.character === cn).length;
- }
- const scenarioOnlyChars = scenarioCharacters.filter(sc => !charNames.has(sc));
- const scoredLines = mappedLines.filter(l => l.character && typeof l.matchScore === 'number');
- const avgConfidence = scoredLines.length > 0
- ? Math.round((scoredLines.reduce((s, l) => s + l.matchScore, 0) / scoredLines.length) * 100)
- : 0;
- const lowConfidenceCount = scoredLines.filter(l => l.matchScore < 0.45).length;
-
- // v288 디버그: 콘솔 로그 (SRT 변경 시)
- if (typeof console !== 'undefined' && console.log) {
- console.log(`[TTS 매핑] SRT 변경 → 페어 ${pairs.length}개, 매핑 ${mappedCount}/${totalSrtLines} = ${matchRate}%`);
- if (matchRate < 50 && pairs.length === 0) {
- console.warn('시나리오에서 페어 추출 실패 — 시나리오 파일 포맷 확인 필요');
- }
- }
-
- newScenarioAnalysis = {
- scenarioCharacters,
- mappedCharacters: [...charNames],
- scenarioOnlyChars,
- charLineCount,
- totalSrtLines,
- mappedCount,
- unmappedCount,
- matchRate,
- dialogPairsCount: pairs.length,
- avgConfidence,
- lowConfidenceCount,
- // v288 디버그용 샘플
- samplePairs: pairs.slice(0, 5).map(pr => ({ character: pr.character, text: (pr.text || '').slice(0, 80) })),
- sampleSrtLines: mappedLines.slice(0, 5).map(l => ({ idx: l.idx, text: (l.text || '').slice(0, 80), character: l.character })),
- analyzedAt: Date.now(),
- };
- }
- // 인물별 그룹화 — 기존 voiceRef는 유지
- const charNames = new Set(mappedLines.map(l => l.character).filter(Boolean));
- const newCharacters = {};
- for (const name of charNames) {
- newCharacters[name] = {
- voiceRef: cur.characters[name]?.voiceRef || null,
- lines: mappedLines.filter(l => l.character === name).map(l => l.idx),
- };
- }
- setTtsToolData(p => ({
- ...p,
- srtRaw: raw,
- srtLines: mappedLines,
- characters: newCharacters,
- scenarioAnalysis: newScenarioAnalysis,
- }));
- };
-
- const handleTtsSrtFile = async (file) => {
- if (!file) return;
- try {
- const text = await file.text();
- handleTtsSrtChange(text);
- } catch (e) {
- setTtsToolData(p => ({ ...p, error: `SRT 파일 읽기 실패: ${e.message}` }));
- }
- };
-
- const handleTtsScenarioFile = async (file) => {
- if (!file) {
- // 시나리오 제거 + 분석 결과 초기화
- setTtsToolData(p => ({ ...p, scenarioText: '', scenarioFileName: '', scenarioAnalysis: null }));
- return;
- }
- try {
- let text = '';
- const name = file.name.toLowerCase();
- if (name.endsWith('.txt') || name.endsWith('.md') || name.endsWith('.srt')) {
- text = await file.text();
- } else if (name.endsWith('.docx')) {
- try {
- const arrayBuffer = await file.arrayBuffer();
- const mammoth = await loadMammoth(); // v863
- const result = await mammoth.extractRawText({ arrayBuffer });
- text = result.value || '';
- } catch (e) {
- throw new Error('DOCX 파일 처리 실패. TXT 형식으로 변환해서 첨부해주세요. (' + e.message + ')');
- }
- } else if (name.endsWith('.pdf')) {
- // v500: extractTextFromPDF 사용 (Y좌표 기반 줄 분리, 한글 공백 정상화 포함)
- try {
- text = await extractTextFromPDF(file);
- } catch (e) {
- throw new Error('PDF 파일 처리 실패. TXT 형식으로 변환해서 첨부해주세요. (' + e.message + ')');
- }
- } else {
- text = await file.text();
- }
-
- // 시나리오 적용 + 자동 매핑 + 상세 분석
- // v711: 무거운 파싱·매핑을 setState 업데이터 밖에서 1회만 실행 (StrictMode 이중 실행/렌더 블로킹 → 앱 다운 방지)
- {
- const p = ttsToolData;
- const pairs = extractDialogPairsFromScenario(text);
- const scenarioCharacters = [...new Set(pairs.map(pr => pr.character).filter(Boolean))];
- const mappedLines = autoMapSrtToCharacters(p.srtLines, pairs);
- const charNames = new Set(mappedLines.map(l => l.character).filter(Boolean));
- const newCharacters = {};
- for (const cn of charNames) {
- newCharacters[cn] = {
- voiceRef: p.characters[cn]?.voiceRef || null,
- lines: mappedLines.filter(l => l.character === cn).map(l => l.idx),
- };
- }
- // 매핑 통계
- const totalSrtLines = mappedLines.length;
- const mappedCount = mappedLines.filter(l => l.character).length;
- const unmappedCount = totalSrtLines - mappedCount;
- const matchRate = totalSrtLines > 0 ? Math.round((mappedCount / totalSrtLines) * 100) : 0;
- // 인물별 매핑 개수
- const charLineCount = {};
- for (const cn of charNames) {
- charLineCount[cn] = mappedLines.filter(l => l.character === cn).length;
- }
- // 시나리오에 있지만 SRT에 매핑되지 않은 인물
- const scenarioOnlyChars = scenarioCharacters.filter(sc => !charNames.has(sc));
- // 매칭 신뢰도 통계
- const scoredLines = mappedLines.filter(l => l.character && typeof l.matchScore === 'number');
- const avgConfidence = scoredLines.length > 0
- ? Math.round((scoredLines.reduce((s, l) => s + l.matchScore, 0) / scoredLines.length) * 100)
- : 0;
- const lowConfidenceCount = scoredLines.filter(l => l.matchScore < 0.45).length;
-
- // v288 디버그: 콘솔에 진단 정보 출력 (F12로 확인 가능)
- if (typeof console !== 'undefined' && console.log) {
- console.log('═══════════════ TTS 인물 매핑 진단 ═══════════════');
- console.log(`시나리오 파일: ${file.name} (${text.length}자)`);
- console.log(`SRT 라인 수: ${totalSrtLines}`);
- console.log(`💬 추출 페어 수: ${pairs.length}`);
- console.log(`👥 시나리오 인물: ${scenarioCharacters.join(', ') || '(없음)'}`);
- console.log(`✅ 매핑 성공: ${mappedCount}/${totalSrtLines} = ${matchRate}%`);
- if (pairs.length > 0) {
- console.log('--- 추출된 페어 샘플 (첫 5개) ---');
- pairs.slice(0, 5).forEach((p, i) => {
- console.log(` ${i+1}. [${p.character}] ${(p.text || '').slice(0, 60)}`);
- });
- }
- if (matchRate < 50) {
- console.warn('매칭률이 50% 미만입니다. 가능한 원인:');
- if (pairs.length === 0) console.warn(' - 시나리오에서 인물:대사 페어를 추출하지 못함 (포맷 확인)');
- else if (pairs.length < 5) console.warn(' - 추출된 페어가 너무 적음 (시나리오 내용 확인)');
- else console.warn(' - SRT 대사와 시나리오 대사가 너무 달라서 매칭 실패');
- console.log('--- SRT 라인 샘플 (첫 5개) ---');
- p.srtLines.slice(0, 5).forEach((l, i) => {
- console.log(` ${i+1}. "${(l.text || '').slice(0, 60)}"`);
- });
- }
- console.log('════════════════════════════════════════════════');
- }
-
- setTtsToolData(prev => ({
- ...prev,
- scenarioText: text,
- scenarioFileName: file.name,
- srtLines: mappedLines,
- characters: newCharacters,
- scenarioAnalysis: {
- scenarioCharacters,
- mappedCharacters: [...charNames],
- scenarioOnlyChars,
- charLineCount,
- totalSrtLines,
- mappedCount,
- unmappedCount,
- matchRate,
- dialogPairsCount: pairs.length,
- avgConfidence,
- lowConfidenceCount,
- // v288 디버그용 샘플
- samplePairs: pairs.slice(0, 5).map(p => ({ character: p.character, text: (p.text || '').slice(0, 80) })),
- sampleSrtLines: p.srtLines.slice(0, 5).map(l => ({ idx: l.idx, text: (l.text || '').slice(0, 80) })),
- analyzedAt: Date.now(),
- },
- }));
- }
- } catch (e) {
- setTtsToolData(p => ({ ...p, error: `시나리오 파일 처리 실패: ${e.message}` }));
- }
- };
-
+ 
+ 
+ 
  // 특정 SRT 라인의 인물 수동 변경 (드롭다운)
- const handleTtsLineCharacterChange = (lineIdx, newCharacter) => {
- setTtsToolData(p => {
- const newLines = p.srtLines.map(l => l.idx === lineIdx ? { ...l, character: newCharacter || null } : l);
- const charNames = new Set(newLines.map(l => l.character).filter(Boolean));
- const newCharacters = {};
- for (const cn of charNames) {
- newCharacters[cn] = {
- voiceRef: p.characters[cn]?.voiceRef || null,
- lines: newLines.filter(l => l.character === cn).map(l => l.idx),
- };
- }
- return { ...p, srtLines: newLines, characters: newCharacters };
- });
- };
-
+ 
  // v354: 라인별 감정 변경 핸들러 (사용자가 직접 수정 가능)
- const handleTtsLineEmotionChange = (lineIdx, newEmotion) => {
- setTtsToolData(p => ({
- ...p,
- srtLines: p.srtLines.map(l => l.idx === lineIdx ? { ...l, emotion: newEmotion || null } : l),
- }));
- };
-
+ 
  // ─────────────────────────────────────────────────────────────
  // v358: 다른 언어 SRT로 교체 (인물 매핑·보이스 유지)
  // ─────────────────────────────────────────────────────────────
  // 타임코드 기반 매칭: 새 SRT 라인의 startMs와 가장 가까운 기존 라인의 character를 복사
- const handleSwitchTtsLanguage = async (newSrtFile, newLanguageCode) => {
- if (!newSrtFile) return;
- try {
- const rawText = await newSrtFile.text();
- const newLines = parseSRT(rawText);
- if (newLines.length === 0) {
- setTtsToolData(p => ({ ...p, error: 'SRT 파싱 결과가 비어있습니다. 파일 형식을 확인해주세요.' }));
- return;
- }
- setTtsToolData(p => {
- // 현재 작업 결과를 languageHistory에 백업
- const newHistory = { ...(p.languageHistory || {}) };
- if (p.srtLines.length > 0 && Object.keys(p.results || {}).length > 0) {
- newHistory[p.currentLanguage || 'ko'] = {
- srtRaw: p.srtRaw,
- srtLines: p.srtLines.map(l => ({ idx: l.idx, startMs: l.startMs, endMs: l.endMs, text: l.text, character: l.character, emotion: l.emotion })),
- results: { ...p.results },
- lineVoiceOverrides: { ...p.lineVoiceOverrides },
- savedAt: Date.now(),
- };
- }
- // 타임코드 기반 매칭: 새 라인의 startMs와 가장 가까운 기존 라인 찾기
- const TIME_TOLERANCE_MS = 500;
- const mappedNewLines = newLines.map(newLine => {
- let bestMatch = null;
- let bestDiff = Infinity;
- for (const oldLine of p.srtLines) {
- const startDiff = Math.abs((oldLine.startMs || 0) - (newLine.startMs || 0));
- if (startDiff < bestDiff) {
- bestDiff = startDiff;
- bestMatch = oldLine;
- }
- }
- if (bestMatch && bestDiff <= TIME_TOLERANCE_MS) {
- return { ...newLine, character: bestMatch.character || null };
- }
- return newLine;
- });
- // 인물 그룹화 (기존 voiceRef는 유지)
- const charNames = new Set(mappedNewLines.map(l => l.character).filter(Boolean));
- const newCharacters = {};
- for (const name of charNames) {
- newCharacters[name] = {
- voiceRef: p.characters[name]?.voiceRef || null,
- lines: mappedNewLines.filter(l => l.character === name).map(l => l.idx),
- };
- }
- // lineVoiceOverrides 타임코드 매칭
- const newLineVoiceOverrides = {};
- for (const newLine of mappedNewLines) {
- let bestMatch = null;
- let bestDiff = Infinity;
- for (const oldLine of p.srtLines) {
- const startDiff = Math.abs((oldLine.startMs || 0) - (newLine.startMs || 0));
- if (startDiff < bestDiff) { bestDiff = startDiff; bestMatch = oldLine; }
- }
- if (bestMatch && bestDiff <= TIME_TOLERANCE_MS && p.lineVoiceOverrides?.[bestMatch.idx]) {
- newLineVoiceOverrides[newLine.idx] = p.lineVoiceOverrides[bestMatch.idx];
- }
- }
- return {
- ...p,
- srtRaw: rawText,
- srtLines: mappedNewLines,
- characters: newCharacters,
- lineVoiceOverrides: newLineVoiceOverrides,
- results: {},
- currentLanguage: newLanguageCode || 'unknown',
- languageHistory: newHistory,
- step: 'mapping',
- error: '',
- };
- });
- } catch (err) {
- console.error('[TTS] 언어 교체 실패:', err);
- setTtsToolData(p => ({ ...p, error: `언어 교체 실패: ${err.message}` }));
- }
- };
-
+ 
  // 저장된 다른 언어 버전으로 전환 (다시 보기)
- const handleSwitchToSavedLanguage = (langCode) => {
- setTtsToolData(p => {
- const saved = p.languageHistory?.[langCode];
- if (!saved) return p;
- const newHistory = { ...(p.languageHistory || {}) };
- if (p.srtLines.length > 0) {
- newHistory[p.currentLanguage || 'ko'] = {
- srtRaw: p.srtRaw,
- srtLines: p.srtLines,
- results: { ...p.results },
- lineVoiceOverrides: { ...p.lineVoiceOverrides },
- savedAt: Date.now(),
- };
- }
- const charNames = new Set(saved.srtLines.map(l => l.character).filter(Boolean));
- const newCharacters = {};
- for (const name of charNames) {
- newCharacters[name] = {
- voiceRef: p.characters[name]?.voiceRef || null,
- lines: saved.srtLines.filter(l => l.character === name).map(l => l.idx),
- };
- }
- delete newHistory[langCode];
- return {
- ...p,
- srtRaw: saved.srtRaw,
- srtLines: saved.srtLines,
- results: saved.results || {},
- lineVoiceOverrides: saved.lineVoiceOverrides || {},
- characters: newCharacters,
- currentLanguage: langCode,
- languageHistory: newHistory,
- step: 'generate',
- error: '',
- };
- });
- };
-
+ 
  // 언어 교체 모달 상태
- const [ttsLanguageSwitchModal, setTtsLanguageSwitchModal] = useState(false);
-
+ 
  // 인물별 레퍼런스 보이스 첨부
  // voiceRef 구조 통일:
  // 파일: { type: 'file', name, base64, mimeType, dataUrl, sizeKB }
@@ -26182,150 +26509,9 @@ ${titleStyleGuide ? `\n[레퍼런스 STYLE GUIDE — 타이포 마감·질감·�
 
   // 첨부된 음성 파일을 Replicate minimax/voice-cloning으로 보내 voice_id 생성
  // 생성된 voice_id는 영구 재사용 가능 (단, 7일 내 1회 이상 사용 필수)
- const handleCloneVoiceForCharacter = async (characterName, options = {}) => {
- if (!characterName) return;
- if (!falApiKey) {
- setTtsCloningStatus(p => ({ ...p, [characterName]: { isCloning: false, error: apiKeyHelp('fal API') } }));
- return;
- }
- const char = ttsToolData.characters[characterName];
- const voiceRef = char?.voiceRef;
- if (!voiceRef || voiceRef.type !== 'file' || !voiceRef.dataUrl) {
- setTtsCloningStatus(p => ({ ...p, [characterName]: { isCloning: false, error: '먼저 음성 파일(10초~5분)을 첨부해주세요.' } }));
- return;
- }
-
- // 옵션 — MiniMax 스키마 (사용자가 STEP 2에서 조정 가능)
- const {
- cloneModel = 'speech-02-turbo',
- accuracy = 0.7,
- needNoiseReduction = false,
- needVolumeNormalization = false,
- } = options;
-
- setTtsCloningStatus(p => ({
- ...p,
- [characterName]: { isCloning: true, progress: '클로닝 요청 전송 중…', error: '' },
- }));
-
- try {
- // v749: fal — fal-ai/minimax/voice-clone (audio_url 필요 → fal CDN 업로드 후 전달)
- const apiKey = falKey();
- setTtsCloningStatus(p => ({ ...p, [characterName]: { isCloning: true, progress: '음성 파일 업로드 중…', error: '' } }));
- const audioUrl = await falUploadFile(voiceRef.dataUrl, apiKey);
-
- setTtsCloningStatus(p => ({ ...p, [characterName]: { isCloning: true, progress: '클로닝 진행 중…', error: '' } }));
- const out = await falRun(FAL_MODELS.voiceClone, {
- audio_url: audioUrl,
- model: cloneModel,
- accuracy,
- noise_reduction: needNoiseReduction,
- need_volume_normalization: needVolumeNormalization,
- }, { apiKey, pollMs: 2000, maxPolls: 90, kind: 'voice' });
-
- // 크레딧 사용 기록 — 캐릭터 보이스 클로닝 성공 ($3/voice)
- try { recordCreditUsage(estimateCloneCost(1), 'clone', { workCat: 'sound' }); } catch {}
-
- const voiceId = out?.custom_voice_id || null;
- if (!voiceId || typeof voiceId !== 'string') {
- throw new Error(`보이스 ID를 받지 못했습니다: ${JSON.stringify(out).slice(0, 200)}`);
- }
-
- // 라이브러리에 저장 (영구 보관)
- // v975: 원본 바이트는 userData 파일로. 재사용을 위해 보존하는 건 그대로고,
- //   보관 위치만 브라우저 저장소에서 디스크로 옮긴다(용량 한도가 없다).
- const sourceFile = await voiceStoreBytes(voiceId, voiceRef.dataUrl);
- const newEntry = {
- voiceId,
- label: characterName,
- sourceName: voiceRef.name || 'voice.mp3',
- sourceMime: voiceRef.mimeType || 'audio/mp3',
- sourceFile: sourceFile || null,
- sourceDataUrl: sourceFile ? null : voiceRef.dataUrl,
- sourceSizeKB: voiceRef.sizeKB || 0,
- modelUsed: cloneModel,
- accuracy,
- needNoiseReduction,
- needVolumeNormalization,
- clonedAt: Date.now(),
- lastUsedAt: Date.now(),
- };
- const newLib = [newEntry, ...clonedVoiceLibrary.filter(v => v.voiceId !== voiceId)];
- persistClonedVoiceLibrary(newLib);
-
- // 캐릭터의 voiceRef를 'cloned' 타입으로 업그레이드
- setTtsToolData(p => ({
- ...p,
- characters: {
- ...p.characters,
- [characterName]: {
- ...(p.characters[characterName] || { lines: [] }),
- voiceRef: {
- type: 'cloned',
- modelFamily: 'minimax',
- voiceId,
- label: characterName,
- sourceName: voiceRef.name,
- clonedAt: newEntry.clonedAt,
- },
- },
- },
- error: '',
- }));
-
- setTtsCloningStatus(p => ({
- ...p,
- [characterName]: { isCloning: false, progress: `완료 · voice_id: ${voiceId}`, error: '' },
- }));
-
- // 3초 후 진행 메시지 클리어
- setTimeout(() => {
- setTtsCloningStatus(p => {
- const { [characterName]: _, ...rest } = p;
- return rest;
- });
- }, 3000);
-
- } catch (err) {
- console.error('[voice-cloning] error:', err);
- setTtsCloningStatus(p => ({
- ...p,
- [characterName]: { isCloning: false, error: `클로닝 실패: ${err.message}` },
- }));
- }
- };
-
+ 
  // ─── 기존 클론 보이스 라이브러리에서 선택 — 인물에 voice_id 즉시 적용 ───
- const handleAssignClonedVoiceToCharacter = (characterName, voiceId) => {
- if (!characterName || !voiceId) return;
- const lib = clonedVoiceLibrary.find(v => v.voiceId === voiceId);
- if (!lib) return;
- setTtsToolData(p => ({
- ...p,
- characters: {
- ...p.characters,
- [characterName]: {
- ...(p.characters[characterName] || { lines: [] }),
- voiceRef: {
- type: 'cloned',
- modelFamily: 'minimax',
- voiceId: lib.voiceId,
- label: lib.label,
- sourceName: lib.sourceName,
- clonedAt: lib.clonedAt,
- },
- },
- },
- error: '',
- }));
- // 사용 시각 업데이트
- const updated = clonedVoiceLibrary.map(v =>
- v.voiceId === voiceId ? { ...v, lastUsedAt: Date.now() } : v
- );
- persistClonedVoiceLibrary(updated);
- setShowVoiceLibraryModal(null);
- };
-
+ 
  // 라이브러리에서 항목 삭제
  const handleDeleteClonedVoice = async (voiceId) => {
  const ok = await askConfirm({
@@ -26391,808 +26577,38 @@ ${titleStyleGuide ? `\n[레퍼런스 STYLE GUIDE — 타이포 마감·질감·�
  v.voiceId === voiceId ? { ...v, label: trimmedLabel } : v
  );
  persistClonedVoiceLibrary(updated);
- // 2) ttsToolData 내 캐릭터들의 voiceRef.label도 함께 동기화
- setTtsToolData(p => {
- const newCharacters = { ...p.characters };
- let charsChanged = false;
- for (const [charName, charData] of Object.entries(newCharacters)) {
- if (charData?.voiceRef?.type === 'cloned' && charData.voiceRef.voiceId === voiceId) {
- newCharacters[charName] = {
- ...charData,
- voiceRef: { ...charData.voiceRef, label: trimmedLabel },
- };
- charsChanged = true;
- }
- }
- // 3) 라인 오버라이드의 label도 동기화
- const newOverrides = { ...(p.lineVoiceOverrides || {}) };
- let overridesChanged = false;
- for (const [idx, vref] of Object.entries(newOverrides)) {
- if (vref?.type === 'cloned' && vref.voiceId === voiceId) {
- newOverrides[idx] = { ...vref, label: trimmedLabel };
- overridesChanged = true;
- }
- }
- if (!charsChanged && !overridesChanged) return p;
- return {
- ...p,
- ...(charsChanged ? { characters: newCharacters } : {}),
- ...(overridesChanged ? { lineVoiceOverrides: newOverrides } : {}),
- };
- });
  };
 
- // 인물에게 음성 파일 첨부 (Voice Cloning 전 단계 — 첨부 후 클로닝 버튼으로 진행)
- const handleTtsCharVoiceUpload = async (characterName, file) => {
- if (!file || !characterName) return;
- if (!file.type.startsWith('audio/')) {
- setTtsToolData(p => ({ ...p, error: `오디오 파일만 첨부 가능합니다. (.mp3, .wav, .m4a 등)` }));
- return;
- }
- try {
- const dataUrl = await new Promise((resolve, reject) => {
- const reader = new FileReader();
- reader.onload = () => resolve(reader.result);
- reader.onerror = reject;
- reader.readAsDataURL(file);
- });
- const base64 = dataUrl.split(',')[1];
- const mimeType = file.type;
- setTtsToolData(p => ({
- ...p,
- characters: {
- ...p.characters,
- [characterName]: {
- ...(p.characters[characterName] || { lines: [] }),
- voiceRef: { type: 'file', name: file.name, base64, mimeType, dataUrl, sizeKB: Math.round(file.size / 1024) },
- },
- },
- error: '',
- }));
- } catch (e) {
- setTtsToolData(p => ({ ...p, error: `보이스 첨부 실패: ${e.message}` }));
- }
- };
-
- // 인물에게 프리셋 보이스 할당 — 모델별 분기
- // 어느 모델의 프리셋인지 자동 식별
- const handleTtsCharVoicePreset = async (characterName, voiceId) => {
- if (!characterName || !voiceId) return;
- // 라이브러리에서 선택 (__lib__:voice_id_xxx)
- if (voiceId.startsWith('__lib__:')) {
- const libVoiceId = voiceId.slice('__lib__:'.length);
- handleAssignClonedVoiceToCharacter(characterName, libVoiceId);
- return;
- }
- // 사용자 정의 voice_id 입력 (MiniMax)
- if (voiceId === '__custom__') {
- // v779: 시스템 prompt → 프로그램 디자인 입력 다이얼로그
- const customId = await askText({
- title: 'voice_id 직접 입력',
- message: 'MiniMax 공식 보이스 ID 또는 Voice Cloning으로 생성한 ID를 입력하세요.\n'
- + '정확한 ID가 아니면 "voice id not exist" 오류가 발생합니다.',
- placeholder: 'voice_id',
- confirmLabel: '적용',
- });
- if (!customId || !customId.trim()) return;
- setTtsToolData(p => ({
- ...p,
- characters: {
- ...p.characters,
- [characterName]: {
- ...(p.characters[characterName] || { lines: [] }),
- voiceRef: {
- type: 'preset',
- modelFamily: 'minimax',
- voiceId: customId.trim(),
- tone: `사용자 정의: ${customId.trim()}`,
- gender: '?',
- lang: 'custom',
- isCustom: true,
- },
- },
- },
- error: '',
- }));
- return;
- }
- const minimaxPreset = MINIMAX_VOICE_PRESETS.find(v => v.id === voiceId);
- if (!minimaxPreset) return;
- const voiceRef = {
- type: 'preset', modelFamily: 'minimax',
- voiceId: minimaxPreset.id, tone: minimaxPreset.tone,
- gender: minimaxPreset.gender, lang: minimaxPreset.lang,
- };
- setTtsToolData(p => ({
- ...p,
- characters: {
- ...p.characters,
- [characterName]: {
- ...(p.characters[characterName] || { lines: [] }),
- voiceRef,
- },
- },
- error: '',
- }));
- };
-
- const handleTtsRemoveCharVoice = (characterName) => {
- setTtsToolData(p => ({
- ...p,
- characters: {
- ...p.characters,
- [characterName]: {
- ...(p.characters[characterName] || { lines: [] }),
- voiceRef: null,
- },
- },
- }));
- };
-
- // 일괄 보이스 적용 — 선택된 라인들에 한 번에 voiceRef 할당
- // voiceId: MINIMAX_VOICE_PRESETS의 id, 또는 '__custom__'
- const handleBulkApplyVoice = async (lineIdxs, voiceId) => {
- if (!lineIdxs || lineIdxs.length === 0 || !voiceId) return;
- // 사용자 정의 voice_id 입력 (MiniMax)
- let voiceRef = null;
-
- // 라이브러리 prefix: "__lib__:voice_id_xxx"
- if (voiceId.startsWith('__lib__:')) {
- const libVoiceId = voiceId.slice('__lib__:'.length);
- const lib = clonedVoiceLibrary.find(v => v.voiceId === libVoiceId);
- if (!lib) return;
- voiceRef = {
- type: 'cloned', modelFamily: 'minimax',
- voiceId: lib.voiceId, label: lib.label,
- sourceName: lib.sourceName, clonedAt: lib.clonedAt,
- };
- // lastUsedAt 갱신
- const updated = clonedVoiceLibrary.map(v =>
- v.voiceId === libVoiceId ? { ...v, lastUsedAt: Date.now() } : v
- );
- persistClonedVoiceLibrary(updated);
- } else if (voiceId === '__custom__') {
- const customId = await askText({
- title: 'voice_id 직접 입력',
- message: '선택한 라인들에 적용할 voice_id를 입력하세요.\n(MiniMax 시스템 보이스 ID 또는 Voice Cloning ID)',
- placeholder: 'voice_id',
- confirmLabel: '적용',
- });
- if (!customId || !customId.trim()) return;
- voiceRef = {
- type: 'preset', modelFamily: 'minimax',
- voiceId: customId.trim(), tone: `사용자 정의: ${customId.trim()}`,
- gender: '?', lang: 'custom', isCustom: true,
- };
- } else {
- const mm = MINIMAX_VOICE_PRESETS.find(v => v.id === voiceId);
- if (!mm) return;
- voiceRef = {
- type: 'preset', modelFamily: 'minimax',
- voiceId: mm.id, tone: mm.tone, gender: mm.gender, lang: mm.lang,
- };
- }
- setTtsToolData(p => {
- const newOverrides = { ...(p.lineVoiceOverrides || {}) };
- for (const idx of lineIdxs) {
- newOverrides[idx] = voiceRef;
- }
- return { ...p, lineVoiceOverrides: newOverrides, error: '' };
- });
- setTtsBulkSelection([]); // 선택 해제
- };
-
+ // v1211: 예전 TTS 의 인물 · 라인 보이스 지정 함수들을 걷어냈다
+ 
  // 라인 오버라이드 제거 (선택된 라인들)
- const handleBulkRemoveOverride = (lineIdxs) => {
- if (!lineIdxs || lineIdxs.length === 0) return;
- setTtsToolData(p => {
- const newOverrides = { ...(p.lineVoiceOverrides || {}) };
- for (const idx of lineIdxs) {
- delete newOverrides[idx];
- }
- return { ...p, lineVoiceOverrides: newOverrides };
- });
- setTtsBulkSelection([]);
- };
-
+ 
  // 프리셋 보이스 샘플 생성 (캐시 key: `${TTS_MODEL_ID}::${voiceId}`)
- const handleGenerateVoiceSample = async (voiceId) => {
- if (!falApiKey) {
- setTtsToolData(p => ({ ...p, error: apiKeyHelp('fal API') }));
- return;
- }
- const cacheKey = `${TTS_MODEL_ID}::${voiceId}`;
- if (ttsVoiceSamples[cacheKey]) return; // 이미 캐시됨
- setTtsSampleGeneratingId(voiceId);
- try {
- // 샘플 텍스트 — 보이스의 언어에 맞춰
- const minimaxPreset = MINIMAX_VOICE_PRESETS.find(v => v.id === voiceId);
- const lang = minimaxPreset?.lang || 'ko';
- const sampleTexts = {
- ko: `안녕하세요, 이 보이스로 대사를 만들 수 있습니다. 자연스러운 한국어 발음을 들어보세요.`,
- en: `Hello, my name is ${voiceId}. This is how I sound in your project.`,
- ja: `こんにちは、このボイスを使ってナレーションを作成できます。`,
- zh: `你好,这是我的声音。可以用于你的项目。`,
- };
- const input = {
- text: sampleTexts[lang] || sampleTexts.ko,
- voice_id: voiceId,
- speed: 1.0,
- pitch: 0,
- volume: 1.0,
- emotion: 'auto',
- language_boost: lang === 'ko' ? 'Korean' : lang === 'en' ? 'English' : lang === 'ja' ? 'Japanese' : lang === 'zh' ? 'Chinese' : 'Automatic',
- audio_format: 'mp3',
- };
- const { endpoint: ttsEndpoint, payload: ttsPayload } = falTtsPayload(input);
- const out = await falRun(ttsEndpoint, ttsPayload, { pollMs: 1500, maxPolls: 60, kind: 'tts' });
- const audioUrl = out?.audio?.url || null;
- if (typeof audioUrl !== 'string') throw new Error(`샘플 결과 URL 오류: ${JSON.stringify(out).slice(0, 150)}`);
- setTtsVoiceSamples(prev => ({ ...prev, [cacheKey]: audioUrl }));
- } catch (e) {
- setTtsToolData(p => ({ ...p, error: `샘플 생성 실패: ${e.message}` }));
- } finally {
- setTtsSampleGeneratingId(null);
- }
- };
-
+ 
 
  // 모델 글자 한도를 넘는 텍스트를 문장 경계 기준으로 분할
- const splitTextForTts = (text, maxLen = TTS_MAX_CHARS) => {
- if (!text || text.length <= maxLen) return [text];
- const chunks = [];
- let remaining = text.trim();
- while (remaining.length > maxLen) {
- // 문장 경계 우선 (마침표, 물음표, 느낌표)
- let cut = -1;
- for (const sep of ['. ', '? ', '! ', '。', '? ', '! ', '\n']) {
- const idx = remaining.lastIndexOf(sep, maxLen);
- if (idx > maxLen * 0.5) { cut = idx + sep.length; break; }
- }
- // 안 되면 쉼표
- if (cut < 0) {
- const c = remaining.lastIndexOf(',', maxLen);
- if (c > maxLen * 0.5) cut = c + 1;
- }
- // 그래도 안 되면 공백
- if (cut < 0) {
- const sp = remaining.lastIndexOf(' ', maxLen);
- if (sp > maxLen * 0.3) cut = sp + 1;
- }
- // 최후 — 그냥 자르기
- if (cut < 0) cut = maxLen;
- chunks.push(remaining.slice(0, cut).trim());
- remaining = remaining.slice(cut).trim();
- }
- if (remaining) chunks.push(remaining);
- return chunks;
- };
-
+ 
  // ─────────────────────────────────────────────────────────────
  // v354: TTS 대사 감정 자동 분류 (Claude Sonnet, 배치)
  // ─────────────────────────────────────────────────────────────
  // MiniMax 7종 감정: angry / sad / happy / surprised / fearful / disgusted / neutral
- const classifyTtsEmotions = async (lines, onProgress) => {
- const VALID_EMOTIONS = ['angry', 'sad', 'happy', 'surprised', 'fearful', 'disgusted', 'neutral'];
- const BATCH_SIZE = 30; // 30개씩 묶어서 Claude에 전달
- const result = {}; // { lineIdx: emotion }
-
- const systemPrompt = `당신은 드라마 대사 감정 분류 전문가입니다. 주어진 대사 목록을 보고, 각 대사의 감정을 다음 7가지 중 하나로 분류하세요:
-
-- angry (화남, 분노, 짜증, 강한 비판)
-- sad (슬픔, 우울, 후회, 그리움, 좌절)
-- happy (기쁨, 즐거움, 사랑, 행복, 만족)
-- surprised (놀람, 충격, 당황, 의외)
-- fearful (두려움, 불안, 걱정, 공포)
-- disgusted (혐오, 역겨움, 경멸, 짙은 불쾌감)
-- neutral (보통, 평온, 정보 전달, 일상 대화)
-
-[규칙]
-- 각 대사는 하나의 감정만 부여
-- 애매하면 neutral
-- 한국어 드라마 대사 특성 고려 (존댓말의 분노, 비꼼, 체념 등 미묘한 톤도 파악)
-- 반드시 JSON 형식으로만 출력: { "1": "angry", "2": "neutral", ... }
-- 키는 라인의 idx 번호, 값은 위 7가지 중 하나
-- 다른 설명·주석 절대 금지`;
-
- for (let batchStart = 0; batchStart < lines.length; batchStart += BATCH_SIZE) {
- const batch = lines.slice(batchStart, batchStart + BATCH_SIZE);
- if (typeof onProgress === 'function') {
- onProgress(batchStart, lines.length);
- }
-
- const userMessage = batch.map(l =>
- `[${l.idx}] ${l.character ? `(${l.character}) ` : ''}${l.text}`
- ).join('\n');
-
- try {
- const raw = await callClaude(systemPrompt, userMessage, {
- model: 'claude-sonnet-4-5',
- maxTokens: 2000,
- workCat: 'sound',
- });
- // JSON 추출 (응답에 ```json 마크다운이 있을 수 있음)
- let jsonStr = raw.trim();
- const codeBlockMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
- if (codeBlockMatch) jsonStr = codeBlockMatch[1].trim();
- const startIdx = jsonStr.indexOf('{');
- const endIdx = jsonStr.lastIndexOf('}');
- if (startIdx >= 0 && endIdx > startIdx) {
- jsonStr = jsonStr.slice(startIdx, endIdx + 1);
- }
- const parsed = JSON.parse(jsonStr);
- for (const [k, v] of Object.entries(parsed)) {
- const emotion = String(v).toLowerCase();
- if (VALID_EMOTIONS.includes(emotion)) {
- result[Number(k)] = emotion;
- } else {
- result[Number(k)] = 'neutral';
- }
- }
- } catch (err) {
- console.warn(`[classifyTtsEmotions] 배치 ${batchStart}~${batchStart+batch.length} 실패:`, err.message);
- // 실패한 배치는 모두 neutral로 fallback
- for (const l of batch) {
- result[l.idx] = 'neutral';
- }
- }
- }
-
- if (typeof onProgress === 'function') {
- onProgress(lines.length, lines.length);
- }
- return result;
- };
-
- const generateOneTtsLine = async (line, voiceRef) => {
- if (!falApiKey) throw new Error('fal API 키가 필요합니다.');
- if (!line.text || !line.text.trim()) throw new Error('대사가 비어있습니다.');
-
- const fullText = line.text.trim();
- // v859: 예전에는 Chatterbox 한도인 500자로 쪼갠 뒤, 조각이 여러 개면
- //   첫 조각만 반환하고 나머지를 조용히 버렸다(경고는 콘솔에만 찍혔다).
- //   MiniMax 한도는 10000자라 실제 대사 한 줄이 쪼개질 일은 없다.
- const chunks = splitTextForTts(fullText, TTS_MAX_CHARS);
-
- // 각 chunk 생성
- const generatedUrls = [];
- for (const chunk of chunks) {
- // MiniMax — voice_id 기반
- // - 'cloned' 타입: 영구 voice_id 사용 (Voice Cloning으로 생성)
- // - 'preset' 타입: 시스템 보이스 ID
- // - 'file' 타입: (호환성용 폴백) Voice Cloning을 거치지 않은 raw 파일은 fallback
- let voiceId = minimaxFallbackVoice;
- if (voiceRef) {
- if (voiceRef.type === 'cloned' && voiceRef.voiceId) {
- voiceId = voiceRef.voiceId;
- // 라이브러리 lastUsedAt 갱신 (7일 보관 정책 대응)
- try {
- const updated = clonedVoiceLibrary.map(v =>
- v.voiceId === voiceRef.voiceId ? { ...v, lastUsedAt: Date.now() } : v
- );
- if (updated.some(v => v.voiceId === voiceRef.voiceId)) {
- persistClonedVoiceLibrary(updated);
- }
- } catch (e) { /* ignore */ }
- } else if (voiceRef.type === 'preset' && voiceRef.modelFamily === 'minimax') {
- voiceId = voiceRef.voiceId;
- } else if (voiceRef.type === 'preset') {
- voiceId = minimaxFallbackVoice;
- } else if (voiceRef.type === 'file') {
- console.warn(`[MiniMax] 파일 첨부만으로는 음성을 사용할 수 없습니다. STEP 2에서 "🧬 보이스 클로닝"을 먼저 실행하세요. fallback "${minimaxFallbackVoice}" 사용.`);
- voiceId = minimaxFallbackVoice;
- }
- }
- const input = {
- text: chunk,
- voice_id: voiceId,
- speed: minimaxSpeed,
- pitch: minimaxPitch,
- volume: minimaxVolume,
- // v354: 라인별 감정 우선 (자동 분류 결과 또는 사용자 수정값) → 없으면 전역 fallback
- emotion: line.emotion || minimaxEmotion,
- language_boost: minimaxLanguageBoost,
- audio_format: minimaxAudioFormat,
- };
-
- const { endpoint: ttsEndpoint, payload: ttsPayload } = falTtsPayload(input);
- const out = await falRun(ttsEndpoint, ttsPayload, { pollMs: 1500, maxPolls: 120, kind: 'tts' }); // 최대 3분
- const audioUrl = out?.audio?.url || null;
- if (typeof audioUrl !== 'string') {
- throw new Error(`TTS 결과 형식 오류 (output URL 추출 실패): ${JSON.stringify(out).slice(0, 150)}`);
- }
- generatedUrls.push(audioUrl);
-
- // 분할 호출 사이 간격
- if (chunks.length > 1) await new Promise(r => setTimeout(r, 300));
- }
-
- // 크레딧 사용 기록 — TTS 생성 성공 (글자 수 기반)
- try { recordCreditUsage(estimateTtsCost(fullText.length), 'tts', { workCat: 'sound' }); } catch {}
-
- if (generatedUrls.length === 1) return generatedUrls[0];
- // mp3는 브라우저에서 이어붙일 수 없다. 조용히 앞부분만 내주면
- //   사용자는 잘린 음성을 완성본으로 알고 쓰게 되므로 실패로 알린다.
- throw new Error(`대사가 ${TTS_MAX_CHARS.toLocaleString()}자를 넘어 ${generatedUrls.length}개로 나뉘었습니다.\n`
- + `이어붙이기가 불가능하니 대사를 나눠서 생성해주세요. (현재 ${fullText.length.toLocaleString()}자)`);
- };
-
+ 
+ 
  // 전체 TTS 생성 (라인 순서대로) — 실제 실행 함수 (모달 확인 후 호출)
- const _executeGenerateAllTts = async (srtLines, characters, fallbackVoice) => {
- // 일시정지 상태 초기화
- ttsPauseRef.current = false;
- setTtsIsPaused(false);
-
- setTtsToolData(p => ({
- ...p,
- isGenerating: true,
- error: '',
- generationStartedAt: Date.now(),
- results: {}, // 새로 시작
- }));
-
- // v354: 감정 자동 분류 — 이미 emotion이 있는 라인은 건너뜀
- {
- const linesNeedingClassification = srtLines.filter(l => !l.emotion);
- if (linesNeedingClassification.length > 0) {
- setTtsToolData(p => ({
- ...p,
- error: '',
- emotionClassifyProgress: { done: 0, total: linesNeedingClassification.length, message: '대사 감정 분석 중...' },
- }));
- try {
- const emotionMap = await classifyTtsEmotions(linesNeedingClassification, (done, total) => {
- setTtsToolData(p => ({
- ...p,
- emotionClassifyProgress: { done, total, message: `대사 감정 분석 중... (${done}/${total})` },
- }));
- });
- // srtLines에 분류된 emotion 반영
- srtLines = srtLines.map(l => l.emotion ? l : { ...l, emotion: emotionMap[l.idx] || 'neutral' });
- setTtsToolData(p => ({
- ...p,
- srtLines: p.srtLines.map(l => l.emotion ? l : { ...l, emotion: emotionMap[l.idx] || 'neutral' }),
- emotionClassifyProgress: null,
- }));
- } catch (err) {
- console.warn('[TTS] 감정 자동 분류 실패, neutral로 fallback:', err);
- srtLines = srtLines.map(l => l.emotion ? l : { ...l, emotion: 'neutral' });
- setTtsToolData(p => ({
- ...p,
- srtLines: p.srtLines.map(l => l.emotion ? l : { ...l, emotion: 'neutral' }),
- emotionClassifyProgress: null,
- }));
- }
- }
- }
-
- // 일시정지 대기 함수
- const waitIfPaused = async () => {
- while (ttsPauseRef.current) {
- await new Promise(r => setTimeout(r, 250));
- }
- };
-
- for (let i = 0; i < srtLines.length; i++) {
- // 라인 시작 전 일시정지 체크
- await waitIfPaused();
-
- const line = srtLines[i];
- // 우선순위: 1) 라인 직접 오버라이드 → 2) 인물 매핑 보이스 → 3) fallback
- const lineOverride = ttsToolData.lineVoiceOverrides?.[line.idx];
- const voiceRef = lineOverride
- || (line.character ? characters[line.character]?.voiceRef : null)
- || fallbackVoice;
- setTtsToolData(p => {
- // v453: 이전 결과를 history에 보존
- const prev = p.results[line.idx];
- const prevHistory = prev?.history || [];
- const newHistory = (prev?.audioUrl && prev.status === 'done')
- ? [...prevHistory, {
- audioUrl: prev.audioUrl,
- generatedAt: prev.generatedAt || Date.now(),
- voiceRef: prev.voiceRef || null,
- version: prev.version || (prevHistory.length + 1),
- }]
- : prevHistory;
- const nextVersion = newHistory.length + 1;
- return {
- ...p,
- currentLineIdx: line.idx,
- results: { ...p.results, [line.idx]: { status: 'generating', startedAt: Date.now(), history: newHistory, version: nextVersion } },
- };
- });
-
- try {
- const audioUrl = await generateOneTtsLine(line, voiceRef);
- setTtsToolData(p => {
- const r = p.results[line.idx] || {};
- return {
- ...p,
- results: { ...p.results, [line.idx]: { ...r, status: 'done', audioUrl, generatedAt: Date.now(), voiceRef } },
- };
- });
- } catch (err) {
- console.error(`TTS 라인 ${line.idx} 실패:`, err);
- setTtsToolData(p => {
- const r = p.results[line.idx] || {};
- return {
- ...p,
- results: { ...p.results, [line.idx]: { ...r, status: 'error', error: err.message } },
- };
- });
- }
- // 너무 빠른 연속 호출 방지
- await new Promise(r => setTimeout(r, 300));
- }
-
- setTtsToolData(p => ({ ...p, isGenerating: false, currentLineIdx: null, generationStartedAt: null }));
- ttsPauseRef.current = false;
- setTtsIsPaused(false);
- // v741: 완료 알람은 중앙(progressItems 상태 전이)에서 발송 — 중복 제거
- };
-
+ 
  // 전체 TTS 생성 (라인 순서대로) — 진입점: 검증 후 커스텀 모달로 비용 확인
- const handleGenerateAllTts = async () => {
- const { srtLines, characters } = ttsToolData;
- if (!falApiKey) {
- setTtsToolData(p => ({ ...p, error: apiKeyHelp('fal API') }));
- return;
- }
- if (!srtLines || srtLines.length === 0) {
- setTtsToolData(p => ({ ...p, error: 'SRT 또는 대사를 먼저 입력해주세요.' }));
- return;
- }
-
- // fallback — 등록된 첫 번째 voiceRef (없으면 null → 프리셋 사용)
- const allVoices = Object.values(characters).filter(c => c?.voiceRef).map(c => c.voiceRef);
- const fallbackVoice = allVoices[0] || null;
-
- // 비용 계산
- const totalChars = srtLines.reduce((sum, l) => sum + (l.text?.length || 0), 0);
- const estCostUsd = totalChars / 100000; // ~$1 / 100k chars
- const estCostKrw = Math.round(estCostUsd * 1400);
- const modelLabel = TTS_MODEL_LABEL;
- const currentFallbackVoiceId = minimaxFallbackVoice;
-
- // 레퍼런스 보이스가 없는 인물 확인
- const missingVoice = [];
- for (const line of srtLines) {
- if (line.character) {
- if (!characters[line.character]?.voiceRef && !ttsToolData.lineVoiceOverrides?.[line.idx]) {
- missingVoice.push(line.character);
- }
- }
- }
- const uniqMissing = [...new Set(missingVoice)];
-
- // 클론 안 된 file 타입 인물 감지 (MiniMax에선 무용지물)
- const unclonedFileChars = [];
- for (const [charName, charData] of Object.entries(characters)) {
- if (charData?.voiceRef?.type === 'file' && charData.lines?.length > 0) {
- unclonedFileChars.push(charName);
- }
- }
-
- // 보이스가 적용된 라인 수 통계 (사용자에게 적용 현황 보여주기)
- const stats = { cloned: 0, override: 0, character: 0, fallback: 0 };
- for (const line of srtLines) {
- const lineOverride = ttsToolData.lineVoiceOverrides?.[line.idx];
- const charVoice = line.character ? characters[line.character]?.voiceRef : null;
- const effective = lineOverride || charVoice;
- if (effective?.type === 'cloned') stats.cloned++;
- else if (lineOverride) stats.override++;
- else if (charVoice) stats.character++;
- else stats.fallback++;
- }
-
- // 커스텀 모달 표시
- setTtsConfirmModal({
- modelLabel,
- totalLines: srtLines.length,
- totalChars,
- estCostUsd,
- estCostKrw,
- uniqMissing,
- unclonedFileChars,
- currentFallbackVoiceId,
- stats,
- onProceed: () => {
- setTtsConfirmModal(null);
- _executeGenerateAllTts(srtLines, characters, fallbackVoice);
- },
- onCancel: () => setTtsConfirmModal(null),
- });
- };
-
+ 
  // 단일 라인 재생성 (개별 생성 버튼에서도 동일하게 호출 — 처음 생성·재생성 모두 같은 로직)
- const handleRegenerateOneTts = async (lineIdx) => {
- const line = ttsToolData.srtLines.find(l => l.idx === lineIdx);
- if (!line) return;
- // 우선순위: 1) 라인 오버라이드 → 2) 인물 매핑 → 3) 아무 보이스나
- const lineOverride = ttsToolData.lineVoiceOverrides?.[lineIdx];
- const voiceRef = lineOverride
- || (line.character ? ttsToolData.characters[line.character]?.voiceRef : null)
- || Object.values(ttsToolData.characters).find(c => c?.voiceRef)?.voiceRef
- || null;
-
- // v453: 이전 결과를 history에 보존
- // 기존 results[lineIdx]에 audioUrl이 있으면 history로 옮김
- const prev = ttsToolData.results[lineIdx];
- const prevHistory = prev?.history || [];
- const newHistory = (prev?.audioUrl && prev.status === 'done')
- ? [
- ...prevHistory,
- {
- audioUrl: prev.audioUrl,
- generatedAt: prev.generatedAt || Date.now(),
- voiceRef: prev.voiceRef || null,
- version: prev.version || (prevHistory.length + 1),
- },
- ]
- : prevHistory;
-
- // 새 version 계산 — history 길이 + 1
- const nextVersion = newHistory.length + 1;
-
- setTtsToolData(p => ({
- ...p,
- results: {
- ...p.results,
- [lineIdx]: {
- status: 'generating',
- startedAt: Date.now(),
- history: newHistory,
- version: nextVersion,
- },
- },
- error: '',
- }));
- try {
- const audioUrl = await generateOneTtsLine(line, voiceRef);
- setTtsToolData(p => ({
- ...p,
- results: {
- ...p.results,
- [lineIdx]: {
- status: 'done',
- audioUrl,
- generatedAt: Date.now(),
- voiceRef,
- version: nextVersion,
- history: newHistory,
- },
- },
- }));
- } catch (err) {
- setTtsToolData(p => ({
- ...p,
- results: {
- ...p.results,
- [lineIdx]: {
- status: 'error',
- error: err.message,
- history: newHistory,
- version: nextVersion,
- },
- },
- }));
- }
- };
-
+ 
  // 단일 라인 다운로드
  // v452: TTS 파일명 생성 — [Aaron_004_v01].wav 형식 (이름_번호_버전)
  // 같은 라인의 재생성 횟수가 있으면 v02, v03... 증가
  // 인물이름 추출 (line.character 우선, 없으면 보이스명) — FFS 규칙 공용
- const _ttsPersonName = (line, voiceRef) => {
- let person = (line?.character || '').trim();
- if (!person) {
- if (voiceRef) person = (voiceRef.label && voiceRef.label.trim()) ? voiceRef.label.trim() : (voiceRef.voiceId || 'Unknown');
- else person = minimaxFallbackVoice;
- }
- return ffsToken(person, 24) || '인물';
- };
- // ZIP 엔트리용 파일명 — 묶음 안에서 인물 중복 시 줄 인덱스로 구분 (OXYZN_TTS_인물_NNN)
- const _makeTtsFilename = (lineIdx, line, voiceRef) => {
- const person = _ttsPersonName(line, voiceRef);
- return `OXYZN_TTS_${person}_${String(lineIdx).padStart(3, '0')}`;
- };
-
- const handleDownloadOneTts = async (lineIdx) => {
- const result = ttsToolData.results[lineIdx];
- if (!result?.audioUrl) return;
- // v371: 라인 + 보이스 정보로 파일명 구성
- const line = ttsToolData.srtLines.find(l => l.idx === lineIdx);
- const lineOverride = ttsToolData.lineVoiceOverrides?.[lineIdx];
- const charVoice = line?.character ? ttsToolData.characters[line.character]?.voiceRef : null;
- const voiceRef = lineOverride || charVoice;
- const filename = await ffsBuildName({ type: 'TTS', parts: [_ttsPersonName(line, voiceRef)] });
- try {
- const res = await fetch(result.audioUrl);
- const blob = await res.blob();
- const blobUrl = URL.createObjectURL(blob);
- const a = document.createElement('a');
- a.href = blobUrl;
- a.download = `${filename}.wav`;
- document.body.appendChild(a);
- a.click();
- document.body.removeChild(a);
- setTimeout(() => URL.revokeObjectURL(blobUrl), 500);
- } catch (e) {
- showNotice('다운로드 실패', `${e.message}\n\n원본 URL을 새 탭에서 열어주세요:\n${result.audioUrl}`);
- }
- };
-
+  // ZIP 엔트리용 파일명 — 묶음 안에서 인물 중복 시 줄 인덱스로 구분 (OXYZN_TTS_인물_NNN)
+ 
+ 
  // v371: 전체 일괄 다운로드 — ZIP 패키징
- const handleDownloadAllTts = async () => {
- const done = Object.entries(ttsToolData.results).filter(([_, r]) => r.status === 'done' && r.audioUrl);
- if (done.length === 0) {
- setTtsToolData(p => ({ ...p, error: '다운로드할 생성된 파일이 없습니다.' }));
- return;
- }
-
- // JSZip 동적 로드 (이미 빌드에 포함되어 있다면 곧바로 사용)
- let JSZip;
- try {
- JSZip = (await import('jszip')).default;
- } catch {
- // 동적 로드 실패 시 CDN에서 가져오기 시도
- if (typeof window !== 'undefined' && window.JSZip) {
- JSZip = window.JSZip;
- } else {
- // 최후 폴백 — 순차 다운로드 (기존 방식)
- console.warn('[TTS Download] JSZip 미사용 가능 — 순차 다운로드로 폴백');
- for (let i = 0; i < done.length; i++) {
- const [lineIdx] = done[i];
- await handleDownloadOneTts(parseInt(lineIdx, 10));
- if (i < done.length - 1) await new Promise(r => setTimeout(r, 800));
- }
- return;
- }
- }
-
- // ZIP 패키징 시작
- setTtsToolData(p => ({ ...p, error: '', _bulkDownloadProgress: { done: 0, total: done.length } }));
- try {
- const zip = new JSZip();
- for (let i = 0; i < done.length; i++) {
- const [lineIdxStr, result] = done[i];
- const lineIdx = parseInt(lineIdxStr, 10);
- const line = ttsToolData.srtLines.find(l => l.idx === lineIdx);
- const lineOverride = ttsToolData.lineVoiceOverrides?.[lineIdx];
- const charVoice = line?.character ? ttsToolData.characters[line.character]?.voiceRef : null;
- const voiceRef = lineOverride || charVoice;
- const filename = _makeTtsFilename(lineIdx, line, voiceRef);
- try {
- const res = await fetch(result.audioUrl);
- const blob = await res.blob();
- zip.file(`${filename}.wav`, blob);
- } catch (fetchErr) {
- console.warn(`[TTS Download] ${filename} 다운로드 실패:`, fetchErr.message);
- }
- setTtsToolData(p => ({ ...p, _bulkDownloadProgress: { done: i + 1, total: done.length } }));
- }
- // ZIP 생성 + 다운로드
- const zipBlob = await zip.generateAsync({ type: 'blob' }, (meta) => {
- // 압축 진행률 (선택)
- });
- const blobUrl = URL.createObjectURL(zipBlob);
- const lang = ttsToolData.currentLanguage || 'tts';
- const zipBase = await ffsBuildName({ type: 'TTS', parts: ['묶음', lang] });
- const a = document.createElement('a');
- a.href = blobUrl;
- a.download = `${zipBase}.zip`;
- document.body.appendChild(a);
- a.click();
- document.body.removeChild(a);
- setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
- setTtsToolData(p => ({ ...p, _bulkDownloadProgress: null }));
- } catch (zipErr) {
- console.error('[TTS Download] ZIP 패키징 실패:', zipErr);
- setTtsToolData(p => ({ ...p, _bulkDownloadProgress: null, error: `ZIP 생성 실패: ${zipErr.message}` }));
- }
- };
-
+ 
  // 시트 생성 — 인물/장소/오브제 레퍼런스 시트
 
  // 시트 — 레퍼런스 이미지 추가
@@ -27916,13 +27332,8 @@ ${titleStyleGuide ? `\n[레퍼런스 STYLE GUIDE — 타이포 마감·질감·�
 
  // 단일 청크는 Reduce 프롬프트로 직접 분석 (입력이 시나리오 원문)
  // v339: 단일 분석 중 진행률 5→95%로 천천히 올리기
- let singleProgressPct = 5;
- const singleProgressTimer = setInterval(() => {
- if (singleProgressPct < 90) {
- singleProgressPct = Math.min(90, singleProgressPct + 1);
- setScenarioAnalyzeData(p => p.isAnalyzing ? ({ ...p, progressPct: singleProgressPct }) : p);
- }
- }, 3000); // 3초마다 1%씩
+ // v1222: 3초마다 루트 상태를 바꾸지 않는다 — 오르는 규칙만 적어 두고 보이는 곳이 시각으로 계산한다(rampPct)
+ setScenarioAnalyzeData(p => p.isAnalyzing ? ({ ...p, pctRamp: { from: 5, to: 90, secPer: 3, at: Date.now() } }) : p);
 
  let raw;
  try {
@@ -27933,7 +27344,8 @@ ${titleStyleGuide ? `\n[레퍼런스 STYLE GUIDE — 타이포 마감·질감·�
  workCat: 'plan',
  });
  } finally {
- clearInterval(singleProgressTimer);
+ // 오른 만큼은 남기고 규칙은 걷는다
+ setScenarioAnalyzeData(p => (p.pctRamp ? { ...p, progressPct: rampPct(p, Date.now()), pctRamp: null } : p));
  }
 
  const parsed = parseAnalysisJSON(raw);
@@ -28074,13 +27486,8 @@ ${titleStyleGuide ? `\n[레퍼런스 STYLE GUIDE — 타이포 마감·질감·�
  const reduceUserMessage = '다음은 긴 시나리오를 ' + chunkCount + '개 청크로 나누어 추출한 정보입니다' + (totalEps ? ' (총 ' + totalEps + '화)' : '') + '.' + epCountInfo + titleHint + ' 이를 종합해서 최종 ' + (isMarketing ? '마케팅' : '피드백') + ' 분석을 작성하세요:\n\n' + aggregatedSummary;
 
  // v339: Reduce 대기 중 85→95%로 천천히 진행률 올리기 (멈춘 것처럼 보이는 문제 해결)
- let reduceProgressPct = 85;
- const reduceProgressTimer = setInterval(() => {
- if (reduceProgressPct < 95) {
- reduceProgressPct += 1;
- setScenarioAnalyzeData(p => p.isAnalyzing ? ({ ...p, progressPct: reduceProgressPct }) : p);
- }
- }, 8000); // 8초마다 1%씩 (약 80초에 걸쳐 85→95)
+ // v1222: 8초마다 루트 상태를 바꾸지 않는다(rampPct) — 약 80초에 걸쳐 85→95
+ setScenarioAnalyzeData(p => p.isAnalyzing ? ({ ...p, pctRamp: { from: 85, to: 95, secPer: 8, at: Date.now() } }) : p);
 
  let reduceRaw;
  try {
@@ -28091,7 +27498,7 @@ ${titleStyleGuide ? `\n[레퍼런스 STYLE GUIDE — 타이포 마감·질감·�
  workCat: 'plan',
  });
  } finally {
- clearInterval(reduceProgressTimer);
+ setScenarioAnalyzeData(p => (p.pctRamp ? { ...p, progressPct: rampPct(p, Date.now()), pctRamp: null } : p));
  }
 
  const parsed = parseAnalysisJSON(reduceRaw);
@@ -30371,7 +29778,6 @@ ${sampleText}`;
  const [progressPanelHover, setProgressPanelHover] = useState(false);
  const progressPanelTimerRef = React.useRef(null);
  // 진행 중 항목이 있는지 — progressItems 계산 직후 렌더 중에 채운다 (아래 참고)
- const anyProgressRef = React.useRef(false);
 
  // v878: 진행 패널 틱. 켜는 조건을 progressItems 에서 직접 읽는다.
  //   예전에는 워크스페이스마다 busy 플래그를 손으로 열거해 이 조건에 넣었는데,
@@ -30380,17 +29786,6 @@ ${sampleText}`;
  //   경과 시간도 엉뚱하게 나온다.
  //   anyProgressRef 는 렌더 중에 갱신되므로 effect 의존성에 넣지 않아도 늘 최신이다
  //   (progressItems 는 nowTick 에 의존하니 의존성에 넣으면 매 틱 재실행 → 무한 루프).
- useEffect(() => {
- const open = progressPanelOpen || progressPanelHover;
- // v961: 예전에는 패널이 열려 있을 때만 틱이 돌았다. 닫아두면 nowTick 이 멈춘 채
- //   남아 접힌 버튼의 진행도·상태 점이 갱신되지 않았다 — 무엇이 돌고 있는지
- //   패널을 열어봐야만 알 수 있었다. 진행 중이면 닫혀 있어도 돌린다.
- if (open) setNowTick(Date.now()); // 열자마자 최신값으로
- const t = setInterval(() => {
- if (anyProgressRef.current || progressPanelOpen || progressPanelHover) setNowTick(Date.now());
- }, 1000);
- return () => clearInterval(t);
- }, [progressPanelOpen, progressPanelHover]);
 
  // ─── 챗봇 (우하단) ───
  const [chatOpen, setChatOpen] = useState(false);
@@ -30642,8 +30037,9 @@ ${sampleText}`;
   // v740: 진행상황 항목 — 신버전 단일작업 워크스페이스 16개만 대상 (구버전 하네스 추적 제거)
   //   각 작업당 최대 1개 항목. 우선순위: 생성 중 > 오류 > 완료.
   //   taskId를 담아 클릭 시 해당 신 워크스페이스로 이동한다.
-  const progressItems = React.useMemo(() => {
-    const now = nowTick;
+  // v1214: 시각을 인자로 받는다. 루트는 지금 시각으로 한 번 계산하고(무엇이 도는지 · 상태 점),
+  //   진행률 · 경과 · 남음은 진행 패널의 말단(ProgressLive)이 1초마다 이 식으로 다시 계산한다.
+  const progressBuild = React.useCallback((now) => {
     const items = [];
     const any = (arr, fn) => Array.isArray(arr) && arr.some(fn);
     const cnt = (arr, fn) => (Array.isArray(arr) ? arr.filter(fn).length : 0);
@@ -30696,7 +30092,7 @@ ${sampleText}`;
         push(taskId, {
           label: d.progress || '분석 중',
           status: 'progress',
-          pct: d.progressPct || null,
+          pct: (taskId === 'plan-video-analyze' ? vaTimePct(d, now) : rampPct(d, now)) || null,   // v1222
           elapsed,
           remaining: (elapsed != null && d.estimatedTotalSec) ? Math.max(0, d.estimatedTotalSec - elapsed) : null,
         });
@@ -30861,21 +30257,16 @@ ${sampleText}`;
       else if ((d.history || []).length > 0) push('sound-music', { label: `생성 완료 · v${d.history.length}`, status: 'success', pct: 100 });
     }
     {
-      const d = ttsToolData;
-      const res = Object.values(d.results || {});
-      const total = (d.srtLines || []).length;
-      const done = res.filter(r => r && r.status === 'done').length;
-      const failed = res.filter(r => r && r.status === 'error').length;
-      const gen = res.filter(r => r && r.status === 'generating').length;
-      if (d.isGenerating || gen > 0) {
-        push('sound-tts', {
-          label: `음성 생성 중${total ? ` (${done + failed}/${total})` : ''}`,
-          status: 'progress', pct: total ? safePct(done + failed, total) : null,
-        });
-      } else if (d.error || failed > 0) {
-        push('sound-tts', { label: d.error || `${failed}개 라인 생성 실패`, status: 'error', pct: 100 });
-      } else if (done > 0) {
-        push('sound-tts', { label: `음성 생성 완료 · ${done}개`, status: 'success', pct: 100 });
+      // v1211: 새 TTS — 만드는 중 · 실패 · 완료
+      const d = tts4Data;
+      const n4 = (d.jobs || []).filter(j => j && j.resultUrl).length;
+      const gen = (d.jobs || []).filter(j => j && j.loading).length;
+      if (gen > 0) {
+        push('sound-tts', { label: `음성 생성 중 · ${gen}개`, status: 'progress', pct: null });
+      } else if (d.error) {
+        push('sound-tts', { label: d.error, status: 'error', pct: 100 });
+      } else if (n4 > 0) {
+        push('sound-tts', { label: `음성 ${n4}개`, status: 'success', pct: 100 });
       }
     }
     {
@@ -30911,14 +30302,16 @@ ${sampleText}`;
 
     return items;
   }, [
-    nowTick,
     adaptToolData, scenarioAnalyzeData, videoAnalyzeData, scenarioTransData,
     customImageData, characterWsData, titleDesignData, sheetWsData, posterWsData,
     videoCustomData, videoNarrativeData, videoDocuData, videoPovData, vfxData, bookletWsData,
-    musicToolData, ttsToolData, standaloneCloneData,
+    musicToolData, tts4Data, standaloneCloneData,
     translateToolData,
     projectData, projectGenJob, projectCleanJob,
+    // v1214: 루트 1초 틱이 있을 때는 빠져도 갱신됐다 — 이제는 의존성에 있어야 갱신된다
+    extraData, upscaleData, projectBatch, imageModel,
   ]);
+  const progressItems = React.useMemo(() => progressBuild(Date.now()), [progressBuild]);
 
   // v878: 진행 패널 틱의 on/off 조건. 열거 목록 대신 결과를 그대로 본다 —
   //   작업이 늘어도 progressItems 에 들어가는 순간 자동으로 포함된다.
@@ -30926,8 +30319,6 @@ ${sampleText}`;
   //   '검토 대기' 처럼 사용자를 기다리는 정지 상태도 progress 로 올라오기 때문에,
   //   그것까지 세면 패널을 열어둔 내내 1초마다 앱 전체가 다시 렌더된다.
   //   틱이 필요한 건 '시간으로 계산되는 값(elapsed·remaining·pct)' 을 가진 항목뿐이다.
-  anyProgressRef.current = progressItems.some(
-    i => i.status === 'progress' && Number.isFinite(i.elapsed));
 
  // v327: progressItems 안의 success/error 항목을 sticky에 저장 (state reset돼도 유지)
  React.useEffect(() => {
@@ -31038,8 +30429,8 @@ ${sampleText}`;
     setAppScreen('single');
     setSingleTaskId(taskId);
     // 일부 작업은 검증된 기존 하네스를 신 워크스페이스 안에서 재사용
-    if (taskId === 'sound-tts') { setCurrentViewRaw('tool-sound'); setSoundMode('tts'); }
-    else if (taskId === 'etc-srt') { setCurrentViewRaw('tool-translate'); }
+    // v1211: TTS 는 자기 화면이 생겼다 — 예전 사운드 작업 화면을 빌려 쓰지 않는다
+    if (taskId === 'etc-srt') { setCurrentViewRaw('tool-translate'); }
     else setCurrentViewRaw('single-blank');
     // 완료 도트 확인 처리
     setWsSeenDone(prev => { if (prev.has(taskId)) return prev; const n = new Set(prev); n.add(taskId); return n; });
@@ -31086,6 +30477,8 @@ ${sampleText}`;
  // v790: 미확정(진행률을 계산할 수 없는) 항목은 평균에서 제외한다.
  //   기존에는 pct:null 이 Number(null)=0 으로 섞여 전체 링을 0%로 끌어내렸다.
  //   확정 항목이 하나도 없으면 null(미확정)을 반환해 UI가 0%가 아니라 '진행 중'으로 그린다.
+ // v1214: 접힌 버튼의 진행률은 말단(ProgressLivePct)이 1초마다 다시 계산한다 — 이 값은 첫 그림 · 대비용
+ const progIds = visibleProgressItems.filter(i => i.status === 'progress').map(i => i.id);
  const overallPct = React.useMemo(() => {
  const ongoing = visibleProgressItems.filter(i => i.status === 'progress');
  if (ongoing.length === 0) return 0;
@@ -31140,6 +30533,22 @@ ${sampleText}`;
  );
  })}
  </div>
+
+ {/* v1225: 월별 — 최근 6개월 */}
+ {(creditStats.months || []).length > 0 && (<>
+ <div className="micro" style={{ fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8 }}>월별</div>
+ <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 18 }}>
+ {creditStats.months.slice(0, 6).map((m) => {
+ const f = formatCostDisplay(m.total);
+ return (
+ <div key={m.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 12px', borderRadius: 'var(--radius-sm)', background: m.isCurrent ? 'var(--green-50)' : 'var(--bg-secondary)' }}>
+ <span style={{ fontSize: 13, fontWeight: m.isCurrent ? 700 : 500 }}>{m.label}</span>
+ <span style={{ fontSize: 13, fontWeight: 700, fontFamily: 'SF Mono, monospace' }}>{f.usd} <span className="micro" style={{ color: 'var(--text-tertiary)' }}>({f.krw})</span></span>
+ </div>
+ );
+ })}
+ </div>
+ </>)}
 
  {/* 카테고리별 (전체 기준) */}
  <div className="micro" style={{ fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8 }}>작업별 누적 (전체)</div>
@@ -31517,7 +30926,6 @@ ${sampleText}`;
  scenario: { list: loadSlots(), label: '시나리오 작업' },
  poster: { list: posterSlotsList, label: '디자인 작업' },
  translate: { list: translateSlotsList, label: '번역 작업' },
- tts: { list: ttsSlotsList, label: 'TTS' },
  music: { list: musicSlotsList, label: '음악' },
  vc: { list: vcSlotsList, label: '음성 변조' },
  sheet: { list: sheetSlotsList, label: '시트' },
@@ -32124,7 +31532,7 @@ ${sampleText}`;
  <Mic size={18} /><span style={{ fontSize: 8, fontWeight: 700 }}>AUDIO</span>
  </div>
  ) : (
- <img src={as.url} alt={as.name || as.id} style={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'cover', display: 'block' }} />
+ <ThumbImg max={480} src={as.url} alt={as.name || as.id} style={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'cover', display: 'block' }} />
  )}
  <div className="micro" style={{ padding: '3px 5px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{as.name || as.assetType}</div>
  {as.status !== 'Active' && (
@@ -32224,7 +31632,7 @@ ${sampleText}`;
  <div key={c.id} className="ff-genimg" onClick={() => setCharacterPreview(c)} title="클릭하면 상세 정보를 볼 수 있어요"
  draggable onDragStart={(e) => { e.dataTransfer.setData('text/oxyzn-char', c.id); e.dataTransfer.effectAllowed = 'move'; }}
  style={{ position: 'relative', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', background: 'var(--bg-secondary)', cursor: 'pointer' }}>
- <img src={characterImgSrc(c)} alt={c.name}
+ <ThumbImg max={480} src={characterImgSrc(c)} alt={c.name}
  style={{ width: '100%', aspectRatio: '16 / 9', objectFit: 'cover', display: 'block' }} />
  <div style={{ padding: '7px 9px' }}>
  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
@@ -32351,7 +31759,7 @@ ${sampleText}`;
  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))', gap: ARCHIVE_GAP }}>
  {trashedChars.map(c => (
  <div key={c.id} className="ff-genimg" style={{ position: 'relative', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', background: 'var(--bg-secondary)', opacity: 0.85 }}>
- <img src={characterImgSrc(c)} alt={c.name}
+ <ThumbImg max={480} src={characterImgSrc(c)} alt={c.name}
  style={{ width: '100%', aspectRatio: '16 / 9', objectFit: 'cover', display: 'block' }} />
  <div style={{ padding: '7px 9px' }}>
  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
@@ -32713,7 +32121,7 @@ ${sampleText}`;
  boxShadow: picked ? '0 0 0 2px rgba(63,175,185,0.22)' : 'none' }}>
  <div style={{ position: 'relative', width: '100%', aspectRatio: '1 / 1', background: 'var(--bg-tertiary)' }}>
  {it.assetUrl
- ? <img src={it.assetUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+ ? <ThumbImg max={480} src={it.assetUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
  : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-quaternary)', fontSize: 11 }}>이미지 없음</div>}
  {/* v1119: 자산으로 등록된 캐릭터 — asset:// 로 나가며 만료가 없다 */}
  {it.source === 'character' && /^asset:\/\//.test(it.assetUri || '') && (
@@ -33228,6 +32636,10 @@ ${sampleText}`;
  </button>
  </div>
 
+ {/* v1207: 이 프로젝트의 포맷 */}
+ <div className="micro" style={{ padding: '0 8px', marginBottom: 10, color: 'var(--text-tertiary)' }}>
+  포맷 · <strong style={{ color: projectFormatOf(d) === 'anime3d' ? 'var(--green-700)' : 'var(--text-secondary)' }}>{projectFormatLabel(d)}</strong>
+ </div>
  <div className="micro" style={{ fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '0 8px', marginBottom: 8 }}>
  로드맵
  </div>
@@ -33369,6 +32781,34 @@ ${sampleText}`;
  {d.step === 1 && (
  <div style={{ maxWidth: 1180, margin: '0 auto', display: 'grid', gridTemplateColumns: 'minmax(0,1.4fr) minmax(0,1fr)', gap: 16, alignItems: 'start' }}>
  <div className="card" style={{ padding: '18px 20px' }}>
+ {/* v1207: 포맷 — 맨 처음에 고른다. 클립을 하나라도 뽑은 뒤에는 바꾸지 않는다(한 편에 두 스타일이 섞인다). */}
+ {(() => {
+  const fmt = projectFormatOf(d);
+  const locked = (d.segments || []).some(g => g && (g.clipUrl || (g.takes || []).length));
+  return (
+   <div style={{ marginBottom: 14 }}>
+    <div className="micro" style={{ fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>포맷</div>
+    <div style={{ display: 'flex', gap: 6 }}>
+     {PROJECT_FORMATS.map(f => (
+      <button key={f.id} type="button" onClick={() => projectUp({ format: f.id })}
+       disabled={!!f.disabled || busyInput || (locked && fmt !== f.id)}
+       title={f.disabled ? '준비 중입니다' : (locked && fmt !== f.id) ? '이미 뽑은 클립이 있어 바꿀 수 없습니다 — 한 편에 두 스타일이 섞입니다' : f.desc}
+       className={fmt === f.id ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+       style={{ flex: 1, height: 'auto', padding: '6px 8px', flexDirection: 'column', gap: 1 }}>
+       <span style={{ fontWeight: 700 }}>{f.label}</span>
+       <span style={{ fontSize: 9, opacity: 0.75 }}>{f.desc}</span>
+      </button>
+     ))}
+    </div>
+    {fmt === 'anime3d' && (
+     <div className="micro" style={{ marginTop: 6, lineHeight: 1.55, color: 'var(--text-tertiary)' }}>
+      3D 애니메이션 지침으로 프롬프트를 씁니다 — 연기 · 화면 구성 · 빛이 3D 장편 기준이고, 앞 클립 이어받기와 일반씬 · 액션씬 구분은 실사와 같습니다.
+      <br />인물 · 장소 · 오브제 레퍼런스는 <strong>3D 스타일 이미지로 직접 넣어 주세요</strong>(업로드 · 인증 자산). 앱의 캐릭터 시트 생성은 실사 기준입니다.
+     </div>
+    )}
+   </div>
+  );
+ })()}
  <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
  <button type="button" onClick={() => projectUp({ episode: { ...d.episode, mode: 'file' } })}
  className={d.episode.mode === 'file' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}>
@@ -33912,8 +33352,7 @@ ${sampleText}`;
  }
  return (
  <button type="button" className="btn btn-primary btn-sm"
- disabled={!todo.length || !!projectGenJob || !!projectBatch
-  || (!!d.genDraft && todo.length > 1 && projectContVideoOn(d))}   /* v1167 */
+ disabled={!todo.length || !!projectGenJob || !!projectBatch}   /* v1210: 초안 모드도 일괄 생성 — 시작할 때 한 번 알린다 */
  onClick={() => handleProjectGenerateAll()}
  title={`${todo.length}개 클립 · ${c ? `${c.usd}(${c.krw})` : ''} · ${projectResOf(d)} ${projectRatioOf(d)}`
  + (over ? ` · 1회 상한을 넘는 구간 ${over}개는 건너뜁니다 (일반 30초 · 액션 15초)` : '')}>
@@ -34024,8 +33463,8 @@ ${sampleText}`;
  )}
  {todo.length > 0 && (() => {
  const c = formatCostDisplay(projectContVideoOn(d)
- ? projectGenCostOf(todo.map(x => x.seg), projectResOf(d), projectRatioOf(d))
- : todo.reduce((a2, x) => a2 + projectGenCost(x.seg, 0, projectResOf(d), projectRatioOf(d)), 0));
+ ? projectGenCostOf(todo.map(x => x.seg), d.genDraft ? '480p' : projectResOf(d), projectRatioOf(d))   // v1221: 초안이면 480p
+ : todo.reduce((a2, x) => a2 + projectGenCost(x.seg, 0, d.genDraft ? '480p' : projectResOf(d), projectRatioOf(d)), 0));
  return (
  <span className="micro mono-font" style={{ color: 'var(--text-tertiary)', fontWeight: 700 }}>
  {c.usd} ({c.krw})
@@ -34091,7 +33530,7 @@ ${sampleText}`;
  cursor: 'pointer', padding: 0, color: 'inherit', font: 'inherit' }}>
  {item.assetUrl ? (
  <RefZoom src={projectRefLiveSrc(item)} label={item.name}>
- <img src={projectRefLiveSrc(item)} alt="" style={{ width: 20, height: 20, borderRadius: 999, objectFit: 'cover', display: 'block' }}
+ <ThumbImg max={200} src={projectRefLiveSrc(item)} alt="" style={{ width: 20, height: 20, borderRadius: 999, objectFit: 'cover', display: 'block' }}
  onError={(e) => { e.currentTarget.style.display = 'none'; }} />
  </RefZoom>
  ) : (
@@ -34119,7 +33558,7 @@ ${sampleText}`;
  {item.costumeUrl
  ? (
  <RefZoom src={item.costumeUrl} label={`${item.name}의 의상`}>
- <img src={item.costumeUrl} alt="" style={{ width: 18, height: 18, objectFit: 'cover', display: 'block' }}
+ <ThumbImg max={200} src={item.costumeUrl} alt="" style={{ width: 18, height: 18, objectFit: 'cover', display: 'block' }}
  onError={(e) => { e.currentTarget.style.display = 'none'; }} />
  </RefZoom>
  )
@@ -34216,7 +33655,7 @@ ${sampleText}`;
  // v926: 앞 클립이 있으면 영상 레퍼런스로 붙으므로 단가가 달라진다
  const prevOf = (id) => { const a = projectData.segments.findIndex(x => x.id === id);
  return a > 0 && projectData.segments[a - 1]?.clipUrl ? (Number(projectData.segments[a - 1].sec) || 0) : 0; };
- const c = genOk ? formatCostDisplay(projectGenCost(g, projectContVideoOn(d) ? prevOf(g.id) : 0, projectResOf(d), projectRatioOf(d))) : null;
+ const c = genOk ? formatCostDisplay(projectGenCost(g, projectContVideoOn(d) ? prevOf(g.id) : 0, d.genDraft ? '480p' : projectResOf(d), projectRatioOf(d))) : null;   // v1221
  return (
  <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
  {c && !mine && (
@@ -34368,7 +33807,7 @@ ${sampleText}`;
  {/* v1188: 이 버전이 무엇인지 — 1080p 로 올린 것 · 초안 · 해상도 */}
  <ProjectVerBadge upgraded={cur.clipUpgraded} isDraft={cur.clipIsDraft} res={cur.clipRes} big />
  {/* v934: 받아둔 파일을 먼저 쓴다. 못 열리면 원본 주소로 한 번 되돌린다. */}
- <video key={cur.id} src={projectClipSrc(cur)} controls autoPlay loop playsInline
+ <PreviewVideo key={cur.id} src={projectClipSrc(cur)} controls autoPlay loop playsInline
  onError={(e) => {
  const el = e.currentTarget;
  if (cur.clipUrl && el.dataset.fellBack !== '1' && el.src !== cur.clipUrl) {
@@ -34435,75 +33874,101 @@ ${sampleText}`;
  </div>
 
  {/* v928: 다시 뽑기 히스토리 — 프롬프트 박스 위 */}
- {!!(cur.takes || []).length && (
- <div className="card" style={{ padding: '12px 16px' }}>
- <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
- {/* v1188: 지금 버전도 함께 놓는다. 어느 것이 다음 클립으로 넘어가는지를
-     목록 안에서 견줘 볼 수 있어야 한다 — 초안과 1080p 가 나란히 있을 때 특히. */}
- <span style={{ fontSize: 12.5, fontWeight: 700 }}>이 구간의 버전</span>
- <span className="micro" style={{ color: 'var(--text-quaternary)' }}>{cur.takes.length + 1}개 · 최근 순</span>
- <span className="micro" style={{ marginLeft: 'auto', color: 'var(--text-quaternary)' }}>
- 초록 테두리가 다음 클립으로 넘어가는 버전 · 되돌리면 바뀝니다
- </span>
- </div>
- <div style={{ display: 'flex', gap: 9, overflowX: 'auto', paddingBottom: 2 }}>
- {/* v1188: 지금 버전 — 다음 클립이 Video 1 로 이어받는 것. 같은 씬에 뒤 클립이
-     있고 앞 클립 연결이 켜져 있을 때만 실제로 넘어간다. 그렇지 않으면 그렇다고 적는다. */}
- {(() => {
+ {/* v1215: 만든 순서로 고정(v1216: 오래된 것이 왼쪽) — 되돌려도 자리가 바뀌지 않는다. 지금 버전은 초록 테두리로만 가른다.
+     버전마다 다운로드 · 삭제(받아 둔 파일까지). 버전이 하나뿐이어도 보여 준다 — 그래야 지울 수 있다. */}
+ {(!!cur.clipUrl || !!(cur.takes || []).length) && (() => {
+  const nos = projectGenNos(cur);
   const scAll = projectGroupByScene(d.segments).find(gp => gp.items.some(it => it.seg.id === cur.id));
   const ixAll = scAll ? scAll.items.findIndex(it => it.seg.id === cur.id) : -1;
   const contOn = projectContVideoOn(d);
   const hasNext = !!scAll && ixAll >= 0 && ixAll < scAll.items.length - 1;
   const handsOff = hasNext && contOn;
+  const busyHere = !!projectGenJob && projectGenJob.segId === cur.id;
+  const vers = [
+   ...(cur.clipUrl ? [{ kind: 'cur', genNo: nos[0] || 0, ts: cur.clipTs || 0, url: cur.clipUrl, file: cur.clipFile || '',
+    isDraft: !!cur.clipIsDraft, res: cur.clipRes || '', upgraded: !!cur.clipUpgraded, feedback: '' }] : []),
+   ...(cur.takes || []).map((tk, ti) => ({ kind: 'take', ti, tk, genNo: nos[ti + (cur.clipUrl ? 1 : 0)] || 0, ts: tk.ts || 0, url: tk.url || '', file: tk.file || '',
+    isDraft: !!tk.isDraft, res: tk.res || '', upgraded: !!tk.upgraded, feedback: tk.feedback || '' })),
+  ].sort((x, y) => ((x.genNo || 0) - (y.genNo || 0)) || ((x.ts || 0) - (y.ts || 0)));   // v1216: 오래된 것이 왼쪽 — 새것은 오른쪽에 쌓인다
+  const delVersion = (v) => {
+   const others = vers.length - 1;
+   setConfirmDialog({
+    title: '이 버전 삭제', danger: true, confirmLabel: '삭제',
+    message: (v.kind === 'cur'
+     ? (others > 0 ? '지금 버전을 지웁니다. 남은 것 중 가장 최근 버전이 지금 버전이 됩니다.' : '이 구간의 하나뿐인 영상을 지웁니다. 지우면 다시 생성해야 합니다.')
+       + (handsOff ? '\n뒤 클립이 이 영상을 이어받아 만들어졌다면, 그 연결은 다시 뽑아야 맞습니다.' : '')
+     : '이 버전을 지웁니다.')
+     + '\n\n받아 둔 영상 파일도 함께 지워지고 되돌릴 수 없습니다.',
+    onConfirm: () => {
+     setConfirmDialog(null);
+     setProjectData(p2 => ({ ...p2, segments: p2.segments.map(g2 => {
+      if (g2.id !== cur.id) return g2;
+      // 순번은 영상에 붙은 것 — 지우기 전에 박아 둔다(v1125)
+      const nos2 = projectGenNos(g2);
+      const off = g2.clipUrl ? 1 : 0;
+      const stamped = (g2.takes || []).map((t, k) => ({ ...t, genNo: t.genNo || nos2[k + off] || 0 }));
+      const genSeq = Math.max(g2.genSeq || 0, ...nos2.map(n => n || 0));
+      if (v.kind === 'take') return { ...g2, genSeq, takes: stamped.filter((_, k) => k !== v.ti) };
+      if (!stamped.length) return { ...g2, genSeq, ...PROJECT_CLIP_EMPTY, takes: [] };
+      // 지금 버전을 지우면 남은 것 중 순번이 가장 큰(가장 최근) 것이 지금 버전이 된다
+      const pick = stamped.reduce((m, t, k) => ((t.genNo || 0) > (stamped[m].genNo || 0) ? k : m), 0);
+      return { ...g2, ...projectTakeToClip(stamped[pick]), clipGenNo: stamped[pick].genNo || 0, feedback: stamped[pick].feedback || '',
+       genSeq, takes: stamped.filter((_, k) => k !== pick) };
+     }) }));
+     if (v.file) { try { window.electronAPI?.clipDelete?.({ path: v.file })?.catch?.(() => {}); } catch {} }
+     try { showToast('버전을 지웠습니다.', 'load'); } catch {}
+    },
+   });
+  };
   return (
-   <div style={{ flex: '0 0 172px', border: '2px solid var(--green-500)', borderRadius: 8, overflow: 'hidden',
-    background: 'var(--bg-secondary)', position: 'relative', boxShadow: '0 0 0 3px color-mix(in srgb, var(--green-500) 18%, transparent)' }}>
-    <ProjectVerBadge upgraded={cur.clipUpgraded} isDraft={cur.clipIsDraft} res={cur.clipRes} />
-    <video src={projectClipSrc(cur)} controls preload="metadata" playsInline
-     style={{ width: '100%', display: 'block', background: '#000', aspectRatio: '16/9' }} />
-    <div style={{ padding: '7px 9px' }}>
-     <div className="micro" style={{ color: 'var(--text-quaternary)' }}>
-      {projectVerLabel(projectGenNos(cur)[0]) && <strong style={{ color: 'var(--text-secondary)', marginRight: 5 }}>{projectVerLabel(projectGenNos(cur)[0])}</strong>}
-      {cur.clipTs ? fmtProjectTime(cur.clipTs) : '시각 미상'}
-     </div>
-     <div className="micro" style={{ marginTop: 4, fontWeight: 800,
-      color: handsOff ? 'var(--green-700)' : 'var(--text-tertiary)' }}>
-      {handsOff ? '▶ 다음 클립이 이어받음'
-       : !hasNext ? '지금 버전 · 씬의 마지막 클립'
-       : '지금 버전 · 앞 클립 연결 꺼짐'}
-     </div>
-    </div>
-   </div>
-  );
- })()}
- {cur.takes.map((tk, ti) => (
- <div key={ti} style={{ flex: '0 0 172px', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', background: 'var(--bg-secondary)', position: 'relative' }}>
- <ProjectVerBadge upgraded={tk.upgraded} isDraft={tk.isDraft} res={tk.res} />   {/* v1188 */}
- <video src={tk.file ? localFileUrl(tk.file) : tk.url} controls preload="metadata" playsInline
- onError={(e) => { const el = e.currentTarget;
- if (tk.url && el.dataset.fellBack !== '1' && el.src !== tk.url) { el.dataset.fellBack = '1'; el.src = tk.url; } }}
- style={{ width: '100%', display: 'block', background: '#000', aspectRatio: '16/9' }} />
+ <div className="card" style={{ padding: '12px 16px' }}>
+ <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
+ <span style={{ fontSize: 12.5, fontWeight: 700 }}>이 구간의 버전</span>
+ <span className="micro" style={{ color: 'var(--text-quaternary)' }}>{vers.length}개 · 만든 순서(새것이 오른쪽)</span>
+ <span className="micro" style={{ marginLeft: 'auto', color: 'var(--text-quaternary)' }}>
+ 초록 테두리가 지금 버전 · 다음 클립으로 넘어가는 것
+ </span>
+ </div>
+ <div ref={(el) => { if (el && el.dataset.n !== String(vers.length)) { el.dataset.n = String(vers.length); el.scrollLeft = el.scrollWidth; } }}   /* v1216: 새것이 보이게 오른쪽 끝으로 */
+  style={{ display: 'flex', gap: 9, overflowX: 'auto', paddingBottom: 2 }}>
+ {vers.map((v) => {
+  const isCur = v.kind === 'cur';
+  const vLabel = projectVerLabel(v.genNo);
+  return (
+ <div key={isCur ? 'cur' : `t${v.genNo}_${v.ts}_${v.ti}`} style={{ flex: '0 0 172px', borderRadius: 8, overflow: 'hidden', background: 'var(--bg-secondary)', position: 'relative',
+  border: isCur ? '2px solid var(--green-500)' : '1px solid var(--border)',
+  boxShadow: isCur ? '0 0 0 3px color-mix(in srgb, var(--green-500) 18%, transparent)' : 'none' }}>
+ <ProjectVerBadge upgraded={v.upgraded} isDraft={v.isDraft} res={v.res} />
+ <video src={isCur ? projectClipSrc(cur) : (v.file ? localFileUrl(v.file) : v.url)} controls preload="metadata" playsInline
+  onError={isCur ? undefined : (e) => { const el = e.currentTarget;
+   if (v.url && el.dataset.fellBack !== '1' && el.src !== v.url) { el.dataset.fellBack = '1'; el.src = v.url; } }}
+  style={{ width: '100%', display: 'block', background: '#000', aspectRatio: '16/9' }} />
  <div style={{ padding: '7px 9px' }}>
- <div className="micro" style={{ color: 'var(--text-quaternary)' }}>
- {projectVerLabel(projectGenNos(cur)[ti + 1]) && <strong style={{ color: 'var(--text-secondary)', marginRight: 5 }}>{projectVerLabel(projectGenNos(cur)[ti + 1])}</strong>}
- {tk.ts ? fmtProjectTime(tk.ts) : '시각 미상'}
- </div>
- {tk.feedback && (
- <div className="micro" style={{ marginTop: 3, color: 'var(--text-tertiary)', lineHeight: 1.5,
- display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
- “{tk.feedback}”
- </div>
- )}
- {/* v1124: 이전에 뽑은 영상도 바로 저장한다 — 되돌리지 않고도 받을 수 있게 */}
- <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
- <button type="button" className="btn btn-ghost btn-sm" title="이 영상 저장"
- disabled={!tk.url && !tk.file}
- onClick={() => handleProjectDownloadClip({ ...cur, clipUrl: tk.url || '', clipFile: tk.file || '', clipTs: tk.ts || 0 }, at, projectGenNos(cur)[ti + 1] || 0)}
- style={{ flex: '0 0 30px', height: 22, padding: 0, justifyContent: 'center' }}>
- <Download size={11} />
- </button>
- <button type="button" className="btn btn-ghost btn-sm" style={{ flex: 1, justifyContent: 'center', height: 22, fontSize: 10.5 }}
- disabled={!!projectGenJob}
+  <div className="micro" style={{ color: 'var(--text-quaternary)' }}>
+   {vLabel && <strong style={{ color: 'var(--text-secondary)', marginRight: 5 }}>{vLabel}</strong>}
+   {v.ts ? fmtProjectTime(v.ts) : '시각 미상'}
+  </div>
+  {isCur && (
+   <div className="micro" style={{ marginTop: 4, fontWeight: 800, color: handsOff ? 'var(--green-700)' : 'var(--text-tertiary)' }}>
+    {handsOff ? '▶ 다음 클립이 이어받음' : !hasNext ? '지금 버전 · 씬의 마지막 클립' : '지금 버전 · 앞 클립 연결 꺼짐'}
+   </div>
+  )}
+  {!isCur && v.feedback && (
+   <div className="micro" style={{ marginTop: 3, color: 'var(--text-tertiary)', lineHeight: 1.5,
+    display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+    “{v.feedback}”
+   </div>
+  )}
+  <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
+   <button type="button" className="btn btn-ghost btn-sm" title="이 영상 다운로드"
+    disabled={!v.url && !v.file}
+    onClick={() => handleProjectDownloadClip(isCur ? cur : { ...cur, clipUrl: v.url || '', clipFile: v.file || '', clipTs: v.ts || 0 }, at, v.genNo || 0)}
+    style={{ flex: '0 0 30px', height: 22, padding: 0, justifyContent: 'center' }}>
+    <Download size={11} />
+   </button>
+   {!isCur && (
+   <button type="button" className="btn btn-ghost btn-sm" style={{ flex: 1, justifyContent: 'center', height: 22, fontSize: 10.5 }}
+    disabled={!!projectGenJob}
  onClick={() => setConfirmDialog({
  title: '이 결과로 되돌리기',
  message: '지금 보고 있는 클립이 이전 목록으로 들어가고, 고른 것이 현재 클립이 됩니다.',
@@ -34516,26 +33981,36 @@ ${sampleText}`;
  const nos = projectGenNos(g2);
  const off = g2.clipUrl ? 1 : 0;
  const stamped = (g2.takes || []).map((t, k) => ({ ...t, genNo: t.genNo || nos[k + off] || 0 }));
- const rest = stamped.filter((_, k) => k !== ti);
+ const rest = stamped.filter((_, k) => k !== v.ti);
  const nowTake = projectClipToTake(g2, nos[0]);   // v1188
  // v1188: 되살릴 필드는 projectTakeToClip 한 곳에서 정한다 — 초안 · 해상도 ·
  //   업그레이드 표시 · 사본 비우기. 빠지면 480p 를 다음 클립이 이어받는다(v1168).
- return { ...g2, ...projectTakeToClip(tk),
- clipGenNo: stamped[ti]?.genNo || 0, genSeq: Math.max(g2.genSeq || 0, ...nos.map(n => n || 0)),
- feedback: tk.feedback || '', takes: [...nowTake, ...rest].slice(0, 8) };
+ return { ...g2, ...projectTakeToClip(v.tk),
+ clipGenNo: stamped[v.ti]?.genNo || 0, genSeq: Math.max(g2.genSeq || 0, ...nos.map(n => n || 0)),
+ feedback: v.tk.feedback || '', takes: [...nowTake, ...rest].slice(0, 8) };
  }) }));
  try { showToast('이전 결과로 되돌렸습니다.', 'load'); } catch {}
  },
  })}>
  이걸로 되돌리기
- </button>
+   </button>
+   )}
+   {isCur && <span style={{ flex: 1 }} />}
+   <button type="button" className="btn btn-ghost btn-sm" title="이 버전 삭제 — 받아 둔 파일까지 지웁니다"
+    disabled={busyHere}
+    onClick={() => delVersion(v)}
+    style={{ flex: '0 0 30px', height: 22, padding: 0, justifyContent: 'center', color: 'var(--state-error)' }}>
+    <Trash2 size={11} />
+   </button>
+  </div>
  </div>
  </div>
+  );
+ })}
  </div>
- ))}
  </div>
- </div>
- )}
+  );
+ })()}
 
  {/* 프롬프트 — 접힌 채로 */}
  <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -34609,7 +34084,7 @@ ${sampleText}`;
  ? (Number(cur.sec) || 0)
  : (() => { const a = projectData.segments.findIndex(x => x.id === cur.id);
  return a > 0 && projectData.segments[a - 1]?.clipUrl ? (Number(projectData.segments[a - 1].sec) || 0) : 0; })(),
- projectResOf(d), projectRatioOf(d))).usd}</>}
+ d.genDraft ? '480p' : projectResOf(d), projectRatioOf(d))).usd}</>}   {/* v1221: 초안이면 480p */}
  </button>
  {busyMine && (
  <div style={{ marginTop: 10 }}>
@@ -34738,7 +34213,7 @@ ${sampleText}`;
  ) : adaptToolData.isProcessing ? (
  /* ── 진행 ── */
  <div className="card" style={{ padding: '32px 24px' }}>
- {(() => { const info = getBatchProgressInfo(adaptToolData.progress, 30); return (
+ <SecondTick on={!!adaptToolData.progress?.startTime && !isPaused}>{() => { const info = getBatchProgressInfo(adaptToolData.progress, 30); return (
  <div className="progress-block">
  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -34772,7 +34247,7 @@ ${sampleText}`;
  )}
  </div>
  </div>
- ); })()}
+ ); }}</SecondTick>
  </div>
 
  ) : (
@@ -34991,8 +34466,8 @@ ${sampleText}`;
  {sd.isAnalyzing ? (
  /* ── 진행 ── */
  <div className="card" style={{ padding: '32px 24px' }}>
- {(() => {
- const pct = Math.max(0, Math.min(100, sd.progressPct || 0));
+ <SecondTick on={!!sd.pctRamp}>{(now) => {
+ const pct = Math.max(0, Math.min(100, rampPct(sd, now)));
  // v864: 경과·잔여는 초당 바뀌므로 ElapsedSec(말단)에서 계산한다.
  //   여기서 nowTick 을 읽으면 루트가 초당 리렌더돼야 갱신된다.
  const etaOf = (elapsed) => {
@@ -35027,7 +34502,7 @@ ${sampleText}`;
  </div>
  </div>
  );
- })()}
+ }}</SecondTick>
  </div>
  ) : (
  /* ── 입력 ── */
@@ -35689,8 +35164,8 @@ ${sampleText}`;
  {vd.isAnalyzing ? (
  /* ── 진행 ── */
  <div className="card" style={{ padding: '32px 24px' }}>
- {(() => {
- const pct = Math.max(0, Math.min(100, vd.progressPct || 0));
+ <SecondTick on={!!vd.progressStartTime}>{(now) => {
+ const pct = Math.max(0, Math.min(100, vaTimePct(vd, now)));
  const totalSec = vd.estimatedTotalSec || 600;
  // v864: 경과·잔여만 말단(ElapsedSec)에서 초당 갱신한다
  const fmtT = (s) => { if (s == null) return '계산 중...'; const m = Math.floor(s / 60); return m > 0 ? `${m}분 ${s % 60}초` : `${s}초`; };
@@ -35717,7 +35192,7 @@ ${sampleText}`;
  </div>
  </div>
  );
- })()}
+ }}</SecondTick>
  </div>
  ) : (
  /* ── 입력 ── */
@@ -36313,7 +35788,7 @@ ${sampleText}`;
  <div key={`${gen.id}-${ui}`} className="ff-genimg"
  onClick={() => loadGen(gen, url)} title="클릭하면 이 이미지의 프롬프트·레퍼런스·설정을 불러옵니다"
  style={{ height: 132, borderRadius: 8, overflow: 'hidden', cursor: 'pointer', }}>
- <img src={url} alt="생성 이미지" style={{ height: '100%', width: 'auto', display: 'block' }} />
+ <ThumbImg max={480} src={url} alt="생성 이미지" style={{ height: '100%', width: 'auto', display: 'block' }} />
  <div className="ff-genimg-ov">
  <div style={{ fontFamily: 'SF Mono, monospace', fontWeight: 700 }}>{fmtTs(gen.ts)}</div>
  <div>{gen.params?.aspect} · {qLabel(gen.params?.quality)}</div>
@@ -36402,7 +35877,7 @@ ${sampleText}`;
  onMouseDown={(e) => { e.preventDefault(); applySuggest(name); }}
  onMouseEnter={() => setCustomRefSuggest(s => s ? { ...s, active: i } : s)}
  style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', border: 'none', cursor: 'pointer', textAlign: 'left', background: i === activeIdx ? 'rgba(63,175,185,0.1)' : 'transparent', color: 'var(--text-primary)' }}>
- {ref && <img src={`data:${ref.mimeType};base64,${ref.base64}`} alt="" style={{ width: 22, height: 22, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />}
+ {ref && <ThumbImg b64={ref.base64} mime={ref.mimeType} max={200} alt="" style={{ width: 22, height: 22, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />}
  <span style={{ fontSize: 12, fontFamily: 'SF Mono, monospace', fontWeight: 600, color: 'var(--green-700)' }}>@{name}</span>
  {i === activeIdx && <span className="micro" style={{ marginLeft: 'auto', color: 'var(--text-quaternary)', fontSize: 9 }}>↑↓ 이동 · Tab/Enter 선택</span>}
  </button>
@@ -36428,7 +35903,7 @@ ${sampleText}`;
  {d.refImages.map((r, ri) => (
  <div key={ri} style={{ position: 'relative', width: 64 }}>
  <div className="ff-refimg" style={{ width: 64, height: 64 }}>
- <img src={`data:${r.mimeType};base64,${r.base64}`} alt={r.refName}
+ <ThumbImg b64={r.base64} mime={r.mimeType} max={200} alt={r.refName}
  style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)', display: 'block' }} />
  <div className="ff-genimg-ov" style={{ borderRadius: 8, fontSize: 10, padding: 4, textAlign: 'center', wordBreak: 'break-all' }}>
  <span style={{ fontFamily: 'SF Mono, monospace', fontWeight: 700, color: '#7EDCE2' }}>@{r.refName}</span>
@@ -36656,7 +36131,7 @@ ${sampleText}`;
  <div key={ver.version} className={`ff-genimg ${t.selectedVersion === ver.version ? 'ff-sel' : 'ff-unsel'}`}
  onClick={() => loadTitleVersion(ver)} title="클릭하면 이 버전의 설정을 불러옵니다"
  style={{ height: 108, borderRadius: 8, overflow: 'hidden', cursor: 'pointer', background: '#000', }}>
- <img src={imgUrlOf(vImg)} alt={`v${ver.version}`} style={{ height: '100%', width: 'auto', display: 'block' }} />
+ <ThumbImg max={480} src={imgUrlOf(vImg)} alt={`v${ver.version}`} style={{ height: '100%', width: 'auto', display: 'block' }} />
  <div className="ff-genimg-ov">
  <div style={{ fontFamily: 'SF Mono, monospace', fontWeight: 700 }}>v{String(ver.version).padStart(2, '0')}</div>
  <div>{ver.createdAt ? fmtTs(ver.createdAt) : ''} · 16:9</div>
@@ -36727,7 +36202,7 @@ ${sampleText}`;
  {(t.conceptRefs || []).map((r, ri) => (
  <div key={ri} style={{ position: 'relative', width: 60 }}>
  <div className="ff-refimg" style={{ width: 60, height: 60 }}>
- <img src={`data:${r.mimeType};base64,${r.base64}`} alt="" style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)', display: 'block' }} />
+ <ThumbImg b64={r.base64} mime={r.mimeType} max={200} alt="" style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)', display: 'block' }} />
  </div>
  <button onClick={() => updateT(p => ({ ...p, conceptRefs: p.conceptRefs.filter((_, i) => i !== ri) }))}
  title="제거" style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--state-error)', color: '#fff', zIndex: 2 }}>
@@ -36864,6 +36339,11 @@ ${sampleText}`;
  title={!selectedGen?.params?.name?.trim() ? '캐릭터 이름을 입력한 뒤 생성하면 저장할 수 있습니다' : '아카이브 > 캐릭터에 저장'}>
  <Save size={12} /> {savedNames.has((selectedGen?.params?.name || '').trim()) ? '캐릭터 갱신' : '캐릭터 저장'}
  </button>
+ {/* v1224: 피드백 — 고른 시트를 원본으로 쓴 글만 반영 */}
+ <button className={d.feedbackOpen ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'} onClick={() => up(p => ({ ...p, feedbackOpen: !p.feedbackOpen }))}
+  disabled={!selectedGen} title="고른 시트를 원본으로, 적은 내용만 반영해 다시 만듭니다">
+  <Edit3 size={12} /> 피드백
+ </button>
  <button className="btn btn-ghost btn-sm" onClick={newCharacter} style={{ marginLeft: 'auto' }}>
  <Plus size={12} /> 새 캐릭터
  </button>
@@ -36871,10 +36351,29 @@ ${sampleText}`;
  )}
  </div>
 
- {/* v789: 캐릭터 디자인은 피드백 기능이 없다.
- Seedream은 text-to-image 출력만 ModelArk 신뢰 자산이 되므로 이전 시트를
- 레퍼런스로 넣을 수 없고, 그러면 '기존 생성물 기반 수정'이 성립하지 않는다.
- 텍스트만 바꿔 다시 뽑는 것은 새 캐릭터를 만드는 것과 같아 의미가 없다. */}
+ {/* v1224: 피드백 — v789 에서 뺐던 기능. 원본을 붙여 만든 결과는 신뢰 출력이 아니지만(파생),
+     이제 아카이브에서 AIGC 자산으로 등록하면 영상 레퍼런스로 쓸 수 있다(v1115). 그래서 다시 연다.
+     쓴 글이 그대로 프롬프트가 된다 — 규칙서 · Claude 를 거치지 않는다. */}
+ {d.feedbackOpen && selectedGen && (
+ <div className="card fade-in" style={{ padding: '18px 20px' }}>
+ <div className="micro" style={{ color: 'var(--green-700)', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 8 }}>💬 피드백 반영 재생성</div>
+ <div className="meta" style={{ color: 'var(--text-tertiary)', marginBottom: 10, lineHeight: 1.6 }}>
+  고른 시트를 원본으로, 적은 내용만 반영해 다시 만듭니다. 적은 글이 그대로 프롬프트가 됩니다(규칙서 · Claude 를 거치지 않음).
+ </div>
+ <textarea className="input" value={d.feedback} onChange={(e) => up({ feedback: e.target.value })}
+  placeholder="예: 머리를 짧은 투블럭으로 바꿔줘 · 눈썹을 조금 더 진하게"
+  rows={3} style={{ width: '100%', resize: 'vertical', fontSize: 13, lineHeight: 1.6, marginBottom: 8, boxSizing: 'border-box' }} />
+ <div className="micro" style={{ color: 'var(--text-quaternary)', marginBottom: 10, lineHeight: 1.5 }}>
+  원본을 붙여 만든 결과라 영상 레퍼런스로 쓰려면 캐릭터로 저장한 뒤 아카이브에서 자산 등록이 필요합니다. 이름에는 _v002, _v003 … 이 붙습니다.
+ </div>
+ <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10 }}>
+ <button className="btn btn-primary" onClick={() => handleGenerateCharacter(d.feedback)} disabled={!d.feedback.trim() || !arkApiKey}>
+  <RefreshCw size={14} /> 피드백 반영해 재생성
+ </button>
+ <span className="meta" style={{ color: 'var(--text-tertiary)' }}>예상 <strong style={{ color: 'var(--green-700)' }}>{formatCostDisplay(estimateArkImageCost(CHARACTER_SHEET_SIZE, d.numOutputs, ARK_MODELS.image, 1)).usd}</strong></span>
+ </div>
+ </div>
+ )}
 
  {/* 생성기록 */}
  {/* v764: 생성기록 — 시트와 동일한 카드/타일 규격, 목록 형태로 쌓임 (행 단위 삭제 가능) */}
@@ -36902,7 +36401,7 @@ ${sampleText}`;
  {(g.urls || []).map((u, ui) => (
  <button key={ui} onClick={() => loadGen(g, u)} title="클릭하면 이 캐릭터의 설정을 불러옵니다"
  className={`${d.selectedUrl === u ? 'ff-sel' : 'ff-unsel'}`} style={{ height: 96, width: 170, padding: 0, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', background: 'none', cursor: 'pointer', lineHeight: 0, flexShrink: 0 }}>
- <img src={u} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+ <ThumbImg max={480} src={u} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
  </button>
  ))}
  </div>
@@ -36999,7 +36498,7 @@ ${sampleText}`;
  {(d.refs || []).map((r, i) => (
  <div key={i} style={{ position: 'relative' }}>
  <RefZoom src={r.assetUrl} label={r.name}>
- <img src={r.assetUrl} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)', display: 'block', cursor: 'zoom-in' }} />
+ <ThumbImg max={200} src={r.assetUrl} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)', display: 'block', cursor: 'zoom-in' }} />
  </RefZoom>
  <button type="button" title="빼기" onClick={() => up(p => ({ ...p, refs: (p.refs || []).filter((_, j) => j !== i) }))}
  style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', border: 'none', cursor: 'pointer',
@@ -37113,7 +36612,7 @@ ${sampleText}`;
  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
  {liveCharacters.slice(0, 8).map(c => (
  <div key={c.id} style={{ width: 74, textAlign: 'center' }}>
- <img src={characterImgSrc(c)} alt={c.name}
+ <ThumbImg max={200} src={characterImgSrc(c)} alt={c.name}
  style={{ width: 74, height: 42, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--border)', display: 'block' }} />
  <div className="micro" style={{ color: 'var(--text-tertiary)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
  </div>
@@ -37152,10 +36651,14 @@ ${sampleText}`;
  const sheetCanGen = isComposite ? (!!s.ccPerson?.assetUrl && !!s.ccCostume?.assetUrl) : isRefOnly ? sheetHasRef : !!s.description.trim();
  // v604: '인물(클로즈업)'만 Nano Banana 2 확정. '캐릭터+실사+레퍼런스'는 생성 시 레퍼런스가
  //        진짜 실사 인물인지 비전 판별 후 결정되므로, 여기서는 조건부로만 안내(비용은 GPT 기준 추정 유지).
- const sheetGenModel = isRefOnly ? 'google/nano-banana-2' : imageModel;
- const sheetMaybeNano = !isRefOnly && s.sheetType === 'character' && s.style === 'photoreal' && sheetHasRef;
+ // v1223: 캐릭터는 Seedream 5.0 Pro (2816x1584 · 장당 $0.09 · 레퍼런스 둘째 장부터 $0.003)
+ const sheetArkUi = !!tpl.seedream;
+ const sheetRefN = (s.refs || []).filter(r => r && r.base64).length;
+ const sheetGenModel = isRefOnly ? 'google/nano-banana-2' : (sheetArkUi || isComposite) ? ARK_MODELS.image : imageModel;
+ const sheetWords = sheetArkUi ? countPromptWords(buildTurnaroundPrompt({ sheetType: s.sheetType, style: s.style, description: s.description.trim(), sizeValue: s.sizeValue, gender: s.gender, bodyType: s.bodyType, refCount: sheetRefN })) : 0;
  const { usd, krw } = formatCostDisplay(isComposite
  ? estimateArkImageCost(CHARACTER_SHEET_SIZE, s.numOutputs, ARK_MODELS.image, 2)
+ : sheetArkUi ? estimateArkImageCost(CHARACTER_SHEET_SIZE, s.numOutputs, ARK_MODELS.image, sheetRefN)
  : estimateImageCost(sheetGenModel, 'medium', s.numOutputs, SHEET_SIZE_16_9));
  const fmtTs = (ts) => { const dt = new Date(ts); return `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`; };
  const sheetAnyLoading = s.history.some(g => g.loading);
@@ -37275,7 +36778,7 @@ ${sampleText}`;
  <div key={g.id} className={`ff-genimg ${s.selectedUrl === g.url ? 'ff-sel' : 'ff-unsel'}`}
  onClick={() => loadSheetGen(g)} title="클릭하면 이 시트의 설정·레퍼런스를 불러옵니다"
  style={{ height: 96, borderRadius: 8, overflow: 'hidden', cursor: 'pointer', }}>
- <img src={g.url} alt="시트" style={{ height: '100%', width: 'auto', display: 'block' }} />
+ <ThumbImg max={480} src={g.url} alt="시트" style={{ height: '100%', width: 'auto', display: 'block' }} />
  <div className="ff-genimg-ov">
  <div style={{ fontFamily: 'SF Mono, monospace', fontWeight: 700 }}>{fmtTs(g.ts)}</div>
  <div>{TURNAROUND_TEMPLATES[g.params?.sheetType]?.label} · {TURNAROUND_STYLES[g.params?.style]?.label}</div>
@@ -37361,7 +36864,7 @@ ${sampleText}`;
     border: `1px solid ${cur ? 'var(--green-500)' : 'var(--border)'}`, background: 'var(--bg-secondary)' }}>
     {cur?.assetUrl
      ? <RefZoom src={cur.assetUrl} label={`${slot.label} · ${cur.name}`}>
-        <img src={cur.assetUrl} alt="" style={{ width: 96, height: 54, objectFit: 'cover', borderRadius: 6, display: 'block', cursor: 'zoom-in' }} />
+        <ThumbImg max={200} src={cur.assetUrl} alt="" style={{ width: 96, height: 54, objectFit: 'cover', borderRadius: 6, display: 'block', cursor: 'zoom-in' }} />
        </RefZoom>
      : <div style={{ width: 96, height: 54, borderRadius: 6, background: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 10.5, color: 'var(--text-quaternary)' }}>비어 있음</div>}
@@ -37437,7 +36940,7 @@ ${sampleText}`;
  {s.refs.map((r, ri) => (
  <div key={ri} style={{ position: 'relative', width: 60 }}>
  <div className="ff-refimg" style={{ width: 60, height: 60 }}>
- <img src={`data:${r.mimeType};base64,${r.base64}`} alt="" style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)', display: 'block' }} />
+ <ThumbImg b64={r.base64} mime={r.mimeType} max={200} alt="" style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)', display: 'block' }} />
  </div>
  <button onClick={() => updateS(p => ({ ...p, refs: p.refs.filter((_, i) => i !== ri) }))}
  title="제거" style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--state-error)', color: '#fff', zIndex: 2 }}>
@@ -37470,7 +36973,9 @@ ${sampleText}`;
  <div className="meta" style={{ color: 'var(--text-tertiary)', textAlign: 'center' }}>
  예상 비용 <strong style={{ color: 'var(--green-700)' }}>{usd}</strong> <span>({krw})</span>
  {sheetGenModel.includes('nano-banana') && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 999, background: 'var(--bg-tertiary)', color: 'var(--green-700)' }}>Nano Banana 2</span>}
- {sheetMaybeNano && <div style={{ marginTop: 4, fontSize: 10, color: 'var(--text-quaternary)' }}>레퍼런스가 실사 인물이면 Nano Banana 2로, 아니면 GPT Image 2로 생성됩니다.</div>}
+ {sheetArkUi && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 999, background: 'var(--bg-tertiary)', color: 'var(--green-700)' }}>Seedream 5.0 Pro</span>}
+ {/* v1223: Seedream 은 영어 600단어를 넘기면 디테일을 흘린다 — 묘사가 길면 알린다 */}
+ {sheetArkUi && <div style={{ marginTop: 4, fontSize: 10, color: sheetWords > 600 ? 'var(--state-warning)' : 'var(--text-quaternary)' }}>프롬프트 약 {sheetWords}단어 · 권장 600 이하{sheetWords > 600 ? ' — 묘사를 줄이면 디테일이 더 잘 지켜집니다' : ''}</div>}
  </div>
  <button className="btn btn-primary" onClick={() => handleGenerateSheetWs()} disabled={s.isGenerating || !sheetCanGen} style={{ fontSize: 14, padding: '11px 20px', justifyContent: 'center' }}>
  <Sparkles size={14} /> {s.isGenerating ? '생성 중...' : (!sheetCanGen ? (isRefOnly ? '레퍼런스 사진을 등록하세요' : '묘사를 입력하세요') : '시트 생성')}
@@ -37717,7 +37222,7 @@ ${sampleText}`;
  <div key={g.id} className={`ff-genimg ${d.selectedUrl === g.url ? 'ff-sel' : 'ff-unsel'}`}
  onClick={() => loadPosterGen(g)} title="클릭하면 이 배경의 장르·컨셉을 불러옵니다"
  style={{ height: 132, borderRadius: 8, overflow: 'hidden', cursor: 'pointer', }}>
- <img src={g.url} alt="포스터 배경" style={{ height: '100%', width: 'auto', display: 'block' }} />
+ <ThumbImg max={480} src={g.url} alt="포스터 배경" style={{ height: '100%', width: 'auto', display: 'block' }} />
  <div className="ff-genimg-ov">
  <div style={{ fontFamily: 'SF Mono, monospace', fontWeight: 700 }}>{fmtTs(g.ts)}</div>
  <button onClick={(e) => { e.stopPropagation(); handleDownloadPosterWs(g.url, 'bg'); }} title="다운로드"
@@ -37761,7 +37266,7 @@ ${sampleText}`;
  <button key={ver.version} onClick={() => updateP({ titleVersion: ver.version })}
  title={`v${String(ver.version).padStart(2, '0')} · ${ver.title || ''}`}
  style={{ padding: 0, border: `2px solid ${d.titleVersion === ver.version ? 'var(--green-500)' : 'var(--border)'}`, borderRadius: 8, overflow: 'hidden', cursor: 'pointer', background: '#000', width: 92, height: 52 }}>
- <img src={imgUrlOf(vImg)} alt={`v${ver.version}`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+ <ThumbImg max={480} src={imgUrlOf(vImg)} alt={`v${ver.version}`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
  </button>
  );
  })}
@@ -37774,7 +37279,7 @@ ${sampleText}`;
  {d.titleUpload ? (
  <div style={{ position: 'relative', width: 92 }}>
  <div style={{ width: 92, height: 52, borderRadius: 8, overflow: 'hidden', background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
- <img src={d.titleUpload.dataUrl} alt={d.titleUpload.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+ <ThumbImg max={200} src={d.titleUpload.dataUrl} alt={d.titleUpload.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
  </div>
  <button onClick={() => updateP({ titleUpload: null })} title="제거" style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--state-error)', color: '#fff' }}><X size={10} /></button>
  </div>
@@ -37812,7 +37317,7 @@ ${sampleText}`;
  {d.actors.map((a, ai) => (
  <div key={a.id} style={{ position: 'relative', width: 68 }}>
  <div style={{ width: 68, height: 68, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--bg-secondary)' }}>
- {a.photo && <img src={`data:${a.photo.mimeType};base64,${a.photo.base64}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
+ {a.photo && <ThumbImg b64={a.photo.base64} mime={a.photo.mimeType} max={200} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
  </div>
  <button onClick={() => updateP(p => ({ ...p, actors: p.actors.filter((_, i) => i !== ai) }))} title="제거" style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--state-error)', color: '#fff', zIndex: 2 }}><X size={10} /></button>
  <input className="input" type="text" value={a.name} onChange={(e) => updateP(p => ({ ...p, actors: p.actors.map((x, i) => i === ai ? { ...x, name: e.target.value } : x) }))}
@@ -37837,7 +37342,7 @@ ${sampleText}`;
  {sheetActorPool.map((g) => (
  <button key={g.id} onClick={() => posterAddFromToolUrl(g.url, 'actor', g.params?.description?.slice(0, 20) || '인물시트')} title="배우로 추가"
  style={{ padding: 0, width: 68, height: 68, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--bg-secondary)', cursor: 'pointer' }}>
- <img src={g.url} alt="인물 시트" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+ <ThumbImg max={200} src={g.url} alt="인물 시트" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
  </button>
  ))}
  </div>
@@ -37863,7 +37368,7 @@ ${sampleText}`;
  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
  {d.objects.map((r, ri) => (
  <div key={ri} style={{ position: 'relative', width: 56 }}>
- <img src={`data:${r.mimeType};base64,${r.base64}`} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)', display: 'block' }} />
+ <ThumbImg b64={r.base64} mime={r.mimeType} max={200} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)', display: 'block' }} />
  <button onClick={() => updateP(p => ({ ...p, objects: p.objects.filter((_, i) => i !== ri) }))} title="제거" style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--state-error)', color: '#fff' }}><X size={10} /></button>
  </div>
  ))}
@@ -37883,7 +37388,7 @@ ${sampleText}`;
  {sheetObjectPool.map((g) => (
  <button key={g.id} onClick={() => posterAddFromToolUrl(g.url, 'object', g.params?.description?.slice(0, 20) || '오브제시트')} title="오브제로 추가"
  style={{ padding: 0, width: 56, height: 56, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--bg-secondary)', cursor: 'pointer' }}>
- <img src={g.url} alt="오브제 시트" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+ <ThumbImg max={200} src={g.url} alt="오브제 시트" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
  </button>
  ))}
  </div>
@@ -37905,7 +37410,7 @@ ${sampleText}`;
  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
  {d.conceptRefs.map((r, ri) => (
  <div key={ri} style={{ position: 'relative', width: 56 }}>
- <img src={`data:${r.mimeType};base64,${r.base64}`} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)', display: 'block' }} />
+ <ThumbImg b64={r.base64} mime={r.mimeType} max={200} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)', display: 'block' }} />
  <button onClick={() => updateP(p => ({ ...p, conceptRefs: p.conceptRefs.filter((_, i) => i !== ri) }))} title="제거" style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--state-error)', color: '#fff' }}><X size={10} /></button>
  </div>
  ))}
@@ -38159,7 +37664,7 @@ ${sampleText}`;
  {d.partnerLogos.map(l => (
  <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 9px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
  <div className="ff-checker" style={{ width: 54, height: 34, borderRadius: 5, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
- <img src={l.dataUrl} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+ <ThumbImg max={200} src={l.dataUrl} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
  </div>
  <div style={{ flex: 1, minWidth: 0 }}>
  <div className="micro" style={{ color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</div>
@@ -38577,7 +38082,7 @@ ${sampleText}`;
  <button key={h.id} type="button" onClick={() => setBookletWsData(p => ({ ...p, history: [h, ...p.history.filter(x => x.id !== h.id)] }))}
  title={`v${String(h.version).padStart(3, '0')}`}
  style={{ width: 92, height: 64, padding: 0, borderRadius: 6, overflow: 'hidden', cursor: 'pointer', background: 'none', border: '1px solid var(--border)' }}>
- <img src={h.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+ <ThumbImg max={200} src={h.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
  </button>
  ))}
  </div>
@@ -38602,7 +38107,8 @@ ${sampleText}`;
  const vTier = 'video25';   // v1061: 영상은 2.5 하나뿐이다
  const vMaxSec = ARK_VIDEO_MAX_SEC[vTier];
  const vResOpts = arkResOptions(vTier);
- const cf = formatCostDisplay(estimateSeedance2Cost(Math.min(v.duration, vMaxSec), arkClampRes(vTier, v.resolution), v.aspect, { tier: vTier }));
+ // v1221: 초안이면 480p 로 센다 — 전에는 설정 해상도로 세서 초안을 켜도 비용이 그대로였다
+ const cf = formatCostDisplay(estimateSeedance2Cost(Math.min(v.duration, vMaxSec), v.draft ? '480p' : arkClampRes(vTier, v.resolution), v.aspect, { tier: vTier }));
  const imgCount = v.refs.filter(r => r.kind === 'image').length;
  const vidCount = v.refs.filter(r => r.kind === 'video').length;
  const toolImgPool = () => { const out = []; (customImageData.generations || []).forEach(g => { if (!g.loading && Array.isArray(g.urls)) g.urls.forEach(u => out.push({ url: u, label: '커스텀' })); }); (sheetWsData.history || []).forEach(g => { if (!g.loading && g.url) out.push({ url: g.url, label: '시트' }); }); (posterWsData.history || []).forEach(g => { if (!g.loading && g.url) out.push({ url: g.url, label: '포스터' }); }); return out; };
@@ -38709,7 +38215,7 @@ ${sampleText}`;
  // v1061: 2.0 을 걷어냈다. 옛 세션에 tier:'video' 가 저장돼 있어도 2.5 로 읽는다.
     const tier = 'video25';
  const dur = Math.min(v.duration, ARK_VIDEO_MAX_SEC[tier]);
- const res = arkClampRes(tier, v.resolution);
+ const res = v.draft ? '480p' : arkClampRes(tier, v.resolution);   // v1221: 예상 시간 · 기록 해상도도 실제로 보내는 값으로
  const asp = v.aspect;
  // 레퍼런스 스냅샷 (호출 시점 고정 — 이후 입력 변경 무관)
  const images = [], videos = [], tokenMap = {}, manifest = [];
@@ -38759,6 +38265,8 @@ ${sampleText}`;
  //   (사용자는 여전히 아무것도 쓰지 않아도 된다)
  if (outfitDirectives.length) prompt = `[Wardrobe — highest priority, overrides any clothing seen in references]\n${OUTFIT_RULE}\n${outfitDirectives.join('\n')}\n\n${prompt}`;
  if (voiceDirectives.length) prompt += `\n\n[Voice]\n${voiceDirectives.join('\n')}`;
+ if (ONSCREEN_WRITING_CUE.test(String(text || ''))) prompt += `\n\n${ONSCREEN_WRITING_RULE}`;   // v1203
+ if (ONSCREEN_WRITING_ACT_CUE.test(String(text || ''))) prompt += `\n\n${ONSCREEN_WRITING_BLANK_START}`;   // v1204
  // v1126: 음악 금지를 나열이 아니라 채널로 건다. 본문의 소괄호가 음악 채널이라
  //   먼저 정리하고, 그 다음 사운드 두 줄을 앞뒤로 붙인다.
  prompt = soundChannelize(prompt);
@@ -38767,7 +38275,7 @@ ${sampleText}`;
  };
  const jobId = `vc_${Date.now()}_${(videoJobSeq.current += 1)}`;
  // v643: 각 생성기록에 입력 스냅샷(프롬프트·설정·레퍼런스) 저장 → 썸네일 클릭 시 그대로 복원
- const params = { prompt: basePrompt, duration: dur, aspect: asp, resolution: res, refsSnapshot: v.refs.map(r => ({ ...r })), feedback: opts.feedbackNote || null };
+ const params = { prompt: basePrompt, duration: dur, aspect: asp, resolution: res, refsSnapshot: v.refs.map(r => ({ ...r })), feedback: opts.feedbackNote || null, raw: !!v.rawPrompt };   // v1220
  const estSec = estSecFor(durKeyVideo(res, dur, opts.baseVideoUrl ? true : videos.some(Boolean)), estVideoGenSeconds(res, dur));  // v791: 실측 학습값 우선, 표본 없으면 상수 추정
  up(p => ({ ...p, error: '', feedback: '', feedbackOpen: false, jobs: [{ id: jobId, version: videoJobSeq.current, loading: true, ts: Date.now(), estSec, params }, ...p.jobs] }));
  try {
@@ -38776,7 +38284,8 @@ ${sampleText}`;
  const vidsForRun = opts.baseVideoUrl ? [opts.baseVideoUrl, ...videos].slice(0, arkRefMax(tier, 'videos')) : videos;
  // v838: 사용자 프롬프트를 모델이 알아듣기 쉽게만 다듬는다(의도 불변, 결과는 비노출).
  //   opts.prompt 가 있으면 피드백 경로가 Claude 로 이미 다시 쓴 문장이라 건드리지 않는다.
- const polished = opts.prompt != null
+ // v1220: 'Claude 다듬기' 를 끄면 쓴 글 그대로 — 프롬프트를 시험해 볼 때. 레퍼런스 번호 연결 · 소리 조항은 아래에서 앱이 붙인다.
+ const polished = (opts.prompt != null || v.rawPrompt)
  ? basePrompt
  : await polishGenPrompt(basePrompt, { model: adaptModel, workCat: 'video' });
  const prompt = assembleVidPrompt(polished);
@@ -38834,7 +38343,7 @@ ${sampleText}`;
  <div style={{ flex: 1.2, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
  <div className="card" style={{ padding: 16, position: 'relative' }}>
  <div style={{ width: '100%', aspectRatio: '16 / 9', background: 'var(--bg-secondary)', borderRadius: 8, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
- {v.selectedUrl ? (<video src={v.selectedUrl} controls autoPlay loop style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }} />)
+ {v.selectedUrl ? (<PreviewVideo src={v.selectedUrl} controls autoPlay loop style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }} />)
  : (<div style={{ color: 'var(--text-quaternary)', textAlign: 'center' }}><Film size={36} strokeWidth={1.2} /><div className="meta" style={{ marginTop: 8 }}>{anyLoading ? '생성 중… 완료되면 생성기록에서 바로 확인할 수 있어요' : '생성된 영상이 여기에 표시됩니다'}</div></div>)}
  </div>
  {v.selectedUrl && (<button className="btn btn-secondary btn-sm" style={{ position: 'absolute', top: 26, right: 26 }} onClick={() => dlVideo(v.selectedUrl, 'custom_video')}><Download size={12} /> 다운로드</button>)}
@@ -38847,8 +38356,10 @@ ${sampleText}`;
  {/* v790: 피드백은 이전 영상을 입력으로 넣으므로 토큰이 늘어난다 — 늘어난 비용을 미리 보여준다 */}
  {(() => {
  const inSec = Math.min(ARK_VIDEO_MAX_SEC.video25, Math.max(0, Number(selectedJob.params?.duration) || 0));
- const base = estimateSeedance2Cost(v.duration, v.resolution, v.aspect, { tier: 'video25' });
- const fbCost = estimateSeedance2Cost(v.duration, v.resolution, v.aspect, { tier: 'video25', hasVideoInput: true, inputSec: inSec });
+ // v1221: 다시 만들 때의 해상도 — 초안이면 480p (설정 해상도가 아니라 실제로 보내는 값)
+ const fbRes = v.draft ? '480p' : arkClampRes('video25', v.resolution);
+ const base = estimateSeedance2Cost(v.duration, fbRes, v.aspect, { tier: 'video25' });
+ const fbCost = estimateSeedance2Cost(v.duration, fbRes, v.aspect, { tier: 'video25', hasVideoInput: true, inputSec: inSec });
  const b = formatCostDisplay(base), f = formatCostDisplay(fbCost);
  return (
  <div className="meta" style={{ marginBottom: 10, padding: '8px 11px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-tertiary)', lineHeight: 1.6 }}>
@@ -38891,7 +38402,7 @@ ${sampleText}`;
  <><div style={{ textAlign: 'center', color: 'var(--state-error)', padding: 6 }}><AlertTriangle size={20} /><div className="micro" style={{ marginTop: 4, fontSize: 9, wordBreak: 'break-word', maxHeight: 46, overflow: 'hidden' }}>{job.error ? `실패: ${job.error}` : '생성 실패'}</div></div><button onClick={(e) => { e.stopPropagation(); up(p => ({ ...p, jobs: p.jobs.filter(j => j.id !== job.id) })); }} title="삭제" className="ff-hover-btns" style={{ ...iconBtn, position: 'absolute', top: 4, right: 4 }}><X size={11} /></button></>
  ) : (
  <>
- <video src={job.resultUrl} muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+ <video preload="metadata" src={job.resultUrl} muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
  <div className="ff-hover-btns" style={{ position: 'absolute', bottom: 4, right: 4, display: 'flex', gap: 4 }}>
  <button onClick={(e) => { e.stopPropagation(); dlVideo(job.resultUrl, 'custom_video'); }} title="다운로드" style={iconBtn}><Download size={11} /></button>
  <button onClick={(e) => { e.stopPropagation(); genForget(job); up(p => ({ ...p, jobs: p.jobs.filter(j => j.id !== job.id), selectedUrl: p.selectedUrl === job.resultUrl ? null : p.selectedUrl })); }} title="삭제" style={iconBtn}><X size={11} /></button>
@@ -38938,7 +38449,7 @@ ${sampleText}`;
  <div style={{ position: 'absolute', left: 0, right: 0, top: '100%', marginTop: 4, zIndex: 30, background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
  {videoRefSuggest.matches.slice(0, 6).map((name, i) => { const ref = v.refs.find(r => r.refName === name); return (
  <button key={name} onMouseDown={(e) => { e.preventDefault(); applySuggest(name); }} onMouseEnter={() => setVideoRefSuggest(s => s ? { ...s, active: i } : s)} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', border: 'none', cursor: 'pointer', textAlign: 'left', background: i === activeIdx ? 'rgba(63,175,185,0.1)' : 'transparent', color: 'var(--text-primary)' }}>
- {ref && (ref.kind === 'video' ? <video src={ref.dataUrl} muted style={{ width: 22, height: 22, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} /> : <img src={`data:${ref.mimeType};base64,${ref.base64}`} alt="" style={{ width: 22, height: 22, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />)}
+ {ref && (ref.kind === 'video' ? <video preload="metadata" src={ref.dataUrl} muted style={{ width: 22, height: 22, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} /> : <ThumbImg b64={ref.base64} mime={ref.mimeType} max={200} alt="" style={{ width: 22, height: 22, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />)}
  <span style={{ fontSize: 12, fontFamily: 'SF Mono, monospace', fontWeight: 600, color: 'var(--green-700)' }}>@{name}</span>
  {i === activeIdx && <span className="micro" style={{ marginLeft: 'auto', color: 'var(--text-quaternary)', fontSize: 9 }}>↑↓ · Tab/Enter</span>}
  </button>); })}
@@ -38976,8 +38487,8 @@ ${sampleText}`;
  {/* v841: 배우 자산은 base64 가 없다(asset:// 로 보낸다) → 썸네일은 previewUrl 우선 */}
  <div className="ff-refimg" style={{ width: 64, height: 64 }}>
  {r.kind === 'video'
- ? <video src={r.dataUrl} muted style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--green-500)', display: 'block' }} />
- : <img src={r.previewUrl || `data:${r.mimeType};base64,${r.base64}`} alt={r.refName} style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: `1px solid ${r.isActorAsset ? 'var(--green-500)' : 'var(--border)'}`, display: 'block' }} />}
+ ? <video preload="metadata" src={r.dataUrl} muted style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--green-500)', display: 'block' }} />
+ : <ThumbImg src={r.previewUrl} b64={r.base64} mime={r.mimeType} max={200} alt={r.refName} style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: `1px solid ${r.isActorAsset ? 'var(--green-500)' : 'var(--border)'}`, display: 'block' }} />}
  {r.kind === 'video' && <span style={{ position: 'absolute', bottom: 3, left: 3, fontSize: 7, background: 'rgba(0,0,0,0.6)', color: '#fff', padding: '0 3px', borderRadius: 3 }}>VID</span>}
  {r.isActorAsset && <span title="인증된 배우 자산" style={{ position: 'absolute', top: 3, left: 3, fontSize: 7, fontWeight: 800, background: 'var(--green-500)', color: '#fff', padding: '1px 3px', borderRadius: 3, zIndex: 3 }}>인증</span>}
  {r.voice && <span title={`보이스: ${r.voice.name}`} style={{ position: 'absolute', bottom: 3, right: 3, fontSize: 7, fontWeight: 800, background: 'var(--green-500)', color: '#fff', padding: '1px 3px', borderRadius: 3, zIndex: 3 }}>🎙</span>}
@@ -38994,7 +38505,7 @@ ${sampleText}`;
  <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '2px 3px', border: '1px solid var(--green-700)', borderRadius: 5, background: 'rgba(63,175,185,0.08)' }}>
  {/* v1135: 마우스를 올리면 확대 */}
  <RefZoom src={`data:${r.costume.mimeType};base64,${r.costume.base64}`} label={r.costume.label || '의상'}>
- <img src={`data:${r.costume.mimeType};base64,${r.costume.base64}`} alt="의상" style={{ width: 18, height: 18, objectFit: 'cover', borderRadius: 3, display: 'block', flexShrink: 0, cursor: 'zoom-in' }} />
+ <ThumbImg b64={r.costume.base64} mime={r.costume.mimeType} max={200} alt="의상" style={{ width: 18, height: 18, objectFit: 'cover', borderRadius: 3, display: 'block', flexShrink: 0, cursor: 'zoom-in' }} />
  </RefZoom>
  <span style={{ fontSize: 8, color: 'var(--green-500)', fontWeight: 700, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>의상</span>
  <button onClick={() => detachCostume(ri)} title="의상 제거" style={{ width: 12, height: 12, border: 'none', background: 'transparent', color: 'var(--text-quaternary)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><X size={9} /></button>
@@ -39022,7 +38533,7 @@ ${sampleText}`;
  <RefZoom key={ci} src={c.url} label={c.label}>
  <button onClick={() => { attachCostume(ri, c); up({ costumePickFor: null }); }} title={c.label}
  style={{ width: 50, height: 50, padding: 0, border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', cursor: 'pointer', background: 'var(--bg-secondary)' }}>
- <img src={c.url} alt={c.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+ <ThumbImg max={200} src={c.url} alt={c.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
  </button>
  </RefZoom>
  ))}
@@ -39068,7 +38579,7 @@ ${sampleText}`;
  <button key={c.id} onClick={() => addCharacterRef(c)} disabled={busy || imgCount >= 9}
  title={`${c.name} — 원본 URL로 첨부`}
  style={{ width: 86, padding: 0, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-secondary)', cursor: (busy || imgCount >= 9) ? 'not-allowed' : 'pointer', opacity: (busy || imgCount >= 9) ? 0.5 : 1, overflow: 'hidden' }}>
- <img src={characterImgSrc(c)} alt={c.name}
+ <ThumbImg max={200} src={characterImgSrc(c)} alt={c.name}
  style={{ width: '100%', aspectRatio: '16 / 9', objectFit: 'cover', display: 'block' }} />
  <div className="micro" style={{ padding: '3px 4px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
  </button>
@@ -39115,7 +38626,7 @@ ${sampleText}`;
  title={`${g.name || g.id} — ${as.name || as.id}`}
  style={{ width: 86, padding: 0, border: '1px solid var(--green-500)', borderRadius: 6, background: 'var(--bg-secondary)', cursor: (busy || imgCount >= 9) ? 'not-allowed' : 'pointer', opacity: (busy || imgCount >= 9) ? 0.5 : 1, overflow: 'hidden' }}>
  {as.url
- ? <img src={as.url} alt={as.name || as.id} style={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'cover', display: 'block' }} />
+ ? <ThumbImg max={200} src={as.url} alt={as.name || as.id} style={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'cover', display: 'block' }} />
  : <div style={{ width: '100%', aspectRatio: '1 / 1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-quaternary)' }}><Users size={18} /></div>}
  <div className="micro" style={{ padding: '3px 4px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{as.assetType === 'Image' ? (as.name || '사진') : as.assetType}</div>
  </button>
@@ -39157,6 +38668,18 @@ ${sampleText}`;
   style={{ marginTop: 6, width: '100%', justifyContent: 'center' }}>
   {v.draft ? '초안 모드 · 켜짐' : '초안 모드 · 꺼짐'}
  </button>
+ {/* v1220: Claude 다듬기 — 끄면 쓴 글이 그대로 프롬프트가 된다(프롬프트 시험용) */}
+ <button type="button" onClick={() => up({ rawPrompt: !v.rawPrompt })} disabled={busy}
+  className={v.rawPrompt ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm'}
+  title={v.rawPrompt ? '쓴 글이 그대로 영상 모델에 들어갑니다' : 'Claude 가 영상 모델이 알아듣기 쉽게 다듬은 뒤 보냅니다'}
+  style={{ marginTop: 6, width: '100%', justifyContent: 'center' }}>
+  {v.rawPrompt ? 'Claude 다듬기 · 꺼짐 (쓴 그대로)' : 'Claude 다듬기 · 켜짐'}
+ </button>
+ {v.rawPrompt && (
+  <div className="micro" style={{ marginTop: 5, lineHeight: 1.5, color: 'var(--text-quaternary)' }}>
+   쓴 글이 그대로 영상 모델에 들어갑니다. 앱은 @이름 → 레퍼런스 번호 연결, 의상 · 목소리 조항, 소리 조항만 앞뒤에 붙입니다.
+  </div>
+ )}
  </div>
  {/* 길이 — 4초 ~ 티어 상한 */}
  <div>
@@ -39266,6 +38789,37 @@ ${sampleText}`;
  : x) }, costumePickFor: null }));
  rd.readAsDataURL(f);
  };
+ // v1199: 인물 레퍼런스에 목소리를 붙인다 — 업로드 · 배우 자산처럼 보이스가 없는 인물도.
+ //   툴의 보이스를 고르거나 오디오 파일을 올린다(프로젝트 · 인터뷰어와 같은 창).
+ //   영상 모델이 받는 형식(wav · mp3)과 길이(개당 2~10초)를 붙일 때 미리 본다 —
+ //   생성할 때 걸리면 돈을 내고 나서야 안다. 올린 파일은 앱 폴더로 옮긴다(v1175 — data: 는 세션 저장 때 빠진다).
+ const openRefVoice = (key, idx) => {
+  setProjectRefPicker({ kind: 'voices', source: 'character',
+   onPick: async (item) => {
+    if (!item.voiceUrl) {
+     up({ error: `${item.name || '이 항목'} 에는 보이스가 붙어 있지 않습니다. 자료 탭에서 보이스를 붙인 뒤 다시 골라주세요.` });
+     return;
+    }
+    const mime = (/^data:([^;,]+)/.exec(String(item.voiceUrl)) || [])[1] || '';
+    if (mime && !arkAudioMimeOk(mime)) {
+     up({ error: `wav · mp3 파일만 목소리로 보낼 수 있습니다 — 이 파일은 ${mime.replace(/^audio\//, '')} 입니다.` });
+     return;
+    }
+    let sec = null;
+    try { sec = await audioDurationOf(item.voiceUrl); } catch { sec = null; }
+    if (Number.isFinite(sec) && (sec < ARK_AUDIO_MIN_SEC || sec > ARK_AUDIO_MAX_SEC)) {
+     up({ error: `목소리 파일은 ${ARK_AUDIO_MIN_SEC}~${ARK_AUDIO_MAX_SEC}초여야 합니다 — 이 파일은 ${sec.toFixed(1)}초입니다. 잘라서 다시 올려주세요.` });
+     return;
+    }
+    const url = item.source === 'upload' ? await storeUploadBytes(item.voiceUrl, 'voice') : item.voiceUrl;
+    const voice = { name: item.voiceName || item.name || '보이스', srcUrl: url,
+     sec: Number.isFinite(sec) ? sec : null, from: item.source === 'upload' ? '업로드' : (item.name || '') };
+    up(p => ({ ...p, error: '', refs: { ...p.refs, [key]: (p.refs[key] || []).map((x, i) => (i === idx ? { ...x, voice } : x)) } }));
+   } });
+  setSingleDownloadsOpen(true);
+  if (!actorAssetLib.loadedAt && !actorAssetLib.loading) loadActorAssets();
+ };
+ const detachRefVoice = (key, idx) => up(p => ({ ...p, refs: { ...p.refs, [key]: (p.refs[key] || []).map((x, i) => (i === idx ? { ...x, voice: null } : x)) } }));
  const detachCostumeN = (key, idx) => up(p => ({ ...p, refs: { ...p.refs, [key]: (p.refs[key] || []).map((x, i) => {
  if (i !== idx) return x;
  const { costume, ...rest } = x;
@@ -39578,25 +39132,63 @@ ${sampleText}`;
  // v1061: 2.0 을 걷어냈다. 옛 세션에 tier:'video' 가 저장돼 있어도 2.5 로 읽는다.
     const tier = 'video25';
  const dur = Math.min(Number(v.duration) || 15, ARK_VIDEO_MAX_SEC[tier]);
- const asp = v.aspect;
+ // v1201: 프레임 변수는 레퍼런스를 싣기 전에 정한다 — 키프레임 그림의 자리를 먼저 잡고,
+ //   화면비도 그림에 맞춰야 하기 때문이다.
+ const frameSrc = (f) => (f ? (f.assetId ? `asset://${f.assetId}` : (f.dataUrl || '')) : '');
+ const frameStart = isPov ? frameSrc(v.startFrame) : '';
+ const frameEnd = isPov ? frameSrc(v.endFrame) : '';
+ const frameExact = !!frameStart && (v.frameMode || 'exact') === 'exact';
+ const sizeFree = TAKE_SIZE_CUE.test(situation);   // v1204: 상황 묘사가 크기 변화를 말하는가
+ // v1201: 레퍼런스 유지(키프레임) 방식은 설정한 화면비로 만들어서, 그림과 비율이 다르면 모델이 구도를
+ //   다시 잡을 수밖에 없었다. 시작 그림(없으면 끝 그림)의 비율에 가장 가까운 화면비로 만든다.
+ let asp = v.aspect;
+ if (isPov && !frameExact && (v.startFrame || v.endFrame)) {
+  const f = v.startFrame || v.endFrame;
+  const sz = await imageSizeOf(f.dataUrl || f.previewUrl || '');
+  const fit = sz ? nearestArkRatio(sz.w, sz.h) : '';
+  if (fit && fit !== asp) {
+   try { showToast(`${v.startFrame ? '시작' : '끝'} 그림의 비율에 맞춰 ${fit} 로 만듭니다 (설정은 ${asp || '없음'}).`, 'load'); } catch {}
+   asp = fit;
+  }
+ }
  // v1156: 초안은 480p 고정 — 예상 시간 · 비용 · 기록이 실제와 같아야 한다
  const res = v.draft ? '480p' : arkClampRes(tier, v.resolution);
  // 레퍼런스 스냅샷
  const imgList = [], vidList = [], manifest = [], tokenMap = {};
  let imgN = 0, vidN = 0;
+ // v1201: 이미지 한도는 모델 한도(2.5 = 30)로 — 9 는 2.0 시절 값이었다. 키프레임 그림은 맨 뒤에 붙으므로
+ //   그 자리를 먼저 떼어 둔다. 전에는 레퍼런스 · 의상으로 9장이 차면 그림이 조용히 빠졌다.
+ const IMG_MAX = arkRefMax(tier, 'images');
+ const frameSlots = (isPov && !frameExact) ? (frameStart ? 1 : 0) + (frameEnd ? 1 : 0) : 0;
+ const IMG_CAP = IMG_MAX - frameSlots;
  const outfitDirectives = [];
  // v1127: 보이스 지시문을 프로젝트 작업의 조항으로 바꾼다. 예전에는 [ImageN] 으로
  //   가리켰는데, 그러면 보이스가 없는 인물에게도 그 목소리가 실린다(프로젝트에서 겪었다).
  //   이름으로 묶고, 없는 사람은 없다고 이름까지 적어 못 박는다.
  const voiceNamed = [], audioList = [];
+ // v1199: 목소리 길이 합 — 2.5 는 합 30.2초까지 받는다(v1084). 넘치면 요청 전체가 거절되므로
+ //   뒤쪽 인물의 목소리를 빼고 알린다. 길이를 모르면 재 보고, 못 재면 보수값으로 센다.
+ const voiceKeep = new Set(), voiceOver = [];
+ {
+  let sum = 0;
+  for (const g of GROUPS) for (const r of (v.refs[g.key] || [])) {
+   if (!r || r.pending || r.kind !== 'image' || !voiceRefSrc(r.voice)) continue;
+   let sec = Number(r.voice.sec);
+   if (!(sec > 0)) { try { sec = await audioDurationOf(voiceRefSrc(r.voice)); } catch { sec = null; } }
+   const take = Number.isFinite(sec) && sec > 0 ? sec : ARK_AUDIO_ASSUME_SEC;
+   if (sum + take > ARK_AUDIO_TOTAL_MAX_SEC) { voiceOver.push(r.refName || '이름 없음'); continue; }
+   sum += take; voiceKeep.add(r);
+  }
+  if (voiceOver.length) { try { showToast(`목소리 길이 합이 ${ARK_AUDIO_TOTAL_MAX_SEC}초를 넘어 ${voiceOver.join(' · ')} 의 목소리는 이번 생성에서 뺐습니다.`, 'error'); } catch {} }
+ }
  // v1128: 이미지를 안 붙인 대기 칸은 조용히 빠진다 — 모델이 알아서 그린다
  const pendingNames = [];
  GROUPS.forEach(g => (v.refs[g.key] || []).forEach(r => { if (r && r.pending && r.refName) pendingNames.push(r.refName); }));
  GROUPS.forEach(g => (v.refs[g.key] || []).forEach(r => {
  if (r && r.pending) return;
- if (r.kind === 'image' && imgN < 9) { imgN++; imgList.push(liveCharSrc(r) || r.srcUrl || `data:${r.mimeType};base64,${r.base64}`); const tok = `[Image${imgN}]`; if (r.refName) tokenMap[r.refName] = tok; const charIdx = manifest.push(`${tok} = "${r.refName}" (${g.label})`) - 1;
+ if (r.kind === 'image' && imgN < IMG_CAP) { imgN++; imgList.push(liveCharSrc(r) || r.srcUrl || `data:${r.mimeType};base64,${r.base64}`); const tok = `[Image${imgN}]`; if (r.refName) tokenMap[r.refName] = tok; const charIdx = manifest.push(`${tok} = "${r.refName}" (${g.label})`) - 1;
  // v770: 캐릭터에 묶인 의상은 사용자 프롬프트 없이 뒷단에서 자동 적용
- if (r.costume && r.costume.base64 && imgN < 9) { imgN++; imgList.push(`data:${r.costume.mimeType};base64,${r.costume.base64}`); const ctok = `[Image${imgN}]`;
+ if (r.costume && r.costume.base64 && imgN < IMG_CAP) { imgN++; imgList.push(`data:${r.costume.mimeType};base64,${r.costume.base64}`); const ctok = `[Image${imgN}]`;
  // v781: 캐릭터는 신원 전용 — 시트의 기본 무채색 의상이 섞여 나오지 않게 명시
  manifest[charIdx] = `${tok} = "${r.refName}" (${g.label} · 신원 전용: 얼굴·헤어·체형만. 의상은 ${ctok})`;
  manifest.push(`${ctok} = "${r.refName}의 의상" (이 인물의 유일한 의상 출처 · 자동 적용, [Shots]에서 따로 지칭하지 말 것)`);
@@ -39605,7 +39197,7 @@ ${sampleText}`;
  const cLabel = String(r.costume.label || '').trim();
  outfitDirectives.push(`${r.refName || tok} — identity ${tok}, wardrobe ${ctok}${cLabel ? ` (${cLabel})` : ''}.`); }
  // v773: 캐릭터 보이스 → reference_audio (최대 3개)
- const vsrc = voiceRefSrc(r.voice);
+ const vsrc = voiceKeep.has(r) ? voiceRefSrc(r.voice) : null;   // v1199
  if (vsrc && audioList.length < arkRefMax(tier, 'audios')) {
  audioList.push(vsrc);
  const atok = `[Audio${audioList.length}]`;
@@ -39616,38 +39208,40 @@ ${sampleText}`;
  }));
  // v1132: POV 의 시작 · 끝 프레임. 보내는 방식이 둘이다 —
  //   exact    : first_frame / last_frame 역할로 보낸다. 시작 · 끝 그림이 그대로 나온다.
- //              2.5 문서에서 이 모드는 레퍼런스 작업과 별개라, 레퍼런스 이미지와 앞 클립을
- //              함께 보낼 수 없다(보내도 callSeedanceVideo 가 이미지 레퍼런스를 뺀다).
+ //              대신 레퍼런스 이미지 · 영상 · 오디오(목소리)는 하나도 가지 않는다 — 시작만이어도.
+ //              ModelArk 가 프레임과 레퍼런스 미디어를 한 요청에 받지 않는다(400, v1191 · v1200).
  //   keyframe : 그림을 레퍼런스 이미지로 싣고 '여기서 시작해 여기서 끝난다' 고 적는다.
  //              다른 레퍼런스가 그대로 가지만, 그림과 픽셀 단위로 같게 시작하지는 않을 수 있다.
  //   끝 프레임만 있을 때는 exact 가 성립하지 않는다(first_frame 없는 last_frame 은 없다) — keyframe 으로 보낸다.
  // v1146: 인증 자산으로 등록했으면 그 주소로 보낸다 — 실사 인물이 있어도 심의를 통과한다
- const frameSrc = (f) => (f ? (f.assetId ? `asset://${f.assetId}` : (f.dataUrl || '')) : '');
- const frameStart = isPov ? frameSrc(v.startFrame) : '';
- const frameEnd = isPov ? frameSrc(v.endFrame) : '';
- const frameExact = !!frameStart && (v.frameMode || 'exact') === 'exact';
  const frameLines = [];
  const frameDropped = [];   // v1191: 끝 프레임 때문에 그림이 빠진 이름 — 본문에서 평범한 말로 되돌린다
  if (frameExact) {
-  // v1191: 끝 프레임까지 고정하면 레퍼런스 이미지가 가지 않는다(ModelArk 제약 — 400).
-  //   보내지 않을 그림을 번호로 가리키면 모델이 그 번호를 프레임으로 읽는다.
-  //   번호 토큰 · 매니페스트 · 의상 지시를 함께 걷고, @이름 은 평범한 말로 남긴다.
-  //   시작 프레임만이면 레퍼런스가 함께 간다(v1182) — 걷지 않는다.
-  if (frameEnd) {
-   Object.keys(tokenMap).forEach(nm => { if (/^\[Image/.test(String(tokenMap[nm]))) { frameDropped.push(nm); delete tokenMap[nm]; } });
-   for (let k = manifest.length - 1; k >= 0; k -= 1) { if (/^\[Image/.test(String(manifest[k] || ''))) manifest.splice(k, 1); }
-   imgList.length = 0;
-   outfitDirectives.length = 0;
+  // v1200: 프레임을 고정하면 레퍼런스 미디어(이미지 · 영상 · 오디오)는 하나도 가지 않는다.
+  //   ModelArk 가 first/last frame 을 레퍼런스와 한 요청에 받지 않는다 — 끝 프레임만의 문제가
+  //   아니었다: "first/last frame content cannot be mixed with reference media content"
+  //   (400, 2026-09-30 · 시작 프레임 + 인물 · 장소 · 오브제). v1182 의 '시작만이면 함께 간다' 는 틀렸다.
+  //   보내지 않을 것을 번호로 가리키면 모델이 그 번호를 프레임으로 읽는다 — 번호 토큰 · 매니페스트 ·
+  //   의상 지시 · 목소리 조항을 함께 걷고, @이름 은 평범한 말로 남긴다.
+  const lostNames = [...new Set(Object.keys(tokenMap).filter(nm => /^\[(Image|Video)/.test(String(tokenMap[nm]))))];
+  const lostVoices = audioList.length;
+  lostNames.forEach(nm => { frameDropped.push(nm); delete tokenMap[nm]; });
+  for (let k = manifest.length - 1; k >= 0; k -= 1) { if (/^\[(Image|Video|Audio)/.test(String(manifest[k] || ''))) manifest.splice(k, 1); }
+  imgList.length = 0; vidList.length = 0; audioList.length = 0; voiceNamed.length = 0;
+  outfitDirectives.length = 0;
+  if (lostNames.length || lostVoices) {
+   try { showToast(`'정확히' 방식이라 레퍼런스(${lostNames.join(' · ') || '없음'})${lostVoices ? ` · 목소리 ${lostVoices}개` : ''}는 보내지 않습니다 — 프레임과 함께 못 갑니다. 함께 보내려면 [레퍼런스 유지] 로 바꾸세요.`, 'error'); } catch {}
   }
   frameLines.push(`FRAMES: the take opens exactly on the start frame${frameEnd ? ' and arrives exactly at the end frame in its final moment' : ''}. Everything in between moves from one to the other in a single continuous take.`);
+  // v1200: 레퍼런스가 없으므로 인물의 생김새는 프레임이 정한다 — 시작만일 때도
   frameLines.push(frameEnd
    ? 'The two frames are the only pictures of these people. Who they are — face, body, hair and wardrobe — is exactly'
     + ' what the frames show, and it does not change between them.'
-   : 'The start frame sets the opening composition only. Who these people are — face, body, hair and wardrobe —'
-    + ' still comes from the reference images, and it does not change during the take.');
+   : 'The start frame is the only picture of these people. Who they are — face, body, hair and wardrobe — is exactly'
+    + ' what the start frame shows, and it does not change during the take.');
  } else if (frameStart || frameEnd) {
   const addKey = (src, label) => {
-   if (!src || imgN >= 9) return '';
+   if (!src || imgN >= IMG_MAX) return '';   // v1201: 자리는 위에서 떼어 두었다
    imgN += 1;
    imgList.push(src);
    const tok = `[Image${imgN}]`;
@@ -39702,6 +39296,7 @@ ${sampleText}`;
  const frameNote = (frameStart || frameEnd)
   ? `\n\n[프레임] 이 테이크는 ${frameStart ? '주어진 시작 그림에서 시작' : ''}${frameStart && frameEnd ? '하고 ' : ''}${frameEnd ? '주어진 끝 그림에서 끝난다' : '한다'}.`
    + ' 상황 묘사를 그 사이의 움직임으로 쓴다. 그림 속 장면을 새로 지어내거나 다른 곳에서 시작하지 않는다.'
+   + (frameExact ? ' 레퍼런스 그림 · 영상 · 목소리는 함께 가지 않는다 — 인물의 생김새 · 옷은 그림이 정하므로 새로 적지 않는다.' : '')   // v1200
   : '';
  const genderPairs = (v.refs?.character || [])
   .filter(r => r && r.refName && (r.gender === 'male' || r.gender === 'female'))
@@ -39709,26 +39304,50 @@ ${sampleText}`;
  const genderNote = genderPairs.length
   ? `\n\n[인물 성별 — 지정됨] ${[...new Set(genderPairs)].join(' · ')}\n상황 묘사에서 다르게 읽혀도 이대로 쓴다. 인칭(he/she)과 목소리도 이 성별을 따른다.`
   : '';
- const userMsg = `아래 상황을 ${dur}초 Seedance 영상 프롬프트로 변환하세요.${manifestStr}${frameNote}${genderNote}\n\n[상황 묘사]\n${situationText}`;
+ // v1204: 한 테이크(다큐 · POV)는 상황 묘사가 줌 · 확대 · 다가감을 말할 때만 크기가 바뀐다
+ const sizeNote = (isTake && !sizeFree)
+  ? '\n\n[화면 크기] 상황 묘사에 줌 · 확대 · 다가감이 없다 — 처음부터 끝까지 같은 크기다. 구간마다 CU · ECU 를 새로 적지 않는다. 대사한다고 얼굴로 당기지 않는다.'
+  : '';
+ const userMsg = `아래 상황을 ${dur}초 Seedance 영상 프롬프트로 변환하세요.${manifestStr}${frameNote}${genderNote}${sizeNote}\n\n[상황 묘사]\n${situationText}`;
  const rulebook = isPov ? seedancePovRulebook(dur, v.camera)
   : isDocu ? seedanceDocumentaryRulebook(dur)
   : seedanceNarrativeRulebook(dur);
  genPrompt = String(await callClaude(rulebook, userMsg, { model: adaptModel, maxTokens: 2000, workCat: 'video' }) || '').replace(/```/g, '').trim();
  if (!genPrompt) throw new Error('프롬프트 생성 결과가 비었습니다.');
+ // v1209: [Notes] 의 큰따옴표를 빼고(대사 채널로 나가지 않게), 상황 묘사에 없는 대사를 막는다
+ genPrompt = unquoteNotes(genPrompt);
+ {
+  let extraLines = findUnscriptedLines(genPrompt, [situation]);
+  if (extraLines.length) {
+   console.warn(`[영상] 상황 묘사에 없는 대사가 있어 다시 씁니다 — ${extraLines.join(' / ')}`);
+   const again = String(await callClaude(rulebook, `${userMsg}\n\n[다시 쓰십시오] 상황 묘사에 없는 말을 큰따옴표로 적었습니다: ${extraLines.map(x => `"${x}"`).join(' · ')}\n`
+    + '말은 상황 묘사에 큰따옴표로 적힌 대사만 합니다. 이 말들을 빼고, 말이 아닌 것은 큰따옴표 없이 적으십시오.',
+    { model: adaptModel, maxTokens: 2000, workCat: 'video' }) || '').replace(/```/g, '').trim();
+   if (again) genPrompt = unquoteNotes(again);
+   extraLines = findUnscriptedLines(genPrompt, [situation]);
+   if (extraLines.length) genPrompt = stripUnscriptedLines(genPrompt, extraLines);
+  }
+ }
+ // v1204: 크기가 고정인데 구간 머리에 CU · ECU 가 오면 모델은 그것을 줌으로 한다 — MCU 로 되돌린다
+ if (isTake && !sizeFree) genPrompt = genPrompt.replace(/(\[\d+:\d{2}\s*[–-]\s*\d+:\d{2}\]\s*)(?:ECU|CU|extreme close-?up|close-?up)\b/gi, '$1MCU');
  if (isTake) {
   // v1172: 인터뷰는 부가콘텐츠 탭으로 옮겼다. 여기서 글자로 걸어 조항을 바꾸지 않는다 —
   //   다큐에 '인터뷰' 라는 말이 나온다고 해서 그 클립이 인터뷰 형식인 것은 아니다.
   // POV 는 '나' 가 화면에 서는 것과 내 대사가 남의 입에 붙는 것, 두 군데서 깨진다.
   //   그래서 시점 조항에 몸과 목소리 조항을 언제나 함께 붙인다.
   // v1147: 움직임이 구간 경계에서 끊기지 않게 — 다큐 · POV 공통
-  const camStyle = `${TAKE_MOTION_RULE} ${TAKE_TURN_SOUND_RULE} ` + (isPov
+  // v1206: '나' 의 손 동작 — Claude 가 VIEWER HANDS 줄로 알려 준다. 읽은 뒤 그 줄은 지운다:
+  //   'VIEWER HANDS: none' 이 영상 모델에게 그대로 가서 손이 없는 장면에도 '손' 을 말하고 있었다.
+  const viewerHands = (() => {
+   const hm = /^\s*VIEWER HANDS:\s*(.+)$/im.exec(genPrompt);
+   const hv = hm ? hm[1].trim().replace(/^[<\[]|[>\]]$/g, '') : '';
+   return (!hv || /^none\b/i.test(hv)) ? '' : hv;
+  })();
+  if (isPov) genPrompt = genPrompt.replace(/^[ \t]*VIEWER HANDS:.*(?:\r?\n)?/gim, '');
+  const camStyle = `${TAKE_MOTION_RULE_FOR(sizeFree)} ${TAKE_TURN_SOUND_RULE} ` + (isPov
    ? `${POV_CAMERA_STYLE[v.camera] || POV_CAMERA_STYLE.eyes}`
    + `${v.camera === 'device' ? ` ${POV_DEVICE_RULE} ${POV_UNSEEN_RULE}` : ''}`
-   + ` ${POV_SELF_RULE(v.povGender)} ${POV_BODY_RULE_FOR((() => {
-    const hm = /^\s*VIEWER HANDS:\s*(.+)$/im.exec(genPrompt);
-    const hv = hm ? hm[1].trim().replace(/^[<\[]|[>\]]$/g, '') : '';
-    return (!hv || /^none\b/i.test(hv)) ? '' : hv;
-   })(), v.camera === 'device')} ${POV_SPEECH_RULE}`
+   + ` ${POV_SELF_RULE(v.povGender, !!viewerHands)} ${POV_BODY_RULE_FOR(viewerHands, v.camera === 'device')} ${POV_SPEECH_RULE}`
    : (DOCU_CAMERA_STYLE[v.camera] || DOCU_CAMERA_STYLE.handheld));
   // ★ 클로드가 자리표시자를 그대로 내놓는다고 가정하지 않는다. 자기 말로 풀어 쓰면
   //   치환이 아무 일도 하지 않고 카메라 조항이 통째로 빠진다 — 있으면 쓰고, 없으면 붙인다.
@@ -39760,16 +39379,22 @@ ${sampleText}`;
    + '\nWHO IS HERE is decided by this prompt alone. Someone who walked out in the last seconds of Video 1 is'
    + ' not here unless this prompt brings them back, and nobody appears merely because they were in Video 1.';
  }
- if (frameLines.length) finalPrompt += `\n\n${frameLines.join('\n')}`;
+ // v1205: 시작 · 끝 프레임 줄은 여기(끝)가 아니라 맨 앞에 붙인다 — 아래 POV 머리 조립을 볼 것
  // v1143: 오브제 시트의 크기 자가 '내 손' · 없던 사람으로 새어 나오지 않게
  if (!frameExact && (v.refs?.object || []).some(r => r && !r.pending && r.kind === 'image')) finalPrompt += `\n\n${SCALE_FIGURE_RULE}`;
+ if (ONSCREEN_WRITING_CUE.test(situation)) finalPrompt += `\n\n${ONSCREEN_WRITING_RULE}`;   // v1203
+ if (ONSCREEN_WRITING_ACT_CUE.test(situation)) finalPrompt += `\n\n${ONSCREEN_WRITING_BLANK_START}`;   // v1204
  // v1126: 본문의 괄호를 정리하고 사운드 두 줄을 앞뒤로 붙인다
  finalPrompt = soundChannelize(finalPrompt);
  finalPrompt = isPov
   // v1192: 놀람 조항은 상황 묘사가 놀람을 말할 때만 — 떨어뜨림 조항과 같은 방식
-  ? `${PROJECT_SOUND_RULE}\n\n${POV_FRAMING_LINE}`
+  // v1205: 시작 · 끝 프레임 줄을 음악 금지 바로 뒤로 — 전에는 긴 카메라 조항 뒤, 프롬프트 끝에 붙어
+  //   묻혔다. 앞쪽 서술을 더 세게 잡는다는 것은 v783 · v1007 에서 겪었다. 음악 금지(SOUND)는 그대로 맨 앞.
+  ? `${PROJECT_SOUND_RULE}`
+   + `${frameLines.length ? `\n\n${frameLines.join('\n')}` : ''}`
+   + `\n\n${POV_FRAMING_LINE_FOR(sizeFree)}`
    + `${POV_STARTLE_CUE.test(situation) ? `\n\n${POV_STARTLE_RULE}` : ''}`
-   + `${(v.camera === 'device' && /떨어뜨|떨어진|떨군|놓치|내려놓|drop/i.test(situation)) ? `\n\n${POV_DROP_LINE}` : ''}`
+   + `${(v.camera === 'device' && POV_DROP_CUE.test(situation)) ? `\n\n${POV_DROP_LINE}` : ''}`   // v1202
    + `\n\n${finalPrompt}\n\n${PROJECT_FINAL_LINE}`
   : `${PROJECT_SOUND_RULE}\n\n${finalPrompt}\n\n${PROJECT_FINAL_LINE}`;
  // v1192: 실제로 보낸 전문을 남긴다. Claude 가 쓴 본문만 보여 주면 앞뒤에 코드가 붙이는
@@ -39904,7 +39529,7 @@ ${sampleText}`;
  <div style={{ flex: 1.2, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
  <div className="card" style={{ padding: 16, position: 'relative' }}>
  <div style={{ width: '100%', aspectRatio: '16 / 9', background: 'var(--bg-secondary)', borderRadius: 8, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
- {v.selectedUrl ? (<video src={v.selectedUrl} controls autoPlay loop style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }} />)
+ {v.selectedUrl ? (<PreviewVideo src={v.selectedUrl} controls autoPlay loop style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }} />)
  : (<div style={{ color: 'var(--text-quaternary)', textAlign: 'center' }}><Film size={36} strokeWidth={1.2} /><div className="meta" style={{ marginTop: 8 }}>{anyLoading ? '생성 중… 완료되면 생성기록에서 바로 확인할 수 있어요' : `생성된 ${vDur}초 영상이 여기에 표시됩니다`}</div></div>)}
  </div>
  {v.selectedUrl && (<button className="btn btn-secondary btn-sm" style={{ position: 'absolute', top: 26, right: 26 }} onClick={() => dlVideo(v.selectedUrl, 'narrative_15s')}><Download size={12} /> 다운로드</button>)}
@@ -39919,7 +39544,8 @@ ${sampleText}`;
  // 재생성은 그 영상이 만들어진 길이를 기준으로 잡는다(입력으로도 그 길이가 들어간다).
  const fbSec = Number(selectedJob.params?.duration) || 15;
  const fbTier = 'video25';   // v1061: 영상은 2.5 하나뿐이다
- const fbRes = arkClampRes(fbTier, selectedJob.params?.resolution || v.resolution);
+ // v1221: 다시 만드는 해상도는 지금 설정을 따른다(runGen) — 고른 영상의 해상도가 아니다. 초안이면 480p.
+ const fbRes = v.draft ? '480p' : arkClampRes(fbTier, v.resolution);
  const base = estimateSeedance2Cost(fbSec, fbRes, v.aspect, { tier: fbTier });
  const fbCost = estimateSeedance2Cost(fbSec, fbRes, v.aspect, { tier: fbTier, hasVideoInput: true, inputSec: fbSec });
  const b = formatCostDisplay(base), f = formatCostDisplay(fbCost);
@@ -39996,7 +39622,7 @@ ${sampleText}`;
  <><div style={{ textAlign: 'center', color: 'var(--state-error)', padding: 6 }}><AlertTriangle size={20} /><div className="micro" style={{ marginTop: 4, fontSize: 9, wordBreak: 'break-word', maxHeight: 46, overflow: 'hidden' }}>{job.error ? `실패: ${job.error}` : '생성 실패'}</div></div><button onClick={(e) => { e.stopPropagation(); up(p => ({ ...p, jobs: p.jobs.filter(j => j.id !== job.id) })); }} title="삭제" className="ff-hover-btns" style={{ ...iconBtn, position: 'absolute', top: 4, right: 4 }}><X size={11} /></button></>
  ) : (
  <>
- <video src={job.resultUrl} muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+ <video preload="metadata" src={job.resultUrl} muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
  <div className="ff-hover-btns" style={{ position: 'absolute', bottom: 4, right: 4, display: 'flex', gap: 4 }}>
  <button onClick={(e) => { e.stopPropagation(); dlVideo(job.resultUrl, 'narrative_15s'); }} title="다운로드" style={iconBtn}><Download size={11} /></button>
  <button onClick={(e) => { e.stopPropagation(); genForget(job); up(p => ({ ...p, jobs: p.jobs.filter(j => j.id !== job.id), selectedUrl: p.selectedUrl === job.resultUrl ? null : p.selectedUrl })); }} title="삭제" style={iconBtn}><X size={11} /></button>
@@ -40058,7 +39684,7 @@ ${sampleText}`;
  <div style={{ position: 'absolute', left: 0, right: 0, top: '100%', marginTop: 4, zIndex: 30, background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
  {narrRefSuggest.matches.slice(0, 6).map((name, i) => { const ref = findRef(name); return (
  <button key={name} onMouseDown={(e) => { e.preventDefault(); applySuggest(name); }} onMouseEnter={() => setNarrRefSuggest(s => s ? { ...s, active: i } : s)} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', border: 'none', cursor: 'pointer', textAlign: 'left', background: i === activeIdx ? 'rgba(63,175,185,0.1)' : 'transparent', color: 'var(--text-primary)' }}>
- {ref && (ref.kind === 'video' ? <video src={ref.dataUrl} muted style={{ width: 22, height: 22, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} /> : <img src={`data:${ref.mimeType};base64,${ref.base64}`} alt="" style={{ width: 22, height: 22, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />)}
+ {ref && (ref.kind === 'video' ? <video preload="metadata" src={ref.dataUrl} muted style={{ width: 22, height: 22, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} /> : <ThumbImg b64={ref.base64} mime={ref.mimeType} max={200} alt="" style={{ width: 22, height: 22, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />)}
  <span style={{ fontSize: 12, fontFamily: 'SF Mono, monospace', fontWeight: 600, color: 'var(--green-700)' }}>@{name}</span>
  {i === activeIdx && <span className="micro" style={{ marginLeft: 'auto', color: 'var(--text-quaternary)', fontSize: 9 }}>↑↓ · Tab/Enter</span>}
  </button>); })}
@@ -40067,6 +39693,26 @@ ${sampleText}`;
  </div>
  <RefHighlightPreview text={v.situation} refNames={refNames} />
  </div>
+ {/* v1218: 내러티브의 초안 버튼 — 다큐 · POV 쪽 버튼은 아래 카메라 칸(isTake) 안에 있어서
+     내러티브에서는 함께 숨겨졌다. 기능(runGen 의 isDraft)은 원래 내러티브에도 있었다. */}
+ {!isTake && (
+ <div>
+ <div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>초안
+  <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}> · 480p 로 먼저 보고 1080p 로 올리기</span>
+ </div>
+ <button type="button" onClick={() => up({ draft: !v.draft })} disabled={busy}
+  className={v.draft ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+  style={{ width: '100%', justifyContent: 'center' }}>
+  {v.draft ? '초안 모드 · 켜짐' : '초안 모드 · 꺼짐'}
+ </button>
+ {v.draft && (
+  <div className="micro" style={{ marginTop: 5, lineHeight: 1.5, color: 'var(--text-quaternary)' }}>
+   480p 로만 뽑힙니다. 구도 · 컷 · 동작 · 의도를 확인한 뒤 생성기록에서 <strong>1080p 로 변환</strong>을 누르면
+   같은 프롬프트 · 레퍼런스 · 시드로 다시 만듭니다. 초안은 7일까지만 쓸 수 있습니다.
+  </div>
+ )}
+ </div>
+ )}
  {/* v1129: 다큐멘터리만 — 카메라 · 이전 클립 */}
  {isTake && (
  <div>
@@ -40154,7 +39800,7 @@ ${sampleText}`;
     {f ? (
      <div style={{ position: 'relative' }}>
       <RefZoom src={f.previewUrl || f.dataUrl} label={`${label} 프레임`}>
-       <img src={f.previewUrl || f.dataUrl} alt="" style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', borderRadius: 8,
+       <ThumbImg max={480} src={f.previewUrl || f.dataUrl} alt="" style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', borderRadius: 8,
         border: '1px solid var(--green-700)', display: 'block', cursor: 'zoom-in' }} />
       </RefZoom>
       <button type="button" title="빼기" onClick={() => up({ [key]: null })}
@@ -40215,7 +39861,7 @@ ${sampleText}`;
   </div>
   {any && (<>
    <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-    {[{ id: 'exact', label: '정확히', desc: '그 그림 그대로 시작 · 끝' }, { id: 'keyframe', label: '레퍼런스 유지', desc: '다른 레퍼런스와 함께' }].map(m => (
+    {[{ id: 'exact', label: '정확히', desc: '그림 그대로 · 레퍼런스 없이' }, { id: 'keyframe', label: '레퍼런스 유지', desc: '레퍼런스 · 목소리와 함께' }].map(m => (
      <button key={m.id} type="button" onClick={() => up({ frameMode: m.id })} disabled={busy}
       className={mode === m.id ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
       style={{ flex: 1, height: 'auto', padding: '6px 8px', flexDirection: 'column', gap: 1 }}>
@@ -40224,17 +39870,24 @@ ${sampleText}`;
      </button>
     ))}
    </div>
-   <div className="micro" style={{ marginTop: 6, lineHeight: 1.55,
-    color: (mode === 'exact' && v.startFrame && v.endFrame) ? 'var(--state-warning)' : 'var(--text-quaternary)' }}>
-    {/* v1191: ModelArk 는 끝 프레임과 레퍼런스 이미지를 함께 받지 않는다. 시작만이면 함께 간다. */}
-    {mode === 'exact'
-     ? (v.startFrame && v.endFrame
-       ? '시작 · 끝 그림이 그대로 나옵니다. 끝 프레임을 고정하면 ModelArk 가 레퍼런스 이미지를 함께 받지 않아 인물 · 공간 · 오브제 레퍼런스가 빠지고, 인물은 두 그림 속 모습을 따릅니다. 레퍼런스가 필요하면 [레퍼런스 유지] 로 바꾸세요. 보이스는 그대로 갑니다.'
-       : v.startFrame
-       ? '시작 그림이 그대로 나오고, 인물 · 공간 · 오브제 레퍼런스도 함께 갑니다. 화면비는 시작 그림을 따르고, 앞 클립은 전송되지 않습니다.'
-       : '정확히 방식은 시작 프레임이 있어야 합니다. 끝 프레임만 있으면 레퍼런스 유지 방식으로 보냅니다.')
-     : '시작 · 끝 그림을 레퍼런스로 싣고 "여기서 시작해 여기서 끝난다" 고 적습니다. 다른 레퍼런스는 그대로 가지만, 그림과 완전히 같게 시작하지 않을 수 있습니다.'}
-   </div>
+   {/* v1200: ModelArk 는 프레임(시작이든 끝이든)과 레퍼런스 미디어를 한 요청에 받지 않는다 */}
+   {(() => {
+    const picked = GROUPS.reduce((a2, g2) => a2 + (v.refs[g2.key] || []).filter(r => r && !r.pending).length, 0);
+    const voices = (v.refs.character || []).filter(r => r && !r.pending && r.voice).length;
+    const losing = mode === 'exact' && !!v.startFrame && (picked > 0 || voices > 0);
+    return (
+     <div className="micro" style={{ marginTop: 6, lineHeight: 1.55, color: losing ? 'var(--state-warning)' : 'var(--text-quaternary)' }}>
+      {mode === 'exact'
+       ? (v.startFrame
+         ? `${v.endFrame ? '시작 · 끝 그림이' : '시작 그림이'} 그대로 나옵니다. 대신 ModelArk 가 프레임과 레퍼런스를 한 요청에 받지 않아 인물 · 공간 · 오브제 레퍼런스와 목소리는 가지 않고, 인물은 그림 속 모습을 따릅니다. 화면비는 시작 그림을 따르고 앞 클립도 가지 않습니다.`
+         : '정확히 방식은 시작 프레임이 있어야 합니다. 끝 프레임만 있으면 레퍼런스 유지 방식으로 보냅니다.')
+       : '시작 · 끝 그림을 레퍼런스로 싣고 "여기서 시작해 여기서 끝난다" 고 적습니다. 레퍼런스와 목소리는 그대로 가지만, 그림과 완전히 같게 시작하지 않을 수 있습니다.'}
+      {losing && <div style={{ marginTop: 3, fontWeight: 700 }}>
+       ⚠ 지금 고른 레퍼런스 {picked}개{voices ? ` · 목소리 ${voices}개` : ''}가 빠집니다. 함께 보내려면 [레퍼런스 유지] 로 바꾸세요.
+      </div>}
+     </div>
+    );
+   })()}
   </>)}
  </>);
  })()}
@@ -40244,7 +39897,7 @@ ${sampleText}`;
  {v.prevClip ? (
  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 7, borderRadius: 8,
  border: '1px solid var(--green-700)', background: 'rgba(63,175,185,0.06)' }}>
- <video src={v.prevClip.dataUrl} muted style={{ width: 64, height: 36, objectFit: 'cover', borderRadius: 5, background: '#000' }} />
+ <video preload="metadata" src={v.prevClip.dataUrl} muted style={{ width: 64, height: 36, objectFit: 'cover', borderRadius: 5, background: '#000' }} />
  <span className="micro" style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.prevClip.name}</span>
  <button className="btn btn-ghost btn-sm" style={{ color: 'var(--state-error)' }} onClick={() => up({ prevClip: null })}>제거</button>
  </div>
@@ -40325,7 +39978,7 @@ ${sampleText}`;
  {list.map((r, i) => (r && r.pending ? null : (
  <div key={i} style={{ position: 'relative', width: 56 }}>
  <div className="ff-refimg" style={{ width: 56, height: 56 }}>
- {r.kind === 'video' ? <video src={r.dataUrl} muted style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--green-500)', display: 'block' }} /> : <img src={r.previewUrl || `data:${r.mimeType};base64,${r.base64}`} alt={r.refName} style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: `1px solid ${r.isActorAsset ? 'var(--green-500)' : 'var(--border)'}`, display: 'block' }} />}
+ {r.kind === 'video' ? <video preload="metadata" src={r.dataUrl} muted style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--green-500)', display: 'block' }} /> : <ThumbImg src={r.previewUrl} b64={r.base64} mime={r.mimeType} max={200} alt={r.refName} style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: `1px solid ${r.isActorAsset ? 'var(--green-500)' : 'var(--border)'}`, display: 'block' }} />}
  {r.kind === 'video' && <span style={{ position: 'absolute', bottom: 3, left: 3, fontSize: 7, background: 'rgba(0,0,0,0.6)', color: '#fff', padding: '0 3px', borderRadius: 3 }}>VID</span>}
  {r.isActorAsset && <span title="인증된 배우 자산" style={{ position: 'absolute', top: 3, left: 3, fontSize: 6.5, fontWeight: 800, background: 'var(--green-500)', color: '#fff', padding: '1px 2px', borderRadius: 3, zIndex: 3 }}>인증</span>}
  {r.voice && (
@@ -40368,7 +40021,7 @@ ${sampleText}`;
  <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '2px', border: '1px solid var(--green-700)', borderRadius: 5, background: 'rgba(63,175,185,0.08)' }}>
  {/* v1135: 마우스를 올리면 확대 */}
  <RefZoom src={`data:${r.costume.mimeType};base64,${r.costume.base64}`} label={r.costume.label || '의상'}>
- <img src={`data:${r.costume.mimeType};base64,${r.costume.base64}`} alt="의상" style={{ width: 16, height: 16, objectFit: 'cover', borderRadius: 3, display: 'block', flexShrink: 0, cursor: 'zoom-in' }} />
+ <ThumbImg b64={r.costume.base64} mime={r.costume.mimeType} max={200} alt="의상" style={{ width: 16, height: 16, objectFit: 'cover', borderRadius: 3, display: 'block', flexShrink: 0, cursor: 'zoom-in' }} />
  </RefZoom>
  <span style={{ fontSize: 8, color: 'var(--green-500)', fontWeight: 700, flex: 1, minWidth: 0, overflow: 'hidden' }}>의상</span>
  <button onClick={() => detachCostumeN(g.key, i)} title="의상 제거" style={{ width: 11, height: 11, border: 'none', background: 'transparent', color: 'var(--text-quaternary)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><X size={8} /></button>
@@ -40396,7 +40049,7 @@ ${sampleText}`;
  <RefZoom key={ci} src={c.url} label={c.label}>
  <button onClick={() => { attachCostumeN(g.key, i, c); up({ costumePickFor: null }); }} title={c.label}
  style={{ width: 50, height: 50, padding: 0, border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', cursor: 'pointer', background: 'var(--bg-secondary)' }}>
- <img src={c.url} alt={c.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+ <ThumbImg max={200} src={c.url} alt={c.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
  </button>
  </RefZoom>
  ))}
@@ -40411,6 +40064,19 @@ ${sampleText}`;
  </div>
  );
  })()}
+ {/* v1199: 목소리 — 어디서 온 인물이든 붙이고 뗀다 */}
+ {g.key === 'character' && r.kind === 'image' && (r.voice ? (
+  <div title={`목소리: ${r.voice.name}${r.voice.from ? ` · ${r.voice.from}` : ''}${r.voice.sec ? ` · ${Number(r.voice.sec).toFixed(1)}초` : ''}`}
+   style={{ display: 'flex', alignItems: 'center', gap: 2, marginTop: 3, padding: '2px', border: '1px solid var(--green-700)', borderRadius: 5, background: 'rgba(63,175,185,0.08)' }}>
+   <Mic size={9} style={{ color: 'var(--green-500)', flexShrink: 0 }} />
+   <span style={{ fontSize: 8, color: 'var(--green-500)', fontWeight: 700, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.voice.name}</span>
+   <button onClick={() => detachRefVoice(g.key, i)} disabled={busy} title="목소리 떼기" style={{ width: 11, height: 11, border: 'none', background: 'transparent', color: 'var(--text-quaternary)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><X size={8} /></button>
+  </div>
+ ) : (
+  <button onClick={() => openRefVoice(g.key, i)} disabled={busy}
+   title="이 인물에 목소리 레퍼런스를 붙입니다 — 툴의 보이스를 고르거나 오디오 파일(wav · mp3, 2~10초)을 올립니다"
+   style={{ width: '100%', marginTop: 3, padding: '2px 0', fontSize: 8, border: '1px dashed var(--border)', borderRadius: 5, background: 'var(--bg-secondary)', color: 'var(--text-tertiary)', cursor: 'pointer' }}>＋ 목소리</button>
+ ))}
  </div>
  )))}
  {(v.refSource || 'upload') === 'upload' && canAdd && (
@@ -40475,7 +40141,7 @@ ${sampleText}`;
  title={`${grp.name || grp.id} — 인증된 배우 자산`}
  style={{ width: 74, padding: 0, border: '1px solid var(--green-500)', borderRadius: 6, background: 'var(--bg-secondary)', cursor: (busy || totalImgs() >= 9) ? 'not-allowed' : 'pointer', opacity: (busy || totalImgs() >= 9) ? 0.5 : 1, overflow: 'hidden' }}>
  {as.url
- ? <img src={as.url} alt={as.name || as.id} style={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'cover', display: 'block' }} />
+ ? <ThumbImg max={200} src={as.url} alt={as.name || as.id} style={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'cover', display: 'block' }} />
  : <div style={{ width: '100%', aspectRatio: '1 / 1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-quaternary)' }}><Users size={16} /></div>}
  <div className="micro" style={{ padding: '2px 3px', fontSize: 9, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{grp.name || '배우'}</div>
  </button>
@@ -40495,7 +40161,7 @@ ${sampleText}`;
  <button key={c.id} onClick={() => (fillSlot(g.key) >= 0 ? fillPendingFromCharacter(g.key, fillSlot(g.key), c) : addCharacterRefN(g.key, c))} disabled={busy || totalImgs() >= 9}
  title={`${c.name} — 원본 URL로 첨부`}
  style={{ width: 74, padding: 0, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-secondary)', cursor: (busy || totalImgs() >= 9) ? 'not-allowed' : 'pointer', opacity: (busy || totalImgs() >= 9) ? 0.5 : 1, overflow: 'hidden' }}>
- <img src={characterImgSrc(c)} alt={c.name}
+ <ThumbImg max={200} src={characterImgSrc(c)} alt={c.name}
  style={{ width: '100%', aspectRatio: '16 / 9', objectFit: 'cover', display: 'block' }} />
  <div className="micro" style={{ padding: '2px 3px', fontSize: 9, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
  {/* v1139: 자산 상태 — 파생 캐릭터는 등록이 끝나야 영상에 쓸 수 있다 */}
@@ -40640,7 +40306,7 @@ ${sampleText}`;
  <div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>{label}</div>
  {value ? (
  <div style={{ position: 'relative', width: '100%', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--green-500)' }}>
- <video src={value.dataUrl} controls style={{ width: '100%', display: 'block', maxHeight: 180, background: '#000' }} />
+ <video preload="metadata" src={value.dataUrl} controls style={{ width: '100%', display: 'block', maxHeight: 180, background: '#000' }} />
  <button onClick={onClear} title="제거" style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: 6, border: 'none', cursor: 'pointer', background: 'rgba(0,0,0,0.55)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={12} /></button>
  </div>
  ) : (
@@ -40722,7 +40388,7 @@ ${sampleText}`;
 
  {value ? (
  <div style={{ position: 'relative', width: '100%', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--green-500)' }}>
- <video src={value.dataUrl} controls style={{ width: '100%', display: 'block', maxHeight: 180, background: '#000' }} />
+ <video preload="metadata" src={value.dataUrl} controls style={{ width: '100%', display: 'block', maxHeight: 180, background: '#000' }} />
  {value.fromAsset && (
  <span style={{ position: 'absolute', top: 6, left: 6, fontSize: 9, fontWeight: 800, background: 'var(--green-500)', color: '#fff', padding: '2px 6px', borderRadius: 4 }}>
  인증 배우 자산{value.actorName ? ` · ${value.actorName}` : ''}
@@ -41048,7 +40714,7 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  <div className="card" style={{ padding: 16, position: 'relative' }}>
  <div style={{ width: '100%', aspectRatio: '16 / 9', background: 'var(--bg-secondary)', borderRadius: 8, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
  {v.selectedUrl ? (selectedJob?.kind === 'video' || v.selectedKind === 'video'
- ? <video src={v.selectedUrl} controls autoPlay loop style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }} />
+ ? <PreviewVideo src={v.selectedUrl} controls autoPlay loop style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }} />
  : <img src={v.selectedUrl} alt="결과" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />)
  : (<div style={{ color: 'var(--text-quaternary)', textAlign: 'center' }}><Wand2 size={36} strokeWidth={1.2} /><div className="meta" style={{ marginTop: 8 }}>{anyLoading ? '생성 중… 완료되면 생성기록에서 바로 확인할 수 있어요' : '결과가 여기에 표시됩니다'}</div></div>)}
  </div>
@@ -41071,7 +40737,7 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  <><div style={{ textAlign: 'center', color: 'var(--state-error)', padding: 6 }}><AlertTriangle size={20} /><div className="micro" style={{ marginTop: 4, fontSize: 9, wordBreak: 'break-word', maxHeight: 46, overflow: 'hidden' }}>{`실패: ${job.error}`}</div></div><button onClick={(e) => { e.stopPropagation(); up(p => ({ ...p, jobs: p.jobs.filter(j => j.id !== job.id) })); }} title="삭제" className="ff-hover-btns" style={{ ...iconBtn, position: 'absolute', top: 4, right: 4 }}><X size={11} /></button></>
  ) : (
  <>
- {job.kind === 'video' ? <video src={job.resultUrl} muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <img src={job.resultUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+ {job.kind === 'video' ? <video preload="metadata" src={job.resultUrl} muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ThumbImg max={480} src={job.resultUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
  <div className="ff-hover-btns" style={{ position: 'absolute', bottom: 4, right: 4, display: 'flex', gap: 4 }}>
  <button onClick={(e) => { e.stopPropagation(); dlOut(job.resultUrl, job.kind); }} title="다운로드" style={iconBtn}><Download size={11} /></button>
  <button onClick={(e) => { e.stopPropagation(); genForget(job); up(p => ({ ...p, jobs: p.jobs.filter(j => j.id !== job.id), selectedUrl: p.selectedUrl === job.resultUrl ? null : p.selectedUrl })); }} title="삭제" style={iconBtn}><X size={11} /></button>
@@ -41549,6 +41215,8 @@ ${VFX_AUDIO_RULE}${refBlock}`;
    else if (hasPerson) finalPrompt = `${EXTRA_IDENTITY_RULE}\n\n${finalPrompt}`;
    if (placePairs.length) finalPrompt = `${EXTRA_LOCATION_RULE}\n${placePairs.join('\n')}\n\n${finalPrompt}`;
    if (voiceLines.length) finalPrompt += `\n\n[Voice]\n${voiceLines.join('\n')}`;
+   if (ONSCREEN_WRITING_CUE.test(String(situation || ''))) finalPrompt += `\n\n${ONSCREEN_WRITING_RULE}`;   // v1203
+   if (ONSCREEN_WRITING_ACT_CUE.test(String(situation || ''))) finalPrompt += `\n\n${ONSCREEN_WRITING_BLANK_START}`;   // v1204
    // v1126: 본문의 소괄호를 정리하고 사운드 조항을 앞에 붙인다(맨 끝 줄은 룰북이 붙인다)
    finalPrompt = `${PROJECT_SOUND_RULE}\n\n${soundChannelize(finalPrompt)}`;
    up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, phase: '영상 생성 중', generatedPrompt: finalPrompt } : j) }));
@@ -41649,7 +41317,7 @@ ${VFX_AUDIO_RULE}${refBlock}`;
        {jobs.map(j => (
         <div key={j.id} style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
          {j.resultUrl
-          ? <video src={j.resultUrl} controls style={{ width: '100%', display: 'block', background: '#000' }} />
+          ? <video preload="metadata" src={j.resultUrl} controls style={{ width: '100%', display: 'block', background: '#000' }} />
           /* v1194: 시간을 넘겼지만 서버는 아직 만드는 중 — 결과만 되찾는다 */
           : (j.pendingTaskId && !j.loading)
            ? <div style={{ width: '100%', padding: '18px 10px', background: 'var(--bg-subtle)', textAlign: 'center' }}>
@@ -41952,8 +41620,8 @@ ${VFX_AUDIO_RULE}${refBlock}`;
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 8, borderRadius: 8,
          border: '1px solid var(--green-500)', background: 'var(--bg-subtle)' }}>
          {v.contRef.kind === 'image'
-          ? <img src={v.contRef.url} alt="" style={{ width: 104, height: 60, objectFit: 'cover', borderRadius: 5, background: '#000' }} />
-          : <video src={v.contRef.url} muted style={{ width: 104, height: 60, objectFit: 'cover', borderRadius: 5, background: '#000' }} />}
+          ? <ThumbImg max={200} src={v.contRef.url} alt="" style={{ width: 104, height: 60, objectFit: 'cover', borderRadius: 5, background: '#000' }} />
+          : <video preload="metadata" src={v.contRef.url} muted style={{ width: 104, height: 60, objectFit: 'cover', borderRadius: 5, background: '#000' }} />}
          <div style={{ flex: 1, minWidth: 0 }}>
           <div className="meta" style={{ fontWeight: 700, fontSize: 11.5 }}>{v.contRef.name}</div>
           <div className="meta" style={{ fontSize: 10.5, color: 'var(--text-quaternary)' }}>
@@ -41975,7 +41643,7 @@ ${VFX_AUDIO_RULE}${refBlock}`;
            onClick={() => up({ contRef: { url: j.resultUrl, name: `v${j.version} 인터뷰`, kind: 'video', jobId: j.id } })}
            style={{ width: 104, padding: 0, border: '1px solid var(--border-strong)', borderRadius: 6,
             background: 'var(--bg-secondary)', cursor: 'pointer', overflow: 'hidden' }}>
-           <video src={j.resultUrl} muted style={{ width: '100%', height: 60, objectFit: 'cover', display: 'block', background: '#000' }} />
+           <video preload="metadata" src={j.resultUrl} muted style={{ width: '100%', height: 60, objectFit: 'cover', display: 'block', background: '#000' }} />
            <div className="meta" style={{ fontSize: 10, padding: '3px 4px' }}>v{j.version}</div>
           </button>
          ))}
@@ -42012,7 +41680,7 @@ ${VFX_AUDIO_RULE}${refBlock}`;
         <div key={r.id || i} style={{ width: 116, borderRadius: 8, overflow: 'hidden',
           border: `1px solid ${r.assetUrl ? 'var(--border-strong)' : 'var(--border-subtle)'}` }}>
          {r.assetUrl
-          ? <img src={r.assetUrl} alt="" style={{ width: '100%', height: 74, objectFit: 'cover', display: 'block', cursor: 'zoom-in' }}
+          ? <ThumbImg max={480} src={r.assetUrl} alt="" style={{ width: '100%', height: 74, objectFit: 'cover', display: 'block', cursor: 'zoom-in' }}
              onMouseEnter={() => up({ preview: { url: r.assetUrl, label: r.name } })}
              onMouseLeave={() => up({ preview: null })} />
           : <button type="button" onClick={() => openPicker(g.key, i)}
@@ -42035,7 +41703,7 @@ ${VFX_AUDIO_RULE}${refBlock}`;
             <button type="button" onClick={() => openCostumePicker(i)} title="의상 바꾸기"
              style={{ display: 'block', width: '100%', padding: 0, lineHeight: 0, cursor: 'pointer',
               background: 'none', border: '1px solid var(--green-500)', borderRadius: 4, overflow: 'hidden' }}>
-             <img src={r.costume.assetUrl} alt="" style={{ width: '100%', height: 38, objectFit: 'cover', display: 'block' }}
+             <ThumbImg max={200} src={r.costume.assetUrl} alt="" style={{ width: '100%', height: 38, objectFit: 'cover', display: 'block' }}
               onMouseEnter={() => up({ preview: { url: r.costume.assetUrl, label: `${r.name} 의 의상` } })}
               onMouseLeave={() => up({ preview: null })} />
             </button>
@@ -42076,7 +41744,7 @@ ${VFX_AUDIO_RULE}${refBlock}`;
      {!challengeRef && <div className="meta" style={{ fontSize: 11, color: 'var(--text-quaternary)' }}>없음</div>}
      {challengeRef && (
       <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-       <video src={challengeRef.dataUrl} controls style={{ width: 200, borderRadius: 8, display: 'block' }} />
+       <video preload="metadata" src={challengeRef.dataUrl} controls style={{ width: 200, borderRadius: 8, display: 'block' }} />
        <div style={{ fontSize: 11, lineHeight: 1.8 }}>
         <div style={{ fontWeight: 700 }}>@{challengeRef.refName}</div>
         <div style={{ color: 'var(--text-quaternary)' }}>{challengeRef.name}</div>
@@ -42261,9 +41929,9 @@ ${VFX_AUDIO_RULE}${refBlock}`;
      16:9 고정 박스 + objectFit:contain 으로 어떤 비율이든 박스 안에 들어온다. */}
  <div style={{ width: '100%', aspectRatio: '16 / 9', background: 'var(--bg-secondary)', borderRadius: 8, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
  {selectedJob ? (
- <video key={selectedJob.resultUrl} src={selectedJob.resultUrl} controls style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }} />
+ <video preload="metadata" key={selectedJob.resultUrl} src={selectedJob.resultUrl} controls style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }} />
  ) : src ? (
- <video key={src.dataUrl.slice(0, 64)} src={src.dataUrl} controls muted style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }} />
+ <video preload="metadata" key={src.dataUrl.slice(0, 64)} src={src.dataUrl} controls muted style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }} />
  ) : (
  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'var(--text-quaternary)' }}>
  <Film size={26} />
@@ -42309,7 +41977,7 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  <><div style={{ textAlign: 'center', color: 'var(--state-error)', padding: 6 }}><AlertTriangle size={20} /><div className="micro" style={{ marginTop: 4, fontSize: 9, wordBreak: 'break-word', maxHeight: 46, overflow: 'hidden' }}>{`실패: ${job.error}`}</div></div><button onClick={(e) => { e.stopPropagation(); up(p => ({ ...p, jobs: p.jobs.filter(x => x.id !== job.id) })); }} title="삭제" className="ff-hover-btns" style={{ ...iconBtn, position: 'absolute', top: 4, right: 4 }}><X size={11} /></button></>
  ) : (
  <>
- <video src={job.resultUrl} muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+ <video preload="metadata" src={job.resultUrl} muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
  <div className="ff-hover-btns" style={{ position: 'absolute', bottom: 4, right: 4, display: 'flex', gap: 4 }}>
  <button onClick={(e) => { e.stopPropagation(); handleDownloadUpscale(job); }} title="영상 저장" style={iconBtn}><Download size={11} /></button>
  <button onClick={(e) => { e.stopPropagation(); genForget(job); up(p => ({ ...p, jobs: p.jobs.filter(x => x.id !== job.id), selectedUrl: p.selectedUrl === job.resultUrl ? null : p.selectedUrl })); }} title="기록 삭제" style={iconBtn}><X size={11} /></button>
@@ -42366,7 +42034,7 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  {pool.map((p, pi) => (
  <button key={pi} onClick={() => setSourceFromUrl(p.url, p.label)} title={p.label}
  style={{ width: 96, padding: 0, border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', background: '#000', cursor: 'pointer' }}>
- <video src={p.url} muted style={{ width: '100%', aspectRatio: '16 / 9', objectFit: 'cover', display: 'block' }} />
+ <video preload="metadata" src={p.url} muted style={{ width: '100%', aspectRatio: '16 / 9', objectFit: 'cover', display: 'block' }} />
  <div className="micro" style={{ padding: '2px 3px', fontSize: 9, color: 'var(--text-secondary)', background: 'var(--bg-secondary)' }}>{p.label}</div>
  </button>
  ))}
@@ -42982,6 +42650,162 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  })()}
 
  {/* v719: VOICE — 보이스 복제 전용 2열 워크스페이스 (좌: 생성된 보이스 / 우: 입력·업로드). clone 핸들러·상태 재사용 */}
+ {/* v1211: TTS — ElevenLabs Eleven v4 Turbo. 대사 · 인물(성별 · 나이) · 언어 · 컨셉 → 목소리 자동 추천 + 직접 바꾸기 */}
+ {appScreen === 'single' && singleTaskId === 'sound-tts' && (() => {
+  const t4 = tts4Data;
+  const up4 = (patch) => setTts4Data(p => ({ ...p, ...(typeof patch === 'function' ? patch(p) : patch) }));
+  const auto = tts4Pick(t4.gender, t4.age, t4.concept);
+  const voice = t4.voice || auto.voice;
+  const vInfo = TTS4_VOICES.find(v => v.id === voice) || TTS4_VOICES[0];
+  const tag = t4.tag != null ? t4.tag : auto.tag;
+  const stability = t4.stability != null ? Number(t4.stability) : auto.stability;
+  const sentText = (String(tag || '').trim() ? `${String(tag).trim()} ` : '') + String(t4.text || '').trim();
+  const cost = formatCostDisplay(tts4Cost(sentText));
+  const chip = (on) => ({ padding: '5px 12px', fontSize: 12, fontWeight: 700, borderRadius: 7, cursor: 'pointer',
+   border: `1px solid ${on ? 'var(--green-500)' : 'var(--border)'}`, background: on ? 'var(--green-500)' : 'var(--bg-secondary)', color: on ? '#fff' : 'var(--text-secondary)' });
+  const label = (txt, sub) => (
+   <div className="micro" style={{ fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>
+    {txt}{sub ? <span style={{ fontWeight: 400, color: 'var(--text-quaternary)' }}> · {sub}</span> : null}
+   </div>
+  );
+  // 생성 — 한 번에 한 줄. 여러 번 눌러 목소리를 비교할 수 있다(기록에 쌓인다).
+  const runTts4 = async () => {
+   const text = String(t4.text || '').trim();
+   if (!text) { up4({ error: '대사를 적어 주세요.' }); return; }
+   if (!falKey()) { up4({ error: 'fal API 키가 없습니다. 설정에서 넣어 주세요.' }); return; }
+   const id = `tts4_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+   const params = { text, voice, lang: t4.lang, gender: t4.gender, age: t4.age, concept: t4.concept || '', tag: String(tag || '').trim(), stability };
+   up4(p => ({ error: '', jobs: [{ id, loading: true, ts: Date.now(), params }, ...(p.jobs || [])] }));
+   try {
+    const out = await falRun(TTS4_ENDPOINT, {
+     text: sentText, voice, language_code: t4.lang, stability, similarity_boost: 0.75, output_format: 'mp3_44100_128',
+    }, { pollMs: 1500, maxPolls: 120, kind: 'tts' });
+    const url = out?.audio?.url || '';
+    if (!url) throw new Error('음성 주소를 받지 못했습니다.');
+    const kept = await keepGenResult('sound-tts', id, url, 'mp3');
+    up4(p => ({ jobs: (p.jobs || []).map(j => (j.id === id ? { ...j, loading: false, ...kept } : j)) }));
+    try { recordCreditUsage(tts4Cost(sentText), 'tts', { workCat: 'sound' }); } catch {}
+   } catch (e) {
+    const msg = String(e?.message || e);
+    up4(p => ({ error: `생성 실패: ${msg}`, jobs: (p.jobs || []).map(j => (j.id === id ? { ...j, loading: false, error: msg } : j)) }));
+   }
+  };
+  const dl = (j) => setConfirmDialog({ title: '음성 저장', message: '이 음성을 다운로드 폴더에 저장할까요?', confirmLabel: '저장', onConfirm: async () => {
+   setConfirmDialog(null);
+   try {
+    const fname = `${await ffsBuildName({ type: 'TTS', parts: [j.params?.voice || 'voice', j.params?.lang || ''].filter(Boolean) })}.mp3`;
+    const res = await fetch(j.resultUrl); const blob = await res.blob(); const objUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = objUrl; a.download = fname; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(objUrl), 2000);
+    try { showToast('음성을 저장했습니다.', 'load'); } catch {}
+   } catch { try { showToast('저장 실패', 'error'); } catch {} }
+  } });
+  return (
+   <div className="fade-in" style={{ maxWidth: 1180, margin: '0 auto', padding: '0 8px' }}>
+    <div style={{ marginBottom: 22, textAlign: 'center' }}>
+     <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-0.01em' }}>TTS</h2>
+     <p className="meta" style={{ color: 'var(--text-tertiary)', marginTop: 5 }}>대사와 인물 · 언어 · 컨셉을 정하면 어울리는 목소리를 골라 음성으로 만듭니다. ElevenLabs Eleven v4 Turbo · 1,000자당 $0.04</p>
+     <div style={{ height: 3, marginTop: 16, borderRadius: 3, background: 'linear-gradient(to right, transparent, var(--green-500), transparent)' }} />
+    </div>
+    <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+     <div className="card" style={{ flex: '1 1 460px', minWidth: 320, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div>
+       {label('내용', '대사')}
+       <textarea value={t4.text} onChange={(e) => up4({ text: e.target.value })} rows={4} placeholder="말할 대사를 적어 주세요"
+        style={{ ...{ width: '100%', boxSizing: 'border-box', padding: '8px 11px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-primary)', color: 'var(--text-primary)', fontFamily: 'inherit' }, padding: '10px 12px', lineHeight: 1.6, resize: 'vertical' }} />
+       <div className="micro" style={{ marginTop: 4, color: 'var(--text-quaternary)', display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+        <span>{String(t4.text || '').length.toLocaleString()}자{String(tag || '').trim() ? ` · 말투 태그 포함 ${sentText.length.toLocaleString()}자` : ''}</span>
+        <span>예상 {cost.usd} ({cost.krw})</span>
+       </div>
+      </div>
+      <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+       <div>{label('인물', '성별')}<div style={{ display: 'flex', gap: 6 }}>{TTS4_GENDERS.map(g => (
+        <button key={g.id} type="button" onClick={() => up4({ gender: g.id, voice: '' })} style={chip(t4.gender === g.id)}>{g.label}</button>))}</div></div>
+       <div>{label('나이')}<div style={{ display: 'flex', gap: 6 }}>{TTS4_AGES.map(a => (
+        <button key={a.id} type="button" onClick={() => up4({ age: a.id, voice: '' })} style={chip(t4.age === a.id)}>{a.label}</button>))}</div></div>
+      </div>
+      <div>{label('언어')}<div style={{ maxWidth: 220 }}><FFSelect value={t4.lang} height={32} fontSize={12} options={TTS4_LANGS} onChange={(v) => up4({ lang: v })} /></div></div>
+      <div>
+       {label('컨셉', '선택')}
+       <input type="text" value={t4.concept} onChange={(e) => up4({ concept: e.target.value, voice: '', tag: null, stability: null })}
+        placeholder="예: 중후한 아저씨, 까칠한 미녀" style={{ width: '100%', boxSizing: 'border-box', padding: '8px 11px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-primary)', color: 'var(--text-primary)', fontFamily: 'inherit' }} />
+       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 6 }}>
+        {TTS4_CONCEPT_EXAMPLES.map(c => (
+         <button key={c} type="button" onClick={() => up4({ concept: c, voice: '', tag: null, stability: null })}
+          style={{ padding: '3px 9px', fontSize: 11, borderRadius: 999, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-tertiary)', cursor: 'pointer' }}>{c}</button>
+        ))}
+       </div>
+      </div>
+      <div style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid var(--green-500)', background: 'rgba(63,175,185,0.06)' }}>
+       {label('목소리', t4.voice ? '직접 고름' : '자동 추천')}
+       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 240px', minWidth: 220 }}>
+         <FFSelect value={voice} height={32} fontSize={12}
+          options={TTS4_VOICES.map(v => ({ id: v.id, label: `${v.id} · ${v.ko}${v.id === auto.voice ? ' · 추천' : ''}` }))}
+          onChange={(v) => up4({ voice: v === auto.voice ? '' : v })} />
+        </div>
+        {t4.voice && <button type="button" className="btn btn-ghost btn-sm" onClick={() => up4({ voice: '' })}>추천으로</button>}
+       </div>
+       <div className="micro" style={{ marginTop: 6, color: 'var(--text-tertiary)', lineHeight: 1.5 }}>{t4.voice ? `${vInfo.id} — ${vInfo.ko}` : auto.why}</div>
+       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 10, alignItems: 'flex-end' }}>
+        <div>
+         <div className="micro" style={{ color: 'var(--text-tertiary)', marginBottom: 4 }}>말투 태그{t4.tag == null ? ' · 자동' : ''}</div>
+         <input type="text" value={tag} onChange={(e) => up4({ tag: e.target.value })} placeholder="없음 — 예: [excited]" style={{ ...{ width: '100%', boxSizing: 'border-box', padding: '8px 11px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-primary)', color: 'var(--text-primary)', fontFamily: 'inherit' }, width: 170 }} />
+        </div>
+        <div style={{ flex: '1 1 180px' }}>
+         <div className="micro" style={{ color: 'var(--text-tertiary)', marginBottom: 4 }}>
+          표현 {stability <= 0.4 ? '크게' : stability >= 0.65 ? '일정하게' : '보통'} ({stability.toFixed(2)}){t4.stability == null ? ' · 자동' : ''}
+         </div>
+         <input type="range" min={0} max={1} step={0.05} value={stability} onChange={(e) => up4({ stability: Number(e.target.value) })} style={{ width: '100%' }} />
+        </div>
+       </div>
+      </div>
+      {t4.error && <div className="micro" style={{ color: 'var(--state-error)', lineHeight: 1.5 }}>{t4.error}</div>}
+      <button type="button" className="btn btn-primary" disabled={!String(t4.text || '').trim()} onClick={runTts4} style={{ justifyContent: 'center' }}>
+       <Mic size={14} /> 생성 · 예상 {cost.usd} ({cost.krw})
+      </button>
+      <div className="micro" style={{ color: 'var(--text-quaternary)', lineHeight: 1.55 }}>
+       목소리는 ElevenLabs 기본 목소리 21개 중에서 고릅니다. 어린이 · 노년 여성 목소리는 없어 가장 가까운 목소리로 대신합니다.
+       대부분 영어권 성우라, 다른 언어는 들어 보고 목소리를 바꿔 보세요.
+      </div>
+     </div>
+     <div className="card" style={{ flex: '1 1 420px', minWidth: 320, padding: '18px 20px' }}>
+      {label('생성 기록', `${(t4.jobs || []).length}개`)}
+      {!(t4.jobs || []).length && <div className="meta" style={{ color: 'var(--text-quaternary)' }}>아직 만든 음성이 없습니다.</div>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+       {(t4.jobs || []).map(j => (
+        <div key={j.id} style={{ padding: '10px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--bg-secondary)' }}>
+         <div className="micro" style={{ display: 'flex', gap: 6, alignItems: 'center', color: 'var(--text-tertiary)', marginBottom: 6, flexWrap: 'wrap' }}>
+          <strong style={{ color: 'var(--text-secondary)' }}>{j.params?.voice}</strong>
+          <span>· {(TTS4_LANGS.find(x => x.id === j.params?.lang) || {}).label || j.params?.lang}</span>
+          {j.params?.concept ? <span>· {j.params.concept}</span> : null}
+          {j.params?.tag ? <span>· {j.params.tag}</span> : null}
+          <span style={{ marginLeft: 'auto' }}>{new Date(j.ts || Date.now()).toLocaleTimeString()}</span>
+         </div>
+         <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 8, whiteSpace: 'pre-wrap' }}>{j.params?.text}</div>
+         {j.loading ? <div className="micro" style={{ color: 'var(--green-700)', display: 'flex', alignItems: 'center', gap: 5 }}><RefreshCw size={11} className="spin" /> 생성 중…</div>
+          : j.error ? <div className="micro" style={{ color: 'var(--state-error)' }}>{j.error}</div>
+          : j.resultUrl ? (
+           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <div style={{ flex: 1, minWidth: 0 }}><CustomAudioPlayer src={j.resultUrl} compact /></div>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => dl(j)} title="다운로드"><Download size={12} /></button>
+           </div>
+          ) : null}
+         <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+          <button type="button" className="btn btn-ghost btn-sm" disabled={!!j.loading}
+           onClick={() => up4({ text: j.params?.text || '', gender: j.params?.gender || t4.gender, age: j.params?.age || t4.age, lang: j.params?.lang || t4.lang,
+            concept: j.params?.concept || '', voice: j.params?.voice || '', tag: j.params?.tag ?? null, stability: j.params?.stability ?? null })}>이 설정 불러오기</button>
+          <button type="button" className="btn btn-ghost btn-sm" disabled={!!j.loading}
+           onClick={() => { genForget(j); up4(p => ({ jobs: (p.jobs || []).filter(x => x.id !== j.id) })); }}>삭제</button>
+         </div>
+        </div>
+       ))}
+      </div>
+     </div>
+    </div>
+   </div>
+  );
+ })()}
  {appScreen === 'single' && singleTaskId === 'sound-voice' && (() => {
  const sc = standaloneCloneData;
  const cloneCost = sc.files.length > 0 ? formatCostDisplay(estimateCloneCost(sc.files.length)) : null;
@@ -43021,7 +42845,7 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  <div className="fade-in" style={{ maxWidth: 1180, margin: '0 auto', padding: '0 8px' }}>
  <div style={{ marginBottom: 22, textAlign: 'center' }}>
  <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-0.01em' }}>VOICE · 보이스 복제</h2>
- <p className="meta" style={{ color: 'var(--text-tertiary)', marginTop: 5 }}>음성 파일을 업로드하면 그 목소리를 영구 보이스로 복제합니다. 만든 보이스는 TTS에서 재사용할 수 있습니다.</p>
+ <p className="meta" style={{ color: 'var(--text-tertiary)', marginTop: 5 }}>음성 파일을 업로드하면 그 목소리를 영구 보이스로 복제합니다. 만든 보이스는 영상 작업의 보이스 레퍼런스로 쓸 수 있습니다.</p>
  <div style={{ height: 3, marginTop: 16, borderRadius: 3, background: 'linear-gradient(to right, transparent, var(--green-500), transparent)' }} />
  </div>
 
@@ -43571,7 +43395,7 @@ ${VFX_AUDIO_RULE}${refBlock}`;
 
 
  {/* 단일작업 — 빈 워크스페이스 (미연결 작업) */}
- {appScreen === 'single' && singleTaskId && singleTaskId !== 'plan-adapt' && singleTaskId !== 'plan-scenario-analyze' && singleTaskId !== 'plan-scenario-translate' && singleTaskId !== 'plan-video-analyze' && singleTaskId !== 'image-custom' && singleTaskId !== 'image-character' && singleTaskId !== 'image-title' && singleTaskId !== 'image-sheet' && singleTaskId !== 'image-poster' && singleTaskId !== 'image-booklet' && singleTaskId !== 'video-custom' && singleTaskId !== 'video-narrative' && singleTaskId !== 'video-documentary' && singleTaskId !== 'video-pov' && singleTaskId !== 'video-vfx' && singleTaskId !== 'video-extra' && singleTaskId !== 'video-upscale' && singleTaskId !== 'sound-music' && singleTaskId !== 'sound-voice' && singleTaskId !== 'etc-srt' && singleTaskId !== 'etc-actor-auth' && currentView === 'single-blank' && (() => {
+ {appScreen === 'single' && singleTaskId && singleTaskId !== 'plan-adapt' && singleTaskId !== 'plan-scenario-analyze' && singleTaskId !== 'plan-scenario-translate' && singleTaskId !== 'plan-video-analyze' && singleTaskId !== 'image-custom' && singleTaskId !== 'image-character' && singleTaskId !== 'image-title' && singleTaskId !== 'image-sheet' && singleTaskId !== 'image-poster' && singleTaskId !== 'image-booklet' && singleTaskId !== 'video-custom' && singleTaskId !== 'video-narrative' && singleTaskId !== 'video-documentary' && singleTaskId !== 'video-pov' && singleTaskId !== 'video-vfx' && singleTaskId !== 'video-extra' && singleTaskId !== 'video-upscale' && singleTaskId !== 'sound-music' && singleTaskId !== 'sound-voice' && singleTaskId !== 'sound-tts' && singleTaskId !== 'etc-srt' && singleTaskId !== 'etc-actor-auth' && currentView === 'single-blank' && (() => {
  const item = SINGLE_TASK_CATALOG.flatMap((g) => g.items).find((i) => i.id === singleTaskId);
  if (!item) return null;
  return (
@@ -43672,538 +43496,13 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  )}
 
  {/* v358: 언어 교체 모달 — 인물 매핑·보이스 유지 */}
- {ttsLanguageSwitchModal && (() => {
- const LANG_OPTIONS = [
- { code: 'en', label: '🇬🇧 English' },
- { code: 'ja', label: '🇯🇵 日本語' },
- { code: 'zh', label: '🇨🇳 中文' },
- { code: 'ko', label: '🇰🇷 한국어' },
- { code: 'es', label: '🇪🇸 Español' },
- { code: 'fr', label: '🇫🇷 Français' },
- { code: 'de', label: '🇩🇪 Deutsch' },
- { code: 'ru', label: '🇷🇺 Русский' },
- { code: 'vi', label: '🇻🇳 Tiếng Việt' },
- { code: 'th', label: '🇹🇭 ภาษาไทย' },
- ];
- const currentLang = ttsToolData.currentLanguage || 'ko';
- const savedLanguages = Object.keys(ttsToolData.languageHistory || {});
-
- // v381: 모달 내부 임시 state — 파일 + 언어 선택 후 명시적 시작
- const pendingFile = ttsLanguageSwitchModal.pendingFile;
- const pendingLang = ttsLanguageSwitchModal.pendingLang || 'en';
-
- const setPendingFile = (f) => setTtsLanguageSwitchModal(prev => ({ ...prev, pendingFile: f }));
- const setPendingLang = (lang) => setTtsLanguageSwitchModal(prev => ({ ...prev, pendingLang: lang }));
-
- const handleStartRegenerate = () => {
- if (!pendingFile) return;
- setTtsLanguageSwitchModal(false);
- handleSwitchTtsLanguage(pendingFile, pendingLang);
- };
-
- return (
- <div className="modal-overlay" onClick={() => setTtsLanguageSwitchModal(false)}>
- <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
- <div style={{ padding: '20px 28px', borderBottom: '1px solid var(--border)' }}>
- <h3 className="h2" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
- <span style={{ fontSize: 22 }}>🌐</span>
- 다른 언어로 재생성
- </h3>
- <p className="meta" style={{ marginTop: 6, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
- 새 SRT 파일을 업로드하면 <strong style={{ color: 'var(--green-700)' }}>인물 매핑·보이스 할당이 그대로 유지</strong>되고, 새 언어로 TTS만 다시 생성합니다. 이전 언어의 결과는 자동 보관됩니다.
- </p>
- </div>
- <div style={{ padding: '20px 28px' }}>
- {/* ① 새 SRT 파일 첨부 */}
- <div className="micro" style={{ fontWeight: 700, marginBottom: 10, color: 'var(--text-secondary)' }}>
- <span style={{ color: 'var(--green-700)' }}>①</span> 새 SRT 파일 (다른 언어)
- </div>
- <input
- type="file"
- accept=".srt"
- id="tts-lang-switch-srt-input"
- style={{ display: 'none' }}
- onChange={(e) => {
- const file = e.target.files?.[0];
- if (file) setPendingFile(file);
- e.target.value = '';
- }}
- />
- {pendingFile ? (
- <div style={{
- padding: '12px 14px',
- background: 'rgba(63,175,185,0.06)',
- border: '1px solid rgba(63,175,185,0.30)',
- borderRadius: 8,
- display: 'flex', alignItems: 'center', gap: 10,
- }}>
- <span style={{ fontSize: 18 }}>📄</span>
- <div style={{ flex: 1, minWidth: 0 }}>
- <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
- {pendingFile.name}
- </div>
- <div className="micro" style={{ color: 'var(--text-tertiary)', fontSize: 10, marginTop: 2 }}>
- {Math.round(pendingFile.size / 1024)}KB · 클로닝 시작 전까지 적용되지 않음
- </div>
- </div>
- <button className="btn btn-ghost btn-sm" onClick={() => setPendingFile(null)} style={{ padding: '4px 8px' }}>
- <X size={12} />
- </button>
- </div>
- ) : (
- <button
- className="btn btn-primary"
- style={{ width: '100%', justifyContent: 'center', padding: '12px' }}
- onClick={() => document.getElementById('tts-lang-switch-srt-input')?.click()}>
- <FileText size={14} /> SRT 파일 선택
- </button>
- )}
-
- {/* ② 언어 선택 */}
- <div className="micro" style={{ fontWeight: 700, marginTop: 18, marginBottom: 10, color: 'var(--text-secondary)' }}>
- <span style={{ color: 'var(--green-700)' }}>②</span> 새 SRT의 언어 (라벨용)
- </div>
- <FFSelect value={pendingLang} onChange={setPendingLang} height={40} fontSize={13}
- options={LANG_OPTIONS.filter(o => o.code !== currentLang).map(o => ({ id: o.code, label: o.label }))} />
-
- {/* ③ 재생성 시작 버튼 — 명시적 선택 후에만 시작 */}
- <button
- onClick={handleStartRegenerate}
- disabled={!pendingFile}
- style={{
- marginTop: 20,
- width: '100%',
- padding: '14px',
- borderRadius: 10,
- border: 'none',
- background: !pendingFile
- ? 'var(--bg-secondary)'
- : 'linear-gradient(135deg, var(--green-500), #5FD8E4)',
- color: !pendingFile ? 'var(--text-tertiary)' : '#fff',
- fontSize: 14,
- fontWeight: 700,
- cursor: !pendingFile ? 'not-allowed' : 'pointer',
- transition: 'all 0.15s',
- boxShadow: !pendingFile ? 'none' : '0 4px 14px rgba(63,175,185,0.25)',
- display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
- }}
- >
- <RefreshCw size={14} />
- {pendingFile ? `${LANG_OPTIONS.find(o => o.code === pendingLang)?.label || pendingLang}로 재생성 시작` : 'SRT 파일을 먼저 선택해주세요'}
- </button>
-
- {/* 보관된 언어 버전 목록 */}
- {savedLanguages.length > 0 && (
- <>
- <div className="micro" style={{ fontWeight: 700, marginTop: 22, marginBottom: 10, color: 'var(--text-secondary)' }}>
- 보관된 언어 버전 ({savedLanguages.length}개)
- </div>
- <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
- {savedLanguages.map(lc => {
- const saved = ttsToolData.languageHistory[lc];
- const label = LANG_OPTIONS.find(o => o.code === lc)?.label || lc;
- const lineCount = saved.srtLines?.length || 0;
- const resultCount = Object.values(saved.results || {}).filter(r => r?.status === 'done').length;
- return (
- <button key={lc}
- className="btn btn-ghost btn-sm"
- onClick={() => { setTtsLanguageSwitchModal(false); handleSwitchToSavedLanguage(lc); }}
- style={{ justifyContent: 'space-between', padding: '10px 14px', textAlign: 'left' }}>
- <span style={{ fontWeight: 600 }}>{label}</span>
- <span className="meta" style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>
- {lineCount}개 라인 · {resultCount}개 생성됨
- </span>
- </button>
- );
- })}
- </div>
- </>
- )}
-
- <div style={{ marginTop: 18, padding: '10px 14px', background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.20)', borderRadius: 8, fontSize: 11, lineHeight: 1.6, color: 'var(--text-secondary)' }}>
- 💡 <strong style={{ color: '#7e22ce' }}>타임코드 매칭</strong>: 새 SRT의 각 라인이 기존 라인과 동일한 시작 시간(±500ms)이면 자동으로 같은 인물이 할당됩니다. 번역 도구로 만든 SRT는 보통 타임코드가 동일합니다.
- </div>
- </div>
- <div style={{ padding: '16px 28px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end' }}>
- <button className="btn btn-ghost" onClick={() => setTtsLanguageSwitchModal(false)}>취소</button>
- </div>
- </div>
- </div>
- );
- })()}
+ 
 
  {/* TTS 생성 확인 모달 (window.confirm 대신 프로그램 안내창) */}
- {ttsConfirmModal && (
- <div className="modal-overlay" onClick={ttsConfirmModal.onCancel}>
- <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560, display: 'flex', flexDirection: 'column' }}>
- {/* 헤더 */}
- <div style={{ padding: '20px 28px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
- <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
- <div style={{
- width: 36, height: 36, borderRadius: 10,
- background: 'linear-gradient(135deg, var(--green-500), #2E96A0)',
- display: 'flex', alignItems: 'center', justifyContent: 'center',
- boxShadow: '0 4px 12px rgba(63,175,185,0.25)',
- }}>
- <Sparkles size={18} color="#fff" />
- </div>
- <div>
- <div className="h2" style={{ marginBottom: 2 }}>TTS 생성 시작</div>
- <div className="micro" style={{ color: 'var(--text-tertiary)' }}>
- 예상 비용과 보이스 적용 현황을 확인하세요
- </div>
- </div>
- </div>
- <button
- onClick={ttsConfirmModal.onCancel}
- style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: 4 }}
- >
- <X size={18} />
- </button>
- </div>
-
- {/* 본문 */}
- <div style={{ padding: '20px 28px', display: 'flex', flexDirection: 'column', gap: 14 }}>
- {/* 보이스 적용 현황 */}
- <div>
- <div className="scenario-section-label" style={{ marginBottom: 8 }}>보이스 적용 현황</div>
- <div style={{
- display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8,
- }}>
- <div style={{
- padding: '10px 12px',
- background: 'rgba(168,85,247,0.10)',
- border: '1px solid rgba(168,85,247,0.30)',
- borderRadius: 'var(--radius-sm)',
- textAlign: 'center',
- }}>
- <div style={{ fontSize: 18, fontWeight: 800, color: '#7e22ce' }}>
- {ttsConfirmModal.stats.cloned}
- </div>
- <div className="micro" style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2, fontWeight: 600 }}>
- 🧬 클론
- </div>
- </div>
- <div style={{
- padding: '10px 12px',
- background: 'rgba(63,175,185,0.08)',
- border: '1px solid rgba(63,175,185,0.25)',
- borderRadius: 'var(--radius-sm)',
- textAlign: 'center',
- }}>
- <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--green-700)' }}>
- {ttsConfirmModal.stats.override}
- </div>
- <div className="micro" style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2, fontWeight: 600 }}>
- 🎯 직접 지정
- </div>
- </div>
- <div style={{
- padding: '10px 12px',
- background: 'rgba(59,130,246,0.08)',
- border: '1px solid rgba(59,130,246,0.25)',
- borderRadius: 'var(--radius-sm)',
- textAlign: 'center',
- }}>
- <div style={{ fontSize: 18, fontWeight: 800, color: '#1d4ed8' }}>
- {ttsConfirmModal.stats.character}
- </div>
- <div className="micro" style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2, fontWeight: 600 }}>
- 👤 인물 매핑
- </div>
- </div>
- <div style={{
- padding: '10px 12px',
- background: 'rgba(234,179,8,0.08)',
- border: '1px solid rgba(234,179,8,0.30)',
- borderRadius: 'var(--radius-sm)',
- textAlign: 'center',
- }}>
- <div style={{ fontSize: 18, fontWeight: 800, color: '#a16207' }}>
- {ttsConfirmModal.stats.fallback}
- </div>
- <div className="micro" style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2, fontWeight: 600 }}>
- fallback
- </div>
- </div>
- </div>
- </div>
-
- {/* 클론 안 된 file 인물 경고 (MiniMax) */}
- {ttsConfirmModal.unclonedFileChars?.length > 0 && (
- <div style={{
- padding: '10px 12px',
- background: 'rgba(234,179,8,0.08)',
- border: '1px solid rgba(234,179,8,0.35)',
- borderRadius: 'var(--radius-sm)',
- display: 'flex', alignItems: 'flex-start', gap: 8,
- }}>
- <AlertCircle size={14} color="#a16207" style={{ flexShrink: 0, marginTop: 1 }} />
- <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
- <strong style={{ color: '#a16207' }}>음성 파일만 첨부된 인물</strong>: {ttsConfirmModal.unclonedFileChars.join(', ')}<br />
- MiniMax는 파일을 직접 쓸 수 없어요. 위 STEP 2에서 <strong>🧬 보이스 클로닝 시작</strong>을 먼저 실행해주세요. 지금 진행하면 해당 인물 대사는 fallback 보이스로 합성됩니다.
- </div>
- </div>
- )}
-
- {/* 매핑 누락 경고 */}
- {ttsConfirmModal.uniqMissing.length > 0 && (
- <div style={{
- padding: '10px 12px',
- background: 'rgba(234,179,8,0.06)',
- border: '1px solid rgba(234,179,8,0.30)',
- borderRadius: 'var(--radius-sm)',
- display: 'flex', alignItems: 'flex-start', gap: 8,
- }}>
- <AlertCircle size={14} color="#a16207" style={{ flexShrink: 0, marginTop: 1 }} />
- <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
- <strong style={{ color: '#a16207' }}>레퍼런스 보이스 미지정 인물</strong>: {ttsConfirmModal.uniqMissing.join(', ')}<br />
- 해당 대사는 fallback 보이스(<code style={{ background: 'rgba(0,0,0,0.06)', padding: '1px 5px', borderRadius: 3, fontSize: 10 }}>{ttsConfirmModal.currentFallbackVoiceId}</code>)로 생성됩니다.
- </div>
- </div>
- )}
-
- {/* 비용 정보 */}
- <div>
- <div className="scenario-section-label" style={{ marginBottom: 8 }}>예상 비용</div>
- <div style={{
- padding: '12px 14px',
- background: 'rgba(63,175,185,0.04)',
- border: '1px solid rgba(63,175,185,0.20)',
- borderRadius: 'var(--radius-sm)',
- }}>
- <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
- <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}>모델</span>
- <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>{ttsConfirmModal.modelLabel}</span>
- </div>
- <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
- <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}>대사 / 글자</span>
- <span className="mono-font" style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>
- {ttsConfirmModal.totalLines}개 · {ttsConfirmModal.totalChars.toLocaleString()}자
- </span>
- </div>
- <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', paddingTop: 8, borderTop: '1px dashed rgba(63,175,185,0.25)' }}>
- <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--green-700)' }}>예상 비용</span>
- <span className="mono-font" style={{ fontSize: 14, fontWeight: 800, color: 'var(--green-700)' }}>
- {ttsConfirmModal.estCostUsd < 0.01 ? '< $0.01' : `$${ttsConfirmModal.estCostUsd.toFixed(2)}`}
- <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-tertiary)', marginLeft: 6 }}>
- (약 {ttsConfirmModal.estCostKrw < 100 ? '< ₩100' : `₩${ttsConfirmModal.estCostKrw.toLocaleString()}`})
- </span>
- </span>
- </div>
- <div className="micro" style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 8, lineHeight: 1.5 }}>
- ※ 추정치이며 실제 비용은 fal 사용량에 따라 변동될 수 있습니다.
- </div>
- </div>
- </div>
- </div>
-
- {/* 푸터 */}
- <div style={{ padding: '14px 28px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
- <button className="btn btn-ghost btn-sm" onClick={ttsConfirmModal.onCancel}>
- 취소
- </button>
- <button className="btn btn-primary btn-sm" onClick={ttsConfirmModal.onProceed}>
- <Sparkles size={12} /> 생성 시작
- </button>
- </div>
- </div>
- </div>
- )}
+ 
 
  {/* Voice Library 모달 — 이전에 클론한 voice_id 재사용 */}
- {showVoiceLibraryModal && (
- <div className="modal-overlay" onClick={() => setShowVoiceLibraryModal(null)}>
- <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 640, maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
- {/* 헤더 */}
- <div style={{ padding: '20px 28px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
- <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
- <div style={{
- width: 36, height: 36, borderRadius: 10,
- background: 'linear-gradient(135deg, #a855f7, #7e22ce)',
- display: 'flex', alignItems: 'center', justifyContent: 'center',
- boxShadow: '0 4px 12px rgba(168,85,247,0.25)',
- }}>
- <span style={{ fontSize: 18 }}>🧬</span>
- </div>
- <div>
- <div className="h2" style={{ marginBottom: 2 }}>클론 보이스 라이브러리</div>
- <div className="micro" style={{ color: 'var(--text-tertiary)' }}>
- <strong>{showVoiceLibraryModal}</strong>에게 적용할 voice_id를 선택하세요
- </div>
- </div>
- </div>
- <button onClick={() => setShowVoiceLibraryModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: 4 }}>
- <X size={18} />
- </button>
- </div>
-
- {/* 본문 */}
- <div style={{ padding: '16px 24px', overflowY: 'auto', flex: 1 }}>
- {clonedVoiceLibrary.length === 0 ? (
- <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-tertiary)' }}>
- 아직 클론한 보이스가 없습니다.<br />
- 인물에게 음성 파일을 첨부하고 "🧬 보이스 클로닝 시작"을 눌러보세요.
- </div>
- ) : (
- <>
- {/* 7일 보관 안내 */}
- <div style={{
- padding: '10px 12px',
- background: 'rgba(234,179,8,0.06)',
- border: '1px solid rgba(234,179,8,0.25)',
- borderRadius: 'var(--radius-sm)',
- marginBottom: 12,
- display: 'flex', alignItems: 'flex-start', gap: 8,
- }}>
- <AlertCircle size={14} color="#a16207" style={{ flexShrink: 0, marginTop: 1 }} />
- <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
- <strong>7일 보관 정책</strong>: voice_id는 7일 동안 한 번도 사용되지 않으면 MiniMax 서버에서 자동 삭제됩니다. TTS 생성 시 자동으로 사용 시각이 갱신돼요.
- </div>
- </div>
-
- <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
- {clonedVoiceLibrary.map((entry) => {
- const daysSinceUsed = entry.lastUsedAt ? Math.floor((Date.now() - entry.lastUsedAt) / (24 * 3600 * 1000)) : 0;
- const expiringSoon = daysSinceUsed >= 5;
- const expired = daysSinceUsed >= 7;
- return (
- <div
- key={entry.voiceId}
- style={{
- padding: '12px 14px',
- background: 'var(--bg-secondary)',
- border: '1px solid var(--border)',
- borderRadius: 'var(--radius-sm)',
- display: 'flex', alignItems: 'center', gap: 12,
- transition: 'all 0.15s ease',
- }}
- >
- <span style={{ fontSize: 20, flexShrink: 0 }}>🧬</span>
- <div style={{ flex: 1, minWidth: 0 }}>
- {/* 라벨 — 클릭하면 인라인 편집 */}
- {editingVoiceLabel?.voiceId === entry.voiceId ? (
- <input
- type="text"
- value={editingVoiceLabel.value}
- onChange={(e) => setEditingVoiceLabel({ voiceId: entry.voiceId, value: e.target.value })}
- onBlur={() => {
- if (editingVoiceLabel.value.trim() && editingVoiceLabel.value.trim() !== entry.label) {
- handleRenameClonedVoice(entry.voiceId, editingVoiceLabel.value);
- }
- setEditingVoiceLabel(null);
- }}
- onKeyDown={(e) => {
- if (e.key === 'Enter') {
- if (editingVoiceLabel.value.trim() && editingVoiceLabel.value.trim() !== entry.label) {
- handleRenameClonedVoice(entry.voiceId, editingVoiceLabel.value);
- }
- setEditingVoiceLabel(null);
- } else if (e.key === 'Escape') {
- setEditingVoiceLabel(null);
- }
- }}
- autoFocus
- style={{
- width: '100%',
- fontSize: 13, fontWeight: 700, color: 'var(--text-primary)',
- background: 'var(--bg-primary)',
- border: '1px solid var(--green-500)',
- borderRadius: 4,
- padding: '3px 8px',
- marginBottom: 2,
- outline: 'none',
- fontFamily: 'inherit',
- }}
- />
- ) : (
- <div
- onClick={() => setEditingVoiceLabel({ voiceId: entry.voiceId, value: entry.label })}
- title="클릭하여 라벨 편집"
- style={{
- fontSize: 13, fontWeight: 700, color: 'var(--text-primary)',
- marginBottom: 2,
- overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
- cursor: 'text',
- padding: '3px 8px', marginLeft: -8,
- borderRadius: 4,
- transition: 'background 0.12s ease',
- }}
- onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(168,85,247,0.08)'}
- onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
- >
- {entry.label}
- <span className="micro" style={{ marginLeft: 6, color: 'var(--text-quaternary)', fontWeight: 400, fontSize: 10 }}>
- ✏
- </span>
- </div>
- )}
- <div className="mono-font" style={{ fontSize: 10, color: 'var(--text-tertiary)', marginBottom: 4 }}>
- {entry.voiceId}
- </div>
- <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 10, color: 'var(--text-tertiary)' }}>
- <span>📂 {entry.sourceName}</span>
- <span>·</span>
- <span>모델: {entry.modelUsed}</span>
- <span>·</span>
- <span>클론: {new Date(entry.clonedAt).toLocaleDateString('ko-KR')}</span>
- {entry.lastUsedAt && (
- <>
- <span>·</span>
- <span style={{ color: expired ? 'var(--state-error)' : expiringSoon ? '#a16207' : 'var(--text-tertiary)', fontWeight: expiringSoon ? 700 : 400 }}>
- 마지막 사용: {daysSinceUsed === 0 ? '오늘' : `${daysSinceUsed}일 전`}
- {expired && ' 만료 가능'}
- {!expired && expiringSoon && ' 곧 만료'}
- </span>
- </>
- )}
- </div>
- </div>
- <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
- <button
- className="btn btn-primary btn-sm"
- onClick={() => handleAssignClonedVoiceToCharacter(showVoiceLibraryModal, entry.voiceId)}
- style={{ background: '#7e22ce', borderColor: '#7e22ce', padding: '4px 10px' }}
- >
- 적용
- </button>
- <button
- className="btn btn-ghost btn-sm"
- onClick={() => setEditingVoiceLabel({ voiceId: entry.voiceId, value: entry.label })}
- title="라벨 편집"
- style={{ padding: '4px 8px' }}
- >
- <Edit3 size={11} />
- </button>
- <button
- className="btn btn-ghost btn-sm"
- onClick={() => handleDeleteClonedVoice(entry.voiceId)}
- title="라이브러리에서 삭제"
- style={{ padding: '4px 8px', color: 'var(--state-error)' }}
- >
- <X size={11} />
- </button>
- </div>
- </div>
- );
- })}
- </div>
- </>
- )}
- </div>
-
- {/* 푸터 */}
- <div style={{ padding: '14px 28px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
- <div className="micro" style={{ color: 'var(--text-tertiary)' }}>
- 총 {clonedVoiceLibrary.length}개 보이스 · 원본은 앱 데이터 폴더에 영구 보관
- </div>
- <button className="btn btn-ghost btn-sm" onClick={() => setShowVoiceLibraryModal(null)}>
- 닫기
- </button>
- </div>
- </div>
- </div>
- )}
+ 
 
  {/* 설정 모달 */}
  {showSettings && (
@@ -44508,6 +43807,34 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  리전 <strong>ap-southeast</strong>(싱가포르) 기준입니다. 모델 사용 전에 콘솔에서 <strong>선불 리소스 팩</strong>을 구매해 해당 모델을 활성화해야 합니다.<br />
  영상 생성은 전부 이 키로 나갑니다 — 이 키가 없으면 영상이 만들어지지 않습니다.
  </div>
+ {/* v1213: 검열 필터 — 끄면 필터를 끈 내 엔드포인트로 보낸다 */}
+ <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+   <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>검열 필터</span>
+   <button type="button" role="switch" aria-checked={!arkFilterOffUi}
+    onClick={() => {
+     const off = !arkFilterOffUi;
+     try { localStorage.setItem(ARK_FILTER_OFF_KEY, off ? '1' : '0'); } catch {}
+     setArkFilterOffUi(off);
+     try { showToast(off ? '검열 필터를 껐습니다 — 필터를 끈 엔드포인트로 생성합니다.' : '검열 필터를 켰습니다 — 기본 모델로 생성합니다.', 'load'); } catch {}
+    }}
+    title={arkFilterOffUi ? '눌러서 검열 필터를 켭니다' : '눌러서 검열 필터를 끕니다'}
+    style={{ position: 'relative', width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer', padding: 0,
+     background: arkFilterOffUi ? 'var(--state-warning)' : 'var(--green-500)', transition: 'background 0.15s' }}>
+    <span style={{ position: 'absolute', top: 3, left: arkFilterOffUi ? 3 : 23, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 0.15s' }} />
+   </button>
+   <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700,
+    background: arkFilterOffUi ? 'rgba(245,158,11,0.12)' : 'var(--green-50)', color: arkFilterOffUi ? 'var(--state-warning)' : 'var(--green-700)' }}>
+    {arkFilterOffUi ? '꺼짐 · 내 엔드포인트' : '켜짐 · 기본 모델'}
+   </span>
+  </div>
+  <div className="micro" style={{ color: 'var(--text-tertiary)', marginTop: 8, lineHeight: 1.6 }}>
+   끄면 콘텐츠 필터를 끈 엔드포인트로 생성합니다 — Seedance <span style={{ fontFamily: 'SF Mono, monospace' }}>{ARK_NOFILTER_EP[ARK_MODELS.video25]}</span> ·
+   Seedream <span style={{ fontFamily: 'SF Mono, monospace' }}>{ARK_NOFILTER_EP[ARK_MODELS.image]}</span>.
+   요금은 같은 모델 단가 그대로입니다. 꺼도 BytePlus 의 기본 안전 정책과 공인(유명인) 얼굴 · 목소리 필터는 그대로 적용되고, 실사 인물 레퍼런스는 여전히 인증 자산이어야 합니다.
+   초안의 1080p 변환은 그 초안을 만든 쪽으로 보냅니다.
+  </div>
+ </div>
  </div>
  </div>
 
@@ -44714,6 +44041,41 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  );
  })()}
 
+ {/* v1225: 월별 기록 — 최근 달이 위. 막대는 작업 영역별 비율 */}
+ {(() => {
+ const ms = cs.months || [];
+ const maxM = Math.max(...ms.map(m => m.total), 0.0001);
+ return (
+ <div style={{ marginBottom: 22, padding: '14px 14px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)' }}>
+ <div className="micro" style={{ fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 10 }}>월별 사용량</div>
+ {ms.length === 0 ? (
+ <div className="micro" style={{ color: 'var(--text-tertiary)' }}>아직 사용 기록이 없습니다.</div>
+ ) : (
+ <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 280, overflowY: 'auto', overscrollBehavior: 'contain' }}>
+ {ms.map((m) => {
+ const f = formatCostDisplay(m.total);
+ return (
+ <div key={m.key}>
+ <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginBottom: 4, fontSize: 12.5 }}>
+ <span style={{ fontWeight: m.isCurrent ? 800 : 600, color: m.isCurrent ? 'var(--green-700)' : 'var(--text-primary)' }}>{m.label}{m.isCurrent ? ' · 이번 달' : ''}</span>
+ <span style={{ fontFamily: 'SF Mono, monospace', fontWeight: 700 }}>{f.usd} <span className="micro" style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}>({f.krw}) · {m.count.toLocaleString()}건</span></span>
+ </div>
+ <div style={{ display: 'flex', height: 8, width: `${Math.max(2, (m.total / maxM) * 100)}%`, borderRadius: 999, overflow: 'hidden', background: 'var(--bg-tertiary)' }}
+ title={AREAS.map(a => `${a.label} ${formatCostDisplay((m.byWorkCat || {})[a.id] || 0).usd}`).join(' · ')}>
+ {AREAS.map(a => {
+ const v = (m.byWorkCat || {})[a.id] || 0;
+ return v > 0 ? <div key={a.id} style={{ width: `${(v / (m.total || 1)) * 100}%`, background: a.color }} /> : null;
+ })}
+ </div>
+ </div>
+ );
+ })}
+ </div>
+ )}
+ </div>
+ );
+ })()}
+
  {/* 작업별 상세 — 기간 탭 + 원형 그래프 */}
  {/* v779: 누적 초기화 — 단가 교정(v777·v778) 이전 기록과 섞이지 않게 */}
  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 18, padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)' }}>
@@ -44724,7 +44086,7 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  <button className="btn btn-ghost btn-sm" style={{ flexShrink: 0, color: 'var(--state-error)' }}
  onClick={() => setConfirmDialog({
  title: '크레딧 누적 초기화',
- message: `기록 ${(cs.count || 0).toLocaleString()}건을 모두 삭제합니다.\n\n오늘·이번 주·이번 달·전체 사용량이 0으로 돌아가고, 이후 발생하는 사용량부터 새로 쌓입니다.\n되돌릴 수 없습니다.`,
+ message: `기록 ${(cs.count || 0).toLocaleString()}건과 월별 기록을 모두 삭제합니다.\n\n오늘·이번 주·이번 달·전체 · 월별 사용량이 0으로 돌아가고, 이후 발생하는 사용량부터 새로 쌓입니다.\n되돌릴 수 없습니다.`,
  confirmLabel: '초기화',
  danger: true,
  onCancel: () => setConfirmDialog(null),
@@ -45786,1619 +45148,7 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  {/* v375: 보이스 클로닝 페이지 — 독립 도구 (v719: 단일 워크스페이스에서는 전용 VOICE 블록 사용 → classic 미표시) */}
 
  {/* TTS 모드 */}
- {soundMode === 'tts' && (() => {
- const td = ttsToolData;
- const characterList = Object.keys(td.characters);
- const hasLines = td.srtLines.length > 0;
- const totalLines = td.srtLines.length;
- const doneCount = Object.values(td.results).filter(r => r.status === 'done').length;
- const errorCount = Object.values(td.results).filter(r => r.status === 'error').length;
- const generatingCount = Object.values(td.results).filter(r => r.status === 'generating').length;
- const remainingLines = totalLines - doneCount;
-
- // ── 예상 비용 추정 ──
- // Replicate 공식 가격 정보 기반 추정 (변동 가능 — Replicate 가격 페이지 참고 권장)
- // 총 글자 수
- const totalChars = td.srtLines.reduce((sum, l) => sum + (l.text?.length || 0), 0);
- const remainingChars = td.srtLines
- .filter(l => td.results[l.idx]?.status !== 'done')
- .reduce((sum, l) => sum + (l.text?.length || 0), 0);
-
- // MiniMax Speech 2.8 Turbo — 글자 수 기반 과금
- const CHARS_PER_USD = 100000; // ~$1 per 100k chars
- const estCostUsd = totalChars / CHARS_PER_USD;
- const estPerLineUsd = totalLines > 0 ? estCostUsd / totalLines : 0;
- const costNote = `MiniMax · 약 $1 / 100,000자 기준 (실제 가격은 fal 모델 페이지에서 확인)`;
- const estCostKrw = Math.round(estCostUsd * 1400); // 환율 1400원 가정
- const fmtUsd = (v) => v < 0.01 ? '< $0.01' : `$${v.toFixed(2)}`;
- const fmtKrw = (v) => v < 100 ? '< ₩100' : `₩${v.toLocaleString()}`;
-
- return (
- <>
- {appScreen === 'single' ? (
- <div style={{ maxWidth: 1180, margin: '0 auto', marginBottom: 22, textAlign: 'center' }}>
- <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-0.01em' }}>TTS · 음성 더빙</h2>
- <p className="meta" style={{ color: 'var(--text-tertiary)', marginTop: 5 }}>SRT 자막이나 대사를 입력하면 인물별 보이스로 음성을 생성합니다. 감정 자동 분류 · 보이스 클로닝 · 다국어 재생성을 지원합니다.</p>
- <div style={{ height: 3, marginTop: 16, borderRadius: 3, background: 'linear-gradient(to right, transparent, var(--green-500), transparent)' }} />
- </div>
- ) : (
- <div className="tool-page-head">
- <h1 className="h1">TTS · 음성 더빙</h1>
- <p className="body-secondary">SRT 자막 또는 대사 텍스트를 입력하면 인물별로 매핑된 레퍼런스 보이스를 사용해 음성을 생성합니다.</p>
- </div>
- )}
-
- {td.error && (
- <div className="error-box" style={{ marginBottom: 20, justifyContent: 'space-between' }}>
- <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><X size={14} /><span>{td.error}</span></div>
- <button onClick={() => setTtsToolData(p => ({ ...p, error: '' }))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', opacity: 0.7, padding: '0 4px' }}><X size={13} /></button>
- </div>
- )}
-
- {!falApiKey && (
- <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
- <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 'var(--radius-md)', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: 'var(--state-error)', fontSize: 13 }}>
- <AlertCircle size={14} />
- fal API 키 미설정 —{' '}
- <button onClick={() => { setShowSettings(true); setSettingsTab('common'); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--state-error)', fontWeight: 600, padding: 0, textDecoration: 'underline', font: 'inherit' }}>
- Settings &gt; 공용에서 입력
- </button>
- </div>
- </div>
- )}
-
- <div style={{ maxWidth: 880, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
-
- {/* v708: 스텝 화면 — 입력 (다음 버튼으로 화면 전환) */}
- {td.step === 'input' && (<>
-
- {/* SRT 입력 */}
- <div className="card" style={{ padding: '20px 24px' }}>
- <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 10, flexWrap: 'wrap' }}>
- <div className="scenario-section-label">SRT 자막 또는 대사 입력</div>
- {/* v709: 입력 방식 토글 — 파일 업로드(기본) / 직접 입력 */}
- <div style={{ display: 'inline-flex', padding: 3, borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)', gap: 3 }}>
- {[{ v: 'upload', l: '자막 파일 업로드' }, { v: 'text', l: '직접 입력' }].map((m) => {
- const on = ttsSrtInputMode === m.v;
- return (
- <button key={m.v} type="button" onClick={() => setTtsSrtInputMode(m.v)}
- style={{ padding: '5px 13px', fontSize: 12, fontWeight: on ? 700 : 500, borderRadius: 6, border: 'none', cursor: 'pointer', background: on ? 'var(--green-500)' : 'transparent', color: on ? '#fff' : 'var(--text-secondary)', transition: 'all 0.12s' }}>
- {m.l}
- </button>
- );
- })}
- </div>
- </div>
-
- <input ref={ttsSrtInputRef} type="file" accept=".srt,.txt" onChange={(e) => { handleTtsSrtFile(e.target.files?.[0]); e.target.value = ''; }} style={{ display: 'none' }} />
-
- {ttsSrtInputMode === 'upload' ? (
- /* 파일 업로드 박스 (기획 탭 upload-zone) — 로드 후엔 has-file 상태 */
- <div
- className={`upload-zone ${td.srtRaw ? 'has-file' : ''} ${ttsSrtDragOver ? 'is-dragging' : ''}`}
- onClick={() => ttsSrtInputRef.current?.click()}
- onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setTtsSrtDragOver(true); }}
- onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'copy'; setTtsSrtDragOver(true); }}
- onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setTtsSrtDragOver(false); }}
- onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setTtsSrtDragOver(false); const file = e.dataTransfer.files?.[0]; if (file) handleTtsSrtFile(file); }}
- style={{ height: 240, padding: '24px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}
- >
- <div className="upload-icon">{td.srtRaw ? <Check size={28} color="var(--green-500)" strokeWidth={2} /> : <Upload size={28} color="var(--green-500)" strokeWidth={1.5} />}</div>
- <h2 className="h2" style={{ marginBottom: 8 }}>{ttsSrtDragOver ? '파일을 놓으세요' : (td.srtRaw ? 'SRT 불러옴' : 'SRT 자막 파일 업로드')}</h2>
- <p className="meta mono-font" style={{ marginBottom: 20 }}>{td.srtRaw ? '드래그앤드롭 또는 다른 파일 선택으로 교체' : '드래그앤드롭 또는 클릭 · .srt / .txt'}</p>
- <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
- <button className="btn btn-primary btn-lg" onClick={(e) => { e.stopPropagation(); ttsSrtInputRef.current?.click(); }}>
- <FileText size={16} /> {td.srtRaw ? '다른 파일 선택' : '파일 선택'}
- </button>
- {td.srtRaw && (
- <button className="btn btn-secondary btn-lg" onClick={(e) => { e.stopPropagation(); handleTtsSrtChange(''); }}>
- <X size={14} /> 초기화
- </button>
- )}
- </div>
- </div>
- ) : (
- /* 직접 입력 — 업로드 박스와 동일한 크기의 텍스트 박스 */
- <textarea className="feedback-input"
- placeholder={`대사를 직접 입력하세요.\n\n[예시]\n우진: 너 어디 갔었어?\n지은: 미안해, 늦었지...\n\n[감정 표현 태그 — 영어 텍스트에서만 동작]\n[sigh], [chuckle], [laugh], [gasp], [cough]`}
- style={{ width: '100%', height: 240, boxSizing: 'border-box', fontSize: 12, fontFamily: 'SF Mono, monospace', resize: 'vertical' }}
- value={td.srtRaw}
- onChange={(e) => handleTtsSrtChange(e.target.value)}
- autoFocus
- />
- )}
-
- {hasLines && (
- <div className="meta" style={{ marginTop: 10, color: 'var(--text-tertiary)' }}>
- {totalLines}개 대사 인식됨
- {characterList.length > 0 && ` · 인물 ${characterList.length}명`}
- {' · '}
- <span style={{ color: td.srtLines.some(l => l.text.length > 500) ? 'var(--state-warning)' : 'inherit' }}>
- {td.srtLines.some(l => l.text.length > 500)
- ? `500자 초과 대사 ${td.srtLines.filter(l => l.text.length > 500).length}개 — 자동 분할됨`
- : '500자 이내'}
- </span>
- </div>
- )}
- </div>
-
- {/* 시나리오 첨부 (선택) */}
- <div className="card" style={{ padding: '20px 24px' }}>
- <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
- <div className="scenario-section-label">시나리오 첨부 (선택)</div>
- <span className="micro" style={{ color: 'var(--text-tertiary)' }}>인물 자동 매핑용</span>
- </div>
- <p className="body-secondary" style={{ fontSize: 12, marginBottom: 12, marginTop: 0 }}>
- 시나리오를 첨부하면 SRT 대사를 자동으로 인물에 매핑합니다. 자동 매핑이 부정확하면 아래에서 직접 수정할 수 있습니다.
- </p>
-
- {/* 드래그앤드롭 영역 (시나리오 없을 때만) — 기획 탭 upload-zone 스타일 */}
- {!td.scenarioFileName && (
- <div
- className={`upload-zone ${ttsScenarioDragOver ? 'is-dragging' : ''}`}
- onClick={() => ttsScenarioInputRef.current?.click()}
- onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setTtsScenarioDragOver(true); }}
- onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'copy'; setTtsScenarioDragOver(true); }}
- onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setTtsScenarioDragOver(false); }}
- onDrop={(e) => {
- e.preventDefault();
- e.stopPropagation();
- setTtsScenarioDragOver(false);
- const file = e.dataTransfer.files?.[0];
- if (file) handleTtsScenarioFile(file);
- }}
- style={{ marginBottom: 12 }}
- >
- <div className="upload-icon"><Upload size={28} color="var(--green-500)" strokeWidth={1.5} /></div>
- <h2 className="h2" style={{ marginBottom: 8 }}>{ttsScenarioDragOver ? '파일을 놓으세요' : '시나리오 파일 첨부'}</h2>
- <p className="meta mono-font" style={{ marginBottom: 20 }}>드래그앤드롭 또는 클릭 · .txt / .md / .srt / .docx / .pdf</p>
- <button className="btn btn-primary btn-lg" onClick={(e) => { e.stopPropagation(); ttsScenarioInputRef.current?.click(); }}>
- <FileText size={16} /> 파일 선택
- </button>
- </div>
- )}
-
- <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
- <input
- ref={ttsScenarioInputRef}
- type="file"
- accept=".txt,.md,.srt,.docx,.pdf"
- onChange={(e) => { handleTtsScenarioFile(e.target.files?.[0]); e.target.value = ''; }}
- style={{ display: 'none' }}
- />
- {td.scenarioFileName && (
- <>
- <button className="btn btn-secondary btn-sm" onClick={() => ttsScenarioInputRef.current?.click()}>
- <Upload size={12} /> 다른 시나리오 파일
- </button>
- <button className="btn btn-ghost btn-sm" onClick={() => handleTtsScenarioFile(null)}>
- <X size={12} /> 제거
- </button>
- </>
- )}
- </div>
- {td.scenarioFileName && (
- <div className="meta" style={{ color: 'var(--text-tertiary)' }}>
- {td.scenarioFileName} ({td.scenarioText.length.toLocaleString()}자)
- </div>
- )}
- </div>
-
- {/* 다음: 인물·보이스 매핑 — SRT 업로드 또는 직접 입력 시 활성화 (누르면 화면 전환) */}
- <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
- <button className="btn btn-primary" disabled={td.srtLines.length === 0}
- onClick={() => { setTtsBulkSelection([]); setTtsToolData(p => ({ ...p, step: 'mapping' })); }}>
- 다음: 인물·보이스 매핑 <ArrowRight size={14} />
- </button>
- </div>
-
- </>)}{/* ──────── /입력 ──────── */}
-
-
- {/* ──────── 인물·보이스 매핑 ──────── */}
- {td.step === 'mapping' && (<>
-
- {/* v355: MiniMax 모델 + 감정 분류 진행 표시 */}
- {td.emotionClassifyProgress && (
- <div className="card" style={{
- padding: '14px 18px',
- background: 'rgba(168,85,247,0.08)',
- borderColor: 'rgba(168,85,247,0.25)',
- marginBottom: 12,
- }}>
- <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
- <span style={{ fontSize: 16 }}>🎭</span>
- <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#7e22ce' }}>
- {td.emotionClassifyProgress.message}
- </div>
- </div>
- <div style={{ height: 4, background: 'rgba(168,85,247,0.15)', borderRadius: 2, overflow: 'hidden' }}>
- <div style={{
- height: '100%',
- width: `${(td.emotionClassifyProgress.done / Math.max(td.emotionClassifyProgress.total, 1)) * 100}%`,
- background: '#a855f7',
- transition: 'width 0.3s ease',
- }} />
- </div>
- <div className="micro" style={{ marginTop: 6, color: 'var(--text-tertiary)', fontSize: 10 }}>
- 분류가 완료되면 생성 화면에서 각 대사의 감정을 확인하고 수정할 수 있습니다.
- </div>
- </div>
- )}
-
- {/* v370: 감정 자동 분류 안내 */}
- {!td.emotionClassifyProgress && td.srtLines.length > 0 && !td.srtLines.some(l => l.emotion) && (
- <div className="card" style={{
- padding: '12px 16px',
- background: 'rgba(168,85,247,0.05)',
- borderColor: 'rgba(168,85,247,0.20)',
- marginBottom: 12,
- fontSize: 11, lineHeight: 1.6, color: 'var(--text-secondary)',
- }}>
- 💡 <strong style={{ color: '#7e22ce' }}>감정 자동 분석</strong>: 다음 단계로 진행 시 각 대사의 감정이 자동 분류되어
- 감정별 톤(기쁨/슬픔/분노 등)으로 생성됩니다. 다음 화면에서 확인하고 직접 수정할 수 있습니다.
- </div>
- )}
-
- {/* 시나리오 미첨부 안내 */}
- {!td.scenarioFileName && (
- <div className="card" style={{
- padding: '14px 18px',
- background: 'rgba(234,179,8,0.06)',
- borderColor: 'rgba(234,179,8,0.3)',
- display: 'flex',
- alignItems: 'center',
- gap: 12,
- }}>
- <AlertCircle size={18} color="var(--state-warning, #d97706)" style={{ flexShrink: 0 }} />
- <div style={{ flex: 1 }}>
- <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--state-warning, #d97706)', marginBottom: 2 }}>
- 시나리오 미첨부 — 인물 자동 매핑 불가
- </div>
- <div className="micro" style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
- 시나리오 없이도 진행 가능합니다. 위 <strong>시나리오 첨부</strong> 또는 아래 <strong>"대사별 직접 보이스 지정"</strong>에서 라인을 선택해 보이스를 일괄 지정하세요.
- </div>
- </div>
- </div>
- )}
-
- {/* 시나리오 분석 결과 카드 — 시나리오 첨부 후 즉시 표시 */}
- {td.scenarioAnalysis && td.scenarioFileName && (() => {
- const sa = td.scenarioAnalysis;
- return (
- <div className="card" style={{
- padding: '18px 22px',
- background: 'linear-gradient(to bottom, rgba(63,175,185,0.04), transparent)',
- borderColor: 'var(--green-500)',
- }}>
- <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
- <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
- <Sparkles size={14} color="var(--green-500)" />
- <div className="scenario-section-label" style={{ color: 'var(--green-700)' }}>
- 인물 매핑 분석 결과
- </div>
- </div>
- <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
- {typeof sa.avgConfidence === 'number' && sa.avgConfidence > 0 && (
- <span className="micro" style={{
- padding: '3px 10px',
- background: sa.avgConfidence >= 60 ? 'rgba(63,175,185,0.1)' : 'rgba(234,179,8,0.1)',
- color: sa.avgConfidence >= 60 ? 'var(--green-700)' : 'var(--state-warning, #d97706)',
- borderRadius: 999,
- fontWeight: 700,
- }}>
- 평균 신뢰도 {sa.avgConfidence}%
- </span>
- )}
- <span className="micro" style={{
- padding: '3px 10px',
- background: sa.matchRate >= 70 ? 'var(--green-50, rgba(63,175,185,0.1))' : sa.matchRate >= 30 ? 'rgba(234,179,8,0.1)' : 'rgba(239,68,68,0.1)',
- color: sa.matchRate >= 70 ? 'var(--green-700)' : sa.matchRate >= 30 ? 'var(--state-warning, #d97706)' : 'var(--state-error)',
- borderRadius: 999,
- fontWeight: 700,
- }}>
- 매칭률 {sa.matchRate}%
- </span>
- </div>
- </div>
-
- {/* 시나리오에서 0개 페어 추출된 경우 — 포맷 안내 */}
- {sa.dialogPairsCount === 0 && (
- <div style={{
- padding: '10px 12px',
- background: 'rgba(239,68,68,0.06)',
- border: '1px solid rgba(239,68,68,0.3)',
- borderRadius: 'var(--radius-md)',
- marginBottom: 12,
- fontSize: 11,
- color: 'var(--text-secondary)',
- lineHeight: 1.6,
- }}>
- <strong>시나리오에서 대사 페어를 0개 추출했습니다.</strong> 시나리오 포맷이 인식되지 않을 수 있어요. 지원 포맷:<br/>
- · <span className="mono-font">우진: 안녕하세요</span><br/>
- · <span className="mono-font">[우진] 안녕하세요</span><br/>
- · <span className="mono-font">우진 (웃으며) 안녕하세요</span><br/>
- · <span className="mono-font">우진</span><br/>&nbsp;&nbsp;<span className="mono-font">안녕하세요</span> (이름 줄 + 다음 줄이 대사)
- </div>
- )}
-
- {/* 페어는 있지만 매칭 안 된 경우 — 유사도 문제 */}
- {sa.dialogPairsCount > 0 && sa.matchRate === 0 && (
- <div style={{
- padding: '10px 12px',
- background: 'rgba(234,179,8,0.06)',
- border: '1px solid rgba(234,179,8,0.3)',
- borderRadius: 'var(--radius-md)',
- marginBottom: 12,
- fontSize: 11,
- color: 'var(--text-secondary)',
- lineHeight: 1.6,
- }}>
- <strong>시나리오에서 {sa.dialogPairsCount}개 대사 페어를 추출했지만 SRT와 매칭되지 않았습니다.</strong><br/>
- · SRT 자막과 시나리오 대사가 너무 다르거나, 시나리오에 지문이 많이 섞여 있을 수 있어요.<br/>
- · 아래 <strong>"대사별 직접 보이스 지정"</strong>에서 수동으로 보이스를 할당하세요.
- </div>
- )}
-
- {/* v288 디버그: 매칭률이 50% 미만이고 샘플 정보가 있으면 진단 정보 표시 */}
- {sa.matchRate < 50 && (sa.samplePairs?.length > 0 || sa.sampleSrtLines?.length > 0) && (
- <details style={{
- padding: '10px 12px',
- background: 'rgba(59,130,246,0.05)',
- border: '1px solid rgba(59,130,246,0.2)',
- borderRadius: 'var(--radius-md)',
- marginBottom: 12,
- fontSize: 11,
- color: 'var(--text-secondary)',
- }}>
- <summary style={{ cursor: 'pointer', fontWeight: 600, color: 'var(--text-primary)' }}>
- 진단 정보 보기 (매칭률 {sa.matchRate}% 원인 확인)
- </summary>
- <div style={{ marginTop: 10, lineHeight: 1.7 }}>
- {sa.samplePairs?.length > 0 && (
- <>
- <div style={{ fontWeight: 600, marginTop: 6, color: 'var(--text-primary)' }}>
- 시나리오에서 추출된 페어 (총 {sa.dialogPairsCount}개 중 첫 {sa.samplePairs.length}개):
- </div>
- {sa.samplePairs.map((p, i) => (
- <div key={i} className="mono-font" style={{ fontSize: 10, paddingLeft: 8 }}>
- {i+1}. [{p.character}] {p.text}
- </div>
- ))}
- </>
- )}
- {sa.sampleSrtLines?.length > 0 && (
- <>
- <div style={{ fontWeight: 600, marginTop: 10, color: 'var(--text-primary)' }}>
- SRT 라인 (총 {sa.totalSrtLines}개 중 첫 {sa.sampleSrtLines.length}개):
- </div>
- {sa.sampleSrtLines.map((l, i) => (
- <div key={i} className="mono-font" style={{ fontSize: 10, paddingLeft: 8 }}>
- {l.idx}. "{l.text}" → {l.character || '(매핑 안 됨)'}
- </div>
- ))}
- </>
- )}
- <div style={{ marginTop: 10, padding: 8, background: 'rgba(0,0,0,0.03)', borderRadius: 6 }}>
- <strong>가능한 원인:</strong><br/>
- · 시나리오 페어 0개 → 시나리오 포맷이 인식 안 됨 (인물 콜론 패턴 필요)<br/>
- · 페어 수가 너무 적음 → PDF 추출 시 한 줄 합쳐졌을 수 있음 (v288에서 자동 분할)<br/>
- · 페어 많은데 매칭 실패 → SRT 자막과 시나리오 대사가 글자 차이가 큼<br/>
- · F12 → Console 탭에서 더 자세한 로그 확인 가능
- </div>
- </div>
- </details>
- )}
-
- {/* 통계 요약 */}
- <div style={{
- display: 'grid',
- gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
- gap: 8,
- marginBottom: 14,
- }}>
- <div style={{ padding: '8px 10px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)' }}>
- <div className="micro" style={{ color: 'var(--text-tertiary)', fontSize: 10, marginBottom: 2 }}>시나리오 인물</div>
- <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>{sa.scenarioCharacters.length}명</div>
- </div>
- <div style={{ padding: '8px 10px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)' }}>
- <div className="micro" style={{ color: 'var(--text-tertiary)', fontSize: 10, marginBottom: 2 }}>대사 페어 추출</div>
- <div style={{ fontSize: 16, fontWeight: 700, color: sa.dialogPairsCount > 0 ? 'var(--text-primary)' : 'var(--state-error)' }}>{sa.dialogPairsCount}개</div>
- </div>
- <div style={{ padding: '8px 10px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)' }}>
- <div className="micro" style={{ color: 'var(--text-tertiary)', fontSize: 10, marginBottom: 2 }}>매핑된 인물</div>
- <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--green-700)' }}>{sa.mappedCharacters.length}명</div>
- </div>
- <div style={{ padding: '8px 10px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)' }}>
- <div className="micro" style={{ color: 'var(--text-tertiary)', fontSize: 10, marginBottom: 2 }}>매핑된 대사</div>
- <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--green-700)' }}>{sa.mappedCount}<span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-tertiary)' }}> / {sa.totalSrtLines}</span></div>
- </div>
- {sa.unmappedCount > 0 && (
- <div style={{ padding: '8px 10px', background: 'rgba(234,179,8,0.08)', borderRadius: 'var(--radius-sm)' }}>
- <div className="micro" style={{ color: 'var(--text-tertiary)', fontSize: 10, marginBottom: 2 }}>미매핑 대사</div>
- <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--state-warning, #d97706)' }}>{sa.unmappedCount}개</div>
- </div>
- )}
- {sa.lowConfidenceCount > 0 && (
- <div style={{ padding: '8px 10px', background: 'rgba(234,179,8,0.08)', borderRadius: 'var(--radius-sm)' }}>
- <div className="micro" style={{ color: 'var(--text-tertiary)', fontSize: 10, marginBottom: 2 }}>저신뢰도 매핑</div>
- <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--state-warning, #d97706)' }}>{sa.lowConfidenceCount}개</div>
- </div>
- )}
- </div>
-
- {/* 인물별 매핑 분포 */}
- {sa.mappedCharacters.length > 0 && (
- <div style={{ marginBottom: sa.scenarioOnlyChars.length > 0 ? 12 : 0 }}>
- <div className="micro" style={{ marginBottom: 6, color: 'var(--text-secondary)', fontWeight: 600 }}>
- TTS 생성될 인물 ({sa.mappedCharacters.length}명):
- </div>
- <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
- {sa.mappedCharacters
- .sort((a, b) => (sa.charLineCount[b] || 0) - (sa.charLineCount[a] || 0))
- .map(cn => (
- <span key={cn} style={{
- padding: '4px 10px',
- background: 'var(--bg-primary)',
- border: '1px solid var(--green-500)',
- borderRadius: 999,
- fontSize: 11,
- color: 'var(--green-700)',
- fontWeight: 600,
- display: 'inline-flex',
- alignItems: 'center',
- gap: 4,
- }}>
- {cn}
- <span style={{
- background: 'var(--green-500)',
- color: 'white',
- padding: '1px 6px',
- borderRadius: 999,
- fontSize: 9,
- fontWeight: 700,
- }}>
- {sa.charLineCount[cn]}
- </span>
- </span>
- ))}
- </div>
- </div>
- )}
-
- {/* 시나리오에만 있는 인물 (매핑 안 됨) */}
- {sa.scenarioOnlyChars.length > 0 && (
- <div>
- <div className="micro" style={{ marginBottom: 6, color: 'var(--text-tertiary)', fontWeight: 600 }}>
- ⓘ 시나리오에 등장하지만 SRT 매칭 안 된 인물 ({sa.scenarioOnlyChars.length}명):
- </div>
- <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
- {sa.scenarioOnlyChars.map(cn => (
- <span key={cn} style={{
- padding: '3px 9px',
- background: 'var(--bg-secondary)',
- border: '1px dashed var(--border-strong, #d1d5db)',
- borderRadius: 999,
- fontSize: 11,
- color: 'var(--text-tertiary)',
- }}>
- {cn}
- </span>
- ))}
- </div>
- </div>
- )}
-
- {/* 부정확하면 직접 수정 안내 */}
- {(sa.unmappedCount > 0 || sa.matchRate < 80) && (
- <div className="micro" style={{
- marginTop: 12,
- padding: '8px 10px',
- background: 'rgba(234,179,8,0.06)',
- border: '1px solid rgba(234,179,8,0.2)',
- borderRadius: 6,
- fontSize: 11,
- color: 'var(--text-secondary)',
- lineHeight: 1.5,
- }}>
- 매칭이 부정확하다면 STEP 4의 대사 목록에서 인물을 직접 수정할 수 있어요.
- {sa.unmappedCount > 0 && ` 미매핑 ${sa.unmappedCount}개 대사는 fallback 보이스로 생성됩니다.`}
- </div>
- )}
- </div>
- );
- })()}
-
- {/* STEP 3: 인물별 레퍼런스 보이스 */}
- {characterList.length > 0 && (
- <div className="card" style={{ padding: '20px 24px' }}>
- <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
- <div className="scenario-section-label">인물별 보이스 지정</div>
- <span className="micro" style={{
- padding: '3px 8px',
- background: 'var(--bg-secondary)',
- border: '1px solid var(--border)',
- borderRadius: 999,
- color: 'var(--text-secondary)',
- fontFamily: 'SF Mono, monospace',
- }}>
- 현재 모델: {TTS_MODEL_LABEL}
- </span>
- </div>
- <p className="body-secondary" style={{ fontSize: 12, marginBottom: 8, marginTop: 0 }}>
- 각 인물에 <strong>MiniMax 시스템 보이스</strong>를 지정합니다. 한국어 보이스 포함 다국어 지원. 미지정 시 글로벌 fallback 보이스가 사용됩니다. (파일 첨부만으로는 쓸 수 없고 보이스 클로닝을 거쳐야 합니다)
- </p>
- <div className="micro" style={{ marginBottom: 14, marginTop: 0, color: 'var(--text-tertiary)', fontSize: 11, padding: '6px 10px', background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.2)', borderRadius: 6, display: 'inline-block' }}>
- <strong>샘플 듣기는 fal 크레딧을 소비합니다</strong> (라인 1개 수준). 한 번 생성한 샘플은 같은 세션 동안 캐시되어 재생됩니다.
- </div>
- <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
- {characterList.map((charName) => {
- const charData = td.characters[charName];
- const voiceRef = charData?.voiceRef;
- const lineCount = charData?.lines?.length || 0;
- if (!ttsCharVoiceInputRefs.current[charName]) {
- ttsCharVoiceInputRefs.current[charName] = React.createRef();
- }
- const inputRef = ttsCharVoiceInputRefs.current[charName];
-
- // 현재 모델의 프리셋 옵션 리스트
- const currentPresets = MINIMAX_VOICE_PRESETS;
- const presetOptions = [
- { value: '', label: '— 프리셋 선택 —' },
- // 클론 라이브러리 (있을 때만)
- ...(clonedVoiceLibrary.length > 0
- ? clonedVoiceLibrary.map(lib => ({
- value: `__lib__:${lib.voiceId}`,
- label: `🧬 ${lib.label}`,
- subLabel: lib.voiceId,
- }))
- : []),
- ...currentPresets.map(v => ({
- value: v.id,
- label: v.tone,
- subLabel: v.isCustom ? '' : `${v.id} · ${v.gender === 'M' ? '남성' : v.gender === 'F' ? '여성' : '?'}`,
- })),
- ];
- // 현재 value — custom voice인 경우엔 '__custom__'으로 표시되도록
- let currentPresetValue = '';
- if (voiceRef?.type === 'preset') {
- const inPresetList = currentPresets.some(v => v.id === voiceRef.voiceId);
- currentPresetValue = inPresetList ? voiceRef.voiceId : '__custom__';
- }
- const sampleCacheKey = voiceRef?.type === 'preset' ? `${TTS_MODEL_ID}::${voiceRef.voiceId}` : null;
-
- return (
- <div key={charName} style={{
- padding: '14px 16px',
- background: 'var(--bg-secondary)',
- border: `1px solid ${voiceRef ? 'var(--green-500)' : 'var(--border)'}`,
- borderRadius: 'var(--radius-md)',
- display: 'flex', flexDirection: 'column', gap: 10,
- }}>
- {/* 헤더: 인물명 + 매핑 개수 + 현재 상태 */}
- <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
- <div>
- <div style={{ fontWeight: 700, fontSize: 14 }}>{charName}</div>
- <div className="micro" style={{ color: 'var(--text-tertiary)', marginTop: 2 }}>
- {lineCount}개 대사 매핑됨
- </div>
- </div>
- {voiceRef && (
- <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
- {(() => {
- // v373: 인물 카드의 보이스 칩 — 성별별 색상 (남성 파랑 / 여성 분홍)
- let bg, color;
- if (voiceRef.type === 'cloned') {
- bg = 'rgba(168,85,247,0.12)'; color = '#7e22ce';
- } else if (voiceRef.type === 'file') {
- bg = 'rgba(234,179,8,0.12)'; color = '#a16207';
- } else if (voiceRef.type === 'preset') {
- const g = (voiceRef.gender || '').toUpperCase();
- if (g === 'M') {
- bg = darkMode ? 'rgba(59,130,246,0.22)' : 'rgba(59,130,246,0.12)';
- color = darkMode ? '#93c5fd' : '#1d4ed8';
- } else if (g === 'F') {
- bg = darkMode ? 'rgba(236,72,153,0.22)' : 'rgba(236,72,153,0.10)';
- color = darkMode ? '#f9a8d4' : '#be185d';
- } else {
- bg = darkMode ? 'rgba(148,163,184,0.18)' : 'rgba(148,163,184,0.12)';
- color = darkMode ? '#cbd5e1' : '#475569';
- }
- } else {
- bg = 'var(--green-50, rgba(63,175,185,0.1))'; color = 'var(--green-700)';
- }
- return (
- <span className="micro" style={{
- padding: '3px 8px',
- background: bg,
- color: color,
- borderRadius: 999,
- fontWeight: 700,
- }}>
- {voiceRef.type === 'cloned' && `🧬 클론 · ${(voiceRef.label || voiceRef.voiceId).slice(0, 20)}`}
- {voiceRef.type === 'preset' && (() => {
- const g = (voiceRef.gender || '').toUpperCase();
- const icon = g === 'M' ? '♂' : g === 'F' ? '♀' : '👤';
- return `${icon} ${voiceRef.voiceId}`;
- })()}
- {voiceRef.type === 'file' && `📎 ${voiceRef.name} (미클론)`}
- </span>
- );
- })()}
- <button className="btn btn-ghost btn-sm" onClick={() => handleTtsRemoveCharVoice(charName)} style={{ padding: '3px 8px' }}>
- <X size={11} /> 제거
- </button>
- </div>
- )}
- </div>
-
- {/* === MiniMax + 파일 첨부 상태 → 클로닝 버튼 표시 === */}
- {voiceRef && voiceRef.type === 'file' && (
- <div style={{
- padding: '12px 14px',
- background: 'rgba(168,85,247,0.06)',
- border: '1px solid rgba(168,85,247,0.25)',
- borderRadius: 'var(--radius-sm)',
- display: 'flex', flexDirection: 'column', gap: 8,
- }}>
- <div className="micro" style={{ color: '#7e22ce', fontWeight: 700, fontSize: 11 }}>
- 🧬 Voice Cloning 필요 — 영구 voice_id 생성
- </div>
- <div className="micro" style={{ color: 'var(--text-secondary)', fontSize: 11, lineHeight: 1.5 }}>
- MiniMax는 매번 음성 파일을 보내지 않고 <strong>한 번 클로닝</strong>해서 영구 voice_id로 재사용합니다.<br />
- 클로닝 1회 비용 약 <strong>$3</strong> · 이후 모든 대사는 클론된 ID로 합성 (이미지 압축 없는 5초~5분 음성 권장)
- </div>
- {ttsCloningStatus[charName]?.isCloning ? (
- <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 600, color: '#7e22ce' }}>
- <RefreshCw size={12} className="spin" />
- {ttsCloningStatus[charName].progress || '클로닝 진행 중…'}
- </div>
- ) : (
- <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
- <button
- className="btn btn-primary btn-sm"
- onClick={() => handleCloneVoiceForCharacter(charName)}
- disabled={!falApiKey}
- style={{ background: '#7e22ce', borderColor: '#7e22ce' }}
- >
- 🧬 보이스 클로닝 시작
- </button>
- <button
- className="btn btn-ghost btn-sm"
- onClick={() => setShowVoiceLibraryModal(charName)}
- disabled={clonedVoiceLibrary.length === 0}
- title="이전에 클론한 voice_id 재사용"
- >
- 📚 라이브러리 ({clonedVoiceLibrary.length})
- </button>
- </div>
- )}
- {ttsCloningStatus[charName]?.error && (
- <div className="micro" style={{ color: 'var(--state-error)', fontSize: 11, padding: '4px 8px', background: 'rgba(239,68,68,0.08)', borderRadius: 4 }}>
- {ttsCloningStatus[charName].error}
- </div>
- )}
- </div>
- )}
-
- {/* === 클로닝 완료 상태 — voice_id 정보 표시 + 라벨 인라인 편집 === */}
- {voiceRef && voiceRef.type === 'cloned' && (
- <div style={{
- padding: '10px 14px',
- background: 'rgba(168,85,247,0.06)',
- border: '1px solid rgba(168,85,247,0.25)',
- borderRadius: 'var(--radius-sm)',
- display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
- }}>
- <span style={{ fontSize: 16 }}>🧬</span>
- <div style={{ flex: 1, minWidth: 0 }}>
- {/* 라벨 — 클릭하면 인라인 편집 (기본은 인물명과 같지만 다르게 둘 수 있음) */}
- {editingVoiceLabel?.voiceId === voiceRef.voiceId ? (
- <input
- type="text"
- value={editingVoiceLabel.value}
- onChange={(e) => setEditingVoiceLabel({ voiceId: voiceRef.voiceId, value: e.target.value })}
- onBlur={() => {
- if (editingVoiceLabel.value.trim() && editingVoiceLabel.value.trim() !== voiceRef.label) {
- handleRenameClonedVoice(voiceRef.voiceId, editingVoiceLabel.value);
- }
- setEditingVoiceLabel(null);
- }}
- onKeyDown={(e) => {
- if (e.key === 'Enter') {
- if (editingVoiceLabel.value.trim() && editingVoiceLabel.value.trim() !== voiceRef.label) {
- handleRenameClonedVoice(voiceRef.voiceId, editingVoiceLabel.value);
- }
- setEditingVoiceLabel(null);
- } else if (e.key === 'Escape') {
- setEditingVoiceLabel(null);
- }
- }}
- autoFocus
- style={{
- fontSize: 12, fontWeight: 700, color: '#7e22ce',
- background: 'var(--bg-primary)',
- border: '1px solid #7e22ce',
- borderRadius: 4,
- padding: '2px 6px',
- marginBottom: 2,
- outline: 'none',
- fontFamily: 'inherit',
- width: '100%',
- maxWidth: 220,
- }}
- />
- ) : (
- <div
- onClick={() => setEditingVoiceLabel({ voiceId: voiceRef.voiceId, value: voiceRef.label || charName })}
- title="클릭하여 라벨 편집"
- style={{
- fontSize: 12, fontWeight: 700, color: '#7e22ce',
- marginBottom: 2, cursor: 'text',
- padding: '2px 6px', marginLeft: -6,
- borderRadius: 4,
- display: 'inline-block',
- transition: 'background 0.12s ease',
- }}
- onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(168,85,247,0.12)'}
- onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
- >
- {voiceRef.label || charName}
- <span style={{ marginLeft: 4, fontSize: 9, color: 'var(--text-quaternary)', fontWeight: 400 }}>✏</span>
- </div>
- )}
- <div className="mono-font" style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 1 }}>
- {voiceRef.voiceId}
- </div>
- <div className="micro" style={{ color: 'var(--text-tertiary)', fontSize: 10, marginTop: 1 }}>
- 영구 클론 보이스 · 모든 대사가 이 ID로 합성됩니다
- </div>
- </div>
- {ttsCloningStatus[charName]?.progress && (
- <span className="micro" style={{ color: '#7e22ce', fontWeight: 600, fontSize: 10 }}>
- {ttsCloningStatus[charName].progress}
- </span>
- )}
- </div>
- )}
-
- {/* 보이스 지정 옵션 */}
- {!voiceRef && (
- <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' }}>
- {/* 옵션 1: 프리셋 선택 */}
- <div style={{ flex: '1 1 280px', minWidth: 0 }}>
- <div className="micro" style={{ marginBottom: 6, color: 'var(--text-tertiary)', fontWeight: 600 }}>
- 옵션 1 · 프리셋에서 선택 (MiniMax)
- </div>
- <PrettySelect
- value={currentPresetValue}
- onChange={(v) => v && handleTtsCharVoicePreset(charName, v)}
- options={presetOptions}
- fullWidth
- size="sm"
- />
- </div>
- {/* 옵션 2: 파일 업로드 — 보이스 클로닝 입구 */}
- <div style={{ flex: '0 0 auto', alignSelf: 'center', color: 'var(--text-tertiary)', fontSize: 11, fontWeight: 600, padding: '0 4px' }}>
- 또는
- </div>
- <div style={{ flex: '0 0 auto' }}>
- <div className="micro" style={{ marginBottom: 6, color: 'var(--text-tertiary)', fontWeight: 600 }}>
- 옵션 2 · 🧬 음성 클로닝
- </div>
- <input
- ref={inputRef}
- type="file"
- accept="audio/*"
- onChange={(e) => { handleTtsCharVoiceUpload(charName, e.target.files?.[0]); e.target.value = ''; }}
- style={{ display: 'none' }}
- />
- <div style={{ display: 'flex', gap: 6 }}>
- <button className="btn btn-secondary btn-sm" onClick={() => inputRef.current?.click()} style={{ height: 28 }}>
- <Upload size={11} /> 파일 첨부
- </button>
- {clonedVoiceLibrary.length > 0 && (
- <button
- className="btn btn-ghost btn-sm"
- onClick={() => setShowVoiceLibraryModal(charName)}
- style={{ height: 28 }}
- title="이전에 클론한 voice_id 재사용"
- >
- 📚 라이브러리 ({clonedVoiceLibrary.length})
- </button>
- )}
- </div>
- </div>
- </div>
- )}
-
- {/* 보이스 미리듣기 (지정 후) */}
- {voiceRef && voiceRef.type === 'preset' && (
- <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
- <span className="micro" style={{ color: 'var(--text-tertiary)' }}>{voiceRef.tone}</span>
- {sampleCacheKey && ttsVoiceSamples[sampleCacheKey] ? (
- <div style={{ flex: '1 1 260px', minWidth: 0 }}><CustomAudioPlayer src={ttsVoiceSamples[sampleCacheKey]} compact /></div>
- ) : (
- <button
- className="btn btn-ghost btn-sm"
- onClick={() => handleGenerateVoiceSample(voiceRef.voiceId)}
- disabled={ttsSampleGeneratingId === voiceRef.voiceId || !falApiKey}
- title="샘플 생성에는 fal 크레딧이 사용됩니다 (라인 1개 수준)"
- style={{ padding: '3px 10px' }}
- >
- {ttsSampleGeneratingId === voiceRef.voiceId ? (
- <><RefreshCw size={11} className="spin" /> 샘플 생성 중...</>
- ) : (
- <>▶ 샘플 듣기</>
- )}
- </button>
- )}
- </div>
- )}
- {voiceRef && voiceRef.type === 'file' && (
- <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
- <div style={{ flex: '1 1 260px', minWidth: 0 }}><CustomAudioPlayer src={voiceRef.dataUrl} compact /></div>
- <span className="micro" style={{ color: 'var(--text-tertiary)' }}>{voiceRef.sizeKB}KB</span>
- </div>
- )}
- </div>
- );
- })}
- </div>
- </div>
- )}
-
- {/* ── 일괄 보이스 지정 UI ── */}
- {/* 시나리오 첨부 안 됐거나 인물 매핑 없는 라인이 있을 때 표시 */}
- {hasLines && (() => {
- // 매핑 안 된 라인 = character 없거나, characters[char].voiceRef 없는 라인 (단 lineVoiceOverrides에 있으면 OK)
- const overrides = td.lineVoiceOverrides || {};
- const unmappedLines = td.srtLines.filter(line => {
- if (overrides[line.idx]) return false; // 직접 오버라이드됨
- if (line.character && td.characters[line.character]?.voiceRef) return false; // 인물 매핑됨
- return true;
- });
- // 항상 표시 (직접 라인 지정도 가능)
- const presetOptions = [
- // 클론 라이브러리 (있을 때 우선 노출)
- ...(clonedVoiceLibrary.length > 0
- ? clonedVoiceLibrary.map(lib => ({
- value: `__lib__:${lib.voiceId}`,
- label: `🧬 ${lib.label}`,
- subLabel: lib.voiceId,
- }))
- : []),
- ...MINIMAX_VOICE_PRESETS.map(v => ({
- value: v.id,
- label: v.tone,
- subLabel: v.isCustom ? '' : `${v.id} · ${v.gender === 'M' ? '남성' : v.gender === 'F' ? '여성' : '?'}`,
- })),
- ];
-
- // 일괄 선택 가능한 라인 — 모든 라인 (오버라이드 변경 가능)
- const selectableLines = td.srtLines;
- const allSelected = ttsBulkSelection.length === selectableLines.length && selectableLines.length > 0;
- const someSelected = ttsBulkSelection.length > 0;
-
- return (
- <div className="card" style={{ padding: '20px 24px' }}>
- <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
- <div className="scenario-section-label">대사별 직접 보이스 지정</div>
- <span className="micro" style={{ color: 'var(--text-tertiary)' }}>
- {unmappedLines.length > 0
- ? `인물 매핑 없는 대사 ${unmappedLines.length}개`
- : '모든 대사가 매핑됨'}
- </span>
- </div>
- <p className="body-secondary" style={{ fontSize: 12, marginTop: 0, marginBottom: 14 }}>
- 특정 대사들을 선택해서 한 번에 같은 보이스를 적용할 수 있습니다. 시나리오 매핑 결과를 덮어쓰며, 매핑 안 된 대사도 여기서 보이스를 지정할 수 있어요.
- </p>
-
- {/* 일괄 액션 바 */}
- <div style={{
- display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
- padding: '10px 12px',
- background: someSelected ? 'rgba(63,175,185,0.06)' : 'var(--bg-secondary)',
- border: `1px solid ${someSelected ? 'var(--green-500)' : 'var(--border)'}`,
- borderRadius: 'var(--radius-md)',
- marginBottom: 12,
- }}>
- <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
- <input
- type="checkbox"
- checked={allSelected}
- onChange={(e) => {
- if (e.target.checked) setTtsBulkSelection(selectableLines.map(l => l.idx));
- else setTtsBulkSelection([]);
- }}
- style={{ accentColor: 'var(--green-500)' }}
- />
- 전체 선택
- </label>
- <div style={{ flex: '0 0 auto', height: 18, width: 1, background: 'var(--border)' }} />
- <button
- className="btn btn-ghost btn-sm"
- onClick={() => setTtsBulkSelection(unmappedLines.map(l => l.idx))}
- style={{ padding: '3px 10px', fontSize: 11 }}
- >
- 매핑 안 된 대사만 선택 ({unmappedLines.length}개)
- </button>
- {someSelected && (
- <>
- <span className="micro" style={{ color: 'var(--green-700)', fontWeight: 700 }}>
- {ttsBulkSelection.length}개 선택됨
- </span>
- <button
- className="btn btn-ghost btn-sm"
- onClick={() => setTtsBulkSelection([])}
- style={{ padding: '3px 10px', fontSize: 11 }}
- >
- 선택 해제
- </button>
- <div style={{ flex: 1 }} />
- <div style={{ minWidth: 220, maxWidth: 280 }}>
- <PrettySelect
- value=""
- onChange={(v) => v && handleBulkApplyVoice(ttsBulkSelection, v)}
- options={[
- { value: '', label: `→ 보이스 일괄 적용 (${ttsBulkSelection.length}개)` },
- ...presetOptions,
- ]}
- fullWidth
- size="sm"
- />
- </div>
- <button
- className="btn btn-ghost btn-sm"
- onClick={() => handleBulkRemoveOverride(ttsBulkSelection)}
- style={{ padding: '3px 10px', fontSize: 11 }}
- title="선택한 라인의 직접 지정을 제거 (원래 인물 매핑으로 복원)"
- >
- <X size={11} /> 직접 지정 제거
- </button>
- </>
- )}
- </div>
-
- {/* 라인 목록 (체크박스 포함) */}
- <div style={{
- maxHeight: 360, overflowY: 'auto', overscrollBehavior: 'contain',
- border: '1px solid var(--border)',
- borderRadius: 'var(--radius-md)',
- }}>
- {td.srtLines.map((line, idx) => {
- const isSelected = ttsBulkSelection.includes(line.idx);
- const override = overrides[line.idx];
- const charVoice = line.character ? td.characters[line.character]?.voiceRef : null;
- const effectiveVoice = override || charVoice;
- const effectiveLabel = override
- ? `🎯 직접: ${override.voiceId}`
- : charVoice
- ? `👤 ${line.character} (${charVoice.voiceId})`
- : line.character
- ? `${line.character} (보이스 없음)`
- : '인물·보이스 미지정';
- const toggleSelect = () => {
- setTtsBulkSelection(p =>
- p.includes(line.idx)
- ? p.filter(i => i !== line.idx)
- : [...p, line.idx]
- );
- };
- return (
- <div
- key={line.idx}
- onClick={toggleSelect}
- style={{
- display: 'flex', alignItems: 'center', gap: 10,
- padding: '8px 12px',
- borderBottom: idx < td.srtLines.length - 1 ? '1px solid var(--border)' : 'none',
- background: isSelected ? 'rgba(63,175,185,0.10)' : (idx % 2 === 0 ? 'var(--bg-primary)' : 'var(--bg-secondary)'),
- fontSize: 12,
- cursor: 'pointer',
- transition: 'background 0.12s ease',
- userSelect: 'none',
- }}
- onMouseEnter={(e) => {
- if (!isSelected) e.currentTarget.style.background = 'rgba(63,175,185,0.04)';
- }}
- onMouseLeave={(e) => {
- if (!isSelected) e.currentTarget.style.background = idx % 2 === 0 ? 'var(--bg-primary)' : 'var(--bg-secondary)';
- }}
- >
- <input
- type="checkbox"
- checked={isSelected}
- onClick={(e) => e.stopPropagation()}
- onChange={(e) => {
- if (e.target.checked) setTtsBulkSelection(p => p.includes(line.idx) ? p : [...p, line.idx]);
- else setTtsBulkSelection(p => p.filter(i => i !== line.idx));
- }}
- style={{ accentColor: 'var(--green-500)', flexShrink: 0, cursor: 'pointer' }}
- />
- <span className="mono-font" style={{ flexShrink: 0, fontSize: 10, color: 'var(--text-tertiary)', width: 30 }}>
- #{line.idx + 1}
- </span>
- {(() => {
- // v373: 보이스 배지 — 성별별 색상 (남성 파랑 / 여성 분홍)
- let bg, color, border = 'none';
- let label = effectiveLabel;
- if (effectiveVoice) {
- if (effectiveVoice.type === 'cloned') {
- // 클론 보이스 — 보라색
- bg = darkMode ? 'rgba(168,85,247,0.20)' : 'rgba(168,85,247,0.12)';
- color = darkMode ? '#d8b4fe' : '#7e22ce';
- label = override
- ? `🎯 🧬 ${(effectiveVoice.label || effectiveVoice.voiceId).slice(0, 16)}`
- : `🧬 ${(effectiveVoice.label || effectiveVoice.voiceId).slice(0, 16)}`;
- } else if (effectiveVoice.type === 'preset') {
- const g = (effectiveVoice.gender || '').toUpperCase();
- const isMale = g === 'M';
- const isFemale = g === 'F';
- const genderIcon = isMale ? '♂' : isFemale ? '♀' : '👤';
- const prefix = override ? '🎯 ' : '';
- label = `${prefix}${genderIcon} ${effectiveVoice.voiceId}`;
- if (isMale) {
- bg = darkMode ? 'rgba(59,130,246,0.22)' : 'rgba(59,130,246,0.12)';
- color = darkMode ? '#93c5fd' : '#1d4ed8';
- border = `1px solid ${darkMode ? 'rgba(59,130,246,0.45)' : 'rgba(59,130,246,0.35)'}`;
- } else if (isFemale) {
- bg = darkMode ? 'rgba(236,72,153,0.22)' : 'rgba(236,72,153,0.10)';
- color = darkMode ? '#f9a8d4' : '#be185d';
- border = `1px solid ${darkMode ? 'rgba(236,72,153,0.45)' : 'rgba(236,72,153,0.35)'}`;
- } else {
- // 성별 미지정 — 회색
- bg = darkMode ? 'rgba(148,163,184,0.18)' : 'rgba(148,163,184,0.12)';
- color = darkMode ? '#cbd5e1' : '#475569';
- border = `1px solid ${darkMode ? 'rgba(148,163,184,0.40)' : 'rgba(148,163,184,0.30)'}`;
- }
- } else if (effectiveVoice.type === 'file') {
- // 파일 미클론 — 노란색
- bg = 'rgba(234,179,8,0.12)';
- color = '#a16207';
- }
- } else {
- // 보이스 없음 — 인물만 있거나 완전 미지정
- if (line.character) {
- // 인물 있지만 보이스 없음 — 회색
- bg = 'var(--bg-primary)';
- color = 'var(--text-secondary)';
- border = '1px solid var(--border)';
- } else {
- // 완전 미지정 — 노란 경고
- bg = 'rgba(234,179,8,0.1)';
- color = 'var(--state-warning, #d97706)';
- }
- }
- return (
- <span style={{
- flexShrink: 0,
- fontSize: 10,
- padding: '2px 7px',
- borderRadius: 999,
- minWidth: 100,
- background: bg,
- color: color,
- fontWeight: 600,
- border: border,
- }}>
- {label}
- </span>
- );
- })()}
- <span style={{ flex: 1, minWidth: 0, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
- {line.text}
- </span>
- </div>
- );
- })}
- </div>
- </div>
- );
- })()}
-
- {/* 이전 / 다음 네비 (누르면 화면 전환) */}
- <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginTop: 4 }}>
- <button className="btn btn-secondary" onClick={() => { setTtsBulkSelection([]); setTtsToolData(p => ({ ...p, step: 'input' })); }}>
- <ChevronLeft size={14} /> 이전: 입력
- </button>
- <button className="btn btn-primary" disabled={td.srtLines.length === 0}
- onClick={() => { setTtsBulkSelection([]); setTtsToolData(p => ({ ...p, step: 'generate' })); }}>
- 다음: 생성 <ArrowRight size={14} />
- </button>
- </div>
-
- </>)}{/* ──────── /인물·보이스 매핑 ──────── */}
-
-
- {/* ──────── 생성 ──────── */}
- {td.step === 'generate' && (<>
- {hasLines && (
- <div className="card" style={{ padding: '20px 24px' }}>
- <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
- <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
- <div className="scenario-section-label">대사 목록 · 인물 매핑 · 생성</div>
- {/* v358: 현재 언어 뱃지 + 보관된 언어 수 표시 */}
- {(() => {
- const LANG_LABEL = { ko: '🇰🇷 한국어', en: '🇬🇧 English', ja: '🇯🇵 日本語', zh: '🇨🇳 中文', es: '🇪🇸 Español', fr: '🇫🇷 Français', de: '🇩🇪 Deutsch', ru: '🇷🇺 Русский', vi: '🇻🇳 Tiếng Việt', th: '🇹🇭 ภาษาไทย' };
- const cur = td.currentLanguage || 'ko';
- const savedCount = Object.keys(td.languageHistory || {}).length;
- return (
- <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
- <span style={{ padding: '3px 10px', borderRadius: 999, background: 'rgba(168,85,247,0.12)', color: '#7e22ce', fontSize: 11, fontWeight: 700 }}>
- {LANG_LABEL[cur] || cur}
- </span>
- {savedCount > 0 && (
- <span className="meta" style={{ color: 'var(--text-tertiary)', fontSize: 10 }}>+ 보관 {savedCount}개</span>
- )}
- </div>
- );
- })()}
- </div>
- <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
- {!td.isGenerating ? (
- <button
- className="btn btn-primary btn-sm"
- disabled={!falApiKey || totalLines === 0}
- onClick={handleGenerateAllTts}
- >
- <Sparkles size={12} /> 전체 TTS 생성 ({totalLines}개)
- </button>
- ) : (
- <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--green-700)', fontWeight: 600 }}>
- {ttsIsPaused ? (
- <>
- <Pause size={12} style={{ color: '#a16207' }} />
- <span style={{ color: '#a16207' }}>일시정지됨 ({doneCount + errorCount}/{totalLines})</span>
- </>
- ) : (
- <>
- <RefreshCw size={12} className="spin" />
- <span>생성 중... ({doneCount + errorCount}/{totalLines})</span>
- </>
- )}
- <button
- className="btn btn-ghost btn-sm"
- style={{ padding: '4px 10px', fontSize: 11 }}
- onClick={() => {
- const next = !ttsIsPaused;
- ttsPauseRef.current = next;
- setTtsIsPaused(next);
- }}
- title={ttsIsPaused ? '재개 — 다음 라인부터 합성 진행' : '일시정지 — 현재 라인 완료 후 멈춤'}>
- {ttsIsPaused ? <><Play size={11} /> 재개</> : <><Pause size={11} /> 일시정지</>}
- </button>
- </div>
- )}
- {doneCount > 0 && !td.isGenerating && (
- <>
- <button className="btn btn-secondary btn-sm"
- onClick={handleDownloadAllTts}
- disabled={!!td._bulkDownloadProgress}>
- {td._bulkDownloadProgress ? (
- <><RefreshCw size={12} className="spin" /> ZIP 압축 중 ({td._bulkDownloadProgress.done}/{td._bulkDownloadProgress.total})</>
- ) : (
- <><Download size={12} /> 전체 다운로드 — ZIP ({doneCount}개)</>
- )}
- </button>
- {/* v358: 다른 언어로 재생성 — 인물 매핑·보이스 유지 */}
- {doneCount === totalLines && (
- <button className="btn btn-ghost btn-sm" onClick={() => setTtsLanguageSwitchModal({ pendingFile: null, pendingLang: 'en' })}
- style={{ borderColor: 'rgba(168,85,247,0.3)', color: '#7e22ce' }}>
- 🌐 다른 언어로 재생성
- </button>
- )}
- </>
- )}
- </div>
- </div>
-
- {/* 예상 비용 안내 카드 */}
- {!td.isGenerating && doneCount < totalLines && (
- <div style={{
- padding: '12px 14px',
- background: 'rgba(63,175,185,0.04)',
- border: '1px solid rgba(63,175,185,0.2)',
- borderRadius: 'var(--radius-md)',
- marginBottom: 12,
- display: 'flex',
- alignItems: 'center',
- justifyContent: 'space-between',
- gap: 10,
- flexWrap: 'wrap',
- }}>
- <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
- <span style={{ fontSize: 16 }}></span>
- <div>
- <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--green-700)', marginBottom: 2 }}>
- 예상 비용 · {fmtUsd(estCostUsd)} <span style={{ color: 'var(--text-tertiary)', fontWeight: 500 }}>({fmtKrw(estCostKrw)})</span>
- </div>
- <div className="micro" style={{ color: 'var(--text-tertiary)', fontSize: 10, lineHeight: 1.5 }}>
- {totalLines}개 라인 · 총 {totalChars.toLocaleString()}자 · 라인당 평균 {fmtUsd(estPerLineUsd)}
- {doneCount > 0 && ` · 남은 ${remainingLines}개 ${fmtUsd((remainingChars / Math.max(totalChars, 1)) * estCostUsd)}`}
- </div>
- </div>
- </div>
- <div className="micro" style={{ fontSize: 10, color: 'var(--text-tertiary)', textAlign: 'right', maxWidth: 280 }}>
- 추정치 · {costNote}
- </div>
- </div>
- )}
-
- {td.isGenerating && (
- <div style={{
- padding: '10px 12px',
- background: 'rgba(63,175,185,0.06)',
- border: '1px solid rgba(63,175,185,0.3)',
- borderRadius: 'var(--radius-md)',
- marginBottom: 12,
- }}>
- <div className="meta" style={{ color: 'var(--green-700)', fontWeight: 600, marginBottom: 6 }}>
- 생성 중 · 완료 {doneCount} / 진행 {generatingCount} / 오류 {errorCount} / 전체 {totalLines}
- </div>
- <div style={{ height: 4, background: 'rgba(0,0,0,0.08)', borderRadius: 2, overflow: 'hidden' }}>
- <div style={{
- height: '100%',
- width: `${((doneCount + errorCount) / totalLines) * 100}%`,
- background: 'var(--green-500)',
- transition: 'width 0.3s ease',
- }} />
- </div>
- </div>
- )}
-
- {/* v354: 감정 분류 진행 표시 */}
- {td.emotionClassifyProgress && (
- <div style={{
- marginBottom: 12, padding: '10px 14px',
- background: 'rgba(168,85,247,0.08)',
- border: '1px solid rgba(168,85,247,0.25)',
- borderRadius: 8,
- }}>
- <div className="meta" style={{ color: '#7e22ce', fontWeight: 600, marginBottom: 6 }}>
- 🎭 {td.emotionClassifyProgress.message}
- </div>
- <div style={{ height: 4, background: 'rgba(168,85,247,0.15)', borderRadius: 2, overflow: 'hidden' }}>
- <div style={{
- height: '100%',
- width: `${(td.emotionClassifyProgress.done / Math.max(td.emotionClassifyProgress.total, 1)) * 100}%`,
- background: '#a855f7',
- transition: 'width 0.3s ease',
- }} />
- </div>
- </div>
- )}
-
- {/* v370: 감정 분류 완료 안내 */}
- {!td.isGenerating && !td.emotionClassifyProgress && td.srtLines.some(l => l.emotion) && (
- <div style={{
- marginBottom: 12, padding: '10px 14px',
- background: 'rgba(168,85,247,0.06)',
- border: '1px solid rgba(168,85,247,0.20)',
- borderRadius: 8,
- fontSize: 11, lineHeight: 1.6, color: 'var(--text-secondary)',
- }}>
- 🎭 <strong style={{ color: '#7e22ce' }}>감정 분류 완료</strong> — 각 대사의 자동 감지된 감정이 아래에 표시되어 있습니다. <strong>드롭다운에서 직접 수정</strong>한 후 TTS 생성을 시작하세요.
- </div>
- )}
-
- <div style={{
- display: 'flex', flexDirection: 'column', gap: 6,
- minHeight: 400, // v456: 결과 1~2개일 때도 박스 자체는 여유롭게
- maxHeight: 'calc(100vh - 320px)', // v456: 화면 높이 기반 (이전 600→ 화면에 맞게 동적)
- overflowY: 'auto', overscrollBehavior: 'contain',
- paddingRight: 4, paddingBottom: 80, // v456: 마지막 항목 펼침 시 아래 여유 확보
- }}>
- {td.srtLines.map((line) => {
- const result = td.results[line.idx];
- const status = result?.status;
- const isCurrent = td.currentLineIdx === line.idx;
- // 적용될 보이스 계산 (실제 생성 시 사용되는 우선순위와 동일)
- const lineOverride = td.lineVoiceOverrides?.[line.idx];
- const charVoice = line.character ? td.characters[line.character]?.voiceRef : null;
- const effectiveVoice = lineOverride || charVoice;
- // 칩 정보 (보이스 타입에 따라 색·라벨 다르게)
- // v373: preset 보이스의 gender에 따라 색상 구분 — 남성=파란색, 여성=분홍색
- const chipFor = (vref, sourceLabel) => {
- if (!vref) return null;
- if (vref.type === 'cloned') {
- // 클론 보이스는 보라색 (gender 정보 없음)
- return {
- label: `🧬 ${vref.label || vref.voiceId.slice(0, 16)}`,
- source: `${sourceLabel} · 클론 보이스`,
- bg: 'rgba(168,85,247,0.10)', color: '#7e22ce', border: '1px solid rgba(168,85,247,0.35)',
- };
- }
- if (vref.type === 'preset') {
- // v373: 성별별 색상 — 남성 파란색 / 여성 분홍색 / 미지정 회색
- const gender = (vref.gender || '').toUpperCase();
- const isMale = gender === 'M';
- const isFemale = gender === 'F';
- const isCustom = vref.isCustom;
- // 성별 아이콘
- const genderIcon = isMale ? '♂' : isFemale ? '♀' : (sourceLabel === '직접 지정' ? '🎯' : '👤');
- // 다크모드 대응 — 다크에선 진한 배경 + 밝은 텍스트
- if (isMale) {
- return {
- label: `${genderIcon} ${vref.voiceId}`,
- source: `${sourceLabel} · 남성`,
- bg: darkMode ? 'rgba(59,130,246,0.22)' : 'rgba(59,130,246,0.12)',
- color: darkMode ? '#93c5fd' : '#1d4ed8',
- border: `1px solid ${darkMode ? 'rgba(59,130,246,0.55)' : 'rgba(59,130,246,0.45)'}`,
- };
- }
- if (isFemale) {
- return {
- label: `${genderIcon} ${vref.voiceId}`,
- source: `${sourceLabel} · 여성`,
- bg: darkMode ? 'rgba(236,72,153,0.22)' : 'rgba(236,72,153,0.10)',
- color: darkMode ? '#f9a8d4' : '#be185d',
- border: `1px solid ${darkMode ? 'rgba(236,72,153,0.55)' : 'rgba(236,72,153,0.40)'}`,
- };
- }
- // 성별 미지정 (커스텀 voice_id 등) — 기본 회색 톤
- return {
- label: `${genderIcon} ${vref.voiceId}`,
- source: `${sourceLabel}${isCustom ? ' · 사용자 정의' : ''}`,
- bg: darkMode ? 'rgba(148,163,184,0.18)' : 'rgba(148,163,184,0.12)',
- color: darkMode ? '#cbd5e1' : '#475569',
- border: `1px solid ${darkMode ? 'rgba(148,163,184,0.40)' : 'rgba(148,163,184,0.35)'}`,
- };
- }
- if (vref.type === 'file') {
- return {
- label: `📎 파일 (미클론)`,
- source: `${sourceLabel} · 클론 안 됨 → fallback 사용`,
- bg: 'rgba(234,179,8,0.12)', color: '#a16207', border: '1px solid rgba(234,179,8,0.35)',
- };
- }
- return null;
- };
- const voiceChip = lineOverride
- ? chipFor(lineOverride, '직접 지정')
- : charVoice
- ? chipFor(charVoice, `${line.character} 매핑`)
- : { label: 'fallback', source: 'fallback 보이스',
- bg: 'rgba(234,179,8,0.12)', color: '#a16207', border: '1px solid rgba(234,179,8,0.35)' };
- return (
- <div key={line.idx} style={{
- padding: '10px 12px',
- background: isCurrent ? 'rgba(63,175,185,0.05)' : 'var(--bg-secondary)',
- border: `1px solid ${isCurrent ? 'var(--green-500)' : 'var(--border)'}`,
- borderRadius: 'var(--radius-sm)',
- // v714: 행은 줄바꿈 없이 고정(생성 버튼이 아랫줄로 안 밀림), 상단 정렬 — 대사만 자기 칼럼에서 줄바꿈
- display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap',
- }}>
- {/* 라인 번호 + 타임코드 */}
- <div style={{ flex: '0 0 auto', minWidth: 50 }}>
- <div className="micro mono-font" style={{ fontWeight: 700, color: 'var(--green-700)' }}>
- #{String(line.idx).padStart(3, '0')}
- </div>
- <div className="micro mono-font" style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>
- {msToTimecode(line.startMs).slice(3, 8)}
- </div>
- </div>
-
- {/* 인물 드롭다운 — CustomSelect (프로그램 UI) */}
- <div style={{ flex: '0 0 130px' }}>
- {(() => {
- const lineOpts = [
- { value: '', label: '— 인물 없음 —' },
- ...characterList.map(cn => ({ value: cn, label: cn })),
- ];
- // 현재 line.character가 목록에 없으면 추가
- if (line.character && !characterList.includes(line.character)) {
- lineOpts.push({ value: line.character, label: line.character });
- }
- return (
- <PrettySelect
- value={line.character || ''}
- onChange={(v) => handleTtsLineCharacterChange(line.idx, v)}
- options={lineOpts}
- fullWidth
- size="sm"
- compact
- disabled={td.isGenerating}
- />
- );
- })()}
- </div>
-
- {/* v370: 감정 드롭다운 */}
- <div style={{ flex: '0 0 105px' }}>
- <PrettySelect
- value={line.emotion || ''}
- onChange={(v) => handleTtsLineEmotionChange(line.idx, v)}
- options={[
- { value: '', label: '🎯 자동' },
- { value: 'neutral', label: '😐 보통' },
- { value: 'happy', label: '😊 기쁨' },
- { value: 'sad', label: '😢 슬픔' },
- { value: 'angry', label: '😠 분노' },
- { value: 'surprised', label: '😲 놀람' },
- { value: 'fearful', label: '😨 두려움' },
- { value: 'disgusted', label: '🤢 혐오' },
- ]}
- fullWidth
- size="sm"
- compact
- disabled={td.isGenerating}
- />
- </div>
-
- {/* 적용 보이스 칩 — v716: 고정 너비로 대사 시작점을 모든 행에서 일치시킴 */}
- <div
- title={voiceChip.source}
- style={{
- flex: '0 0 130px',
- width: 130,
- boxSizing: 'border-box',
- fontSize: 10,
- fontWeight: 700,
- padding: '4px 10px',
- borderRadius: 999,
- background: voiceChip.bg,
- color: voiceChip.color,
- border: voiceChip.border,
- overflow: 'hidden',
- textOverflow: 'ellipsis',
- whiteSpace: 'nowrap',
- letterSpacing: '0.01em',
- }}
- >
- {voiceChip.label}
- </div>
-
- {/* 대사 텍스트 — 자기 칼럼 안에서 줄바꿈(고정 높이 X, 시작점은 칼럼 왼쪽) */}
- <div style={{ flex: '1 1 140px', minWidth: 0, fontSize: 13, lineHeight: 1.5, whiteSpace: 'normal', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
- {line.text}
- </div>
-
- {/* v781: 오디오 플레이어를 대사 아래 전체 폭으로 내린다 — 대사칸이 좁아지지 않게.
- 행 컨테이너가 flexWrap: wrap 이라 flex-basis 100% + order 99면 항상 마지막 줄을 차지한다. */}
- {status === 'done' && result.audioUrl && (
- <div style={{ flex: '1 0 100%', minWidth: 0, order: 99, marginTop: 2 }}>
- <CustomAudioPlayer
- src={result.audioUrl}
- compact
- onDownload={() => handleDownloadOneTts(line.idx)}
- onRegenerate={() => handleRegenerateOneTts(line.idx)}
- isBusy={td.isGenerating}
- />
- </div>
- )}
-
- {/* 상태 + 액션 */}
- <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 6 }}>
- {/* 아직 생성 안 된 상태 — 개별 생성 버튼 */}
- {!status && !td.isGenerating && (
- <button
- className="btn btn-primary btn-sm"
- onClick={() => handleRegenerateOneTts(line.idx)}
- disabled={!falApiKey}
- title="이 대사만 개별 생성"
- style={{ padding: '4px 10px', fontSize: 11 }}
- >
- <Sparkles size={11} /> 생성
- </button>
- )}
- {!status && td.isGenerating && (
- <span className="micro" style={{ color: 'var(--text-tertiary)' }}>대기</span>
- )}
- {status === 'generating' && (
- <RefreshCw size={12} className="spin" color="var(--green-500)" />
- )}
- {/* v453: 이전 버전 히스토리 표시 — 펼침 가능 */}
- {status === 'done' && result.history && result.history.length > 0 && (() => {
- const histKey = `tts-history-${line.idx}`;
- const isOpen = ttsHistoryOpen?.[line.idx];
- return (
- <details open={isOpen} style={{ marginTop: 4 }}>
- <summary
- onClick={(e) => {
- // toggle state
- setTtsHistoryOpen(p => ({ ...p, [line.idx]: !p?.[line.idx] }));
- }}
- style={{ cursor: 'pointer', fontSize: 10, color: 'var(--text-tertiary)', listStyle: 'none', padding: '2px 6px', borderRadius: 3, display: 'inline-block', userSelect: 'none' }}
- onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-tertiary)'; }}
- onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
- ⏱ 이전 버전 {result.history.length}개 {isOpen ? '▲' : '▼'} <span style={{ color: 'var(--green-700)', fontWeight: 600 }}>(현재 v{String(result.version || 1).padStart(2, '0')})</span>
- </summary>
- <div style={{ marginTop: 6, paddingLeft: 8, borderLeft: '2px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 }}>
- {[...result.history].reverse().map((h, hi) => {
- const dt = h.generatedAt ? new Date(h.generatedAt) : null;
- const dtStr = dt ? `${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}` : '';
- return (
- <div key={hi} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10 }}>
- <span style={{ flexShrink: 0, padding: '1px 6px', background: 'var(--bg-tertiary)', borderRadius: 3, fontWeight: 600, color: 'var(--text-tertiary)' }}>
- v{String(h.version).padStart(2, '0')}
- </span>
- {h.audioUrl ? (
- <div style={{ flex: 1, minWidth: 0 }}><CustomAudioPlayer src={h.audioUrl} compact /></div>
- ) : (
- <span style={{ color: 'var(--state-error)' }}>오디오 없음</span>
- )}
- {dtStr && <span style={{ color: 'var(--text-quaternary)', fontSize: 9, flexShrink: 0 }}>{dtStr}</span>}
- {h.audioUrl && (
- <button
- className="btn btn-ghost btn-sm"
- onClick={async () => {
- try {
- const res = await fetch(h.audioUrl);
- const blob = await res.blob();
- const url = URL.createObjectURL(blob);
- const a = document.createElement('a');
- a.href = url;
- const voiceRef = h.voiceRef || null;
- const fname = await ffsBuildName({ type: 'TTS', parts: [_ttsPersonName(line, voiceRef)] });
- a.download = `${fname}.wav`;
- a.click();
- URL.revokeObjectURL(url);
- } catch (e) {
- console.error('히스토리 다운로드 실패:', e);
- }
- }}
- title="이 버전 다운로드"
- style={{ padding: '2px 6px', fontSize: 9 }}>
- ⬇
- </button>
- )}
- </div>
- );
- })}
- </div>
- </details>
- );
- })()}
- {status === 'error' && (
- <>
- <span className="micro" style={{ color: 'var(--state-error)' }} title={result.error}>
- 오류
- </span>
- <button
- className="btn btn-ghost btn-sm"
- onClick={() => handleRegenerateOneTts(line.idx)}
- disabled={td.isGenerating}
- style={{ padding: '4px 8px' }}
- >
- <RefreshCw size={11} />
- </button>
- </>
- )}
- </div>
- </div>
- );
- })}
- </div>
- </div>
- )}
-
- {!hasLines && (
- <div style={{
- padding: '40px 20px',
- textAlign: 'center',
- color: 'var(--text-tertiary)',
- background: 'var(--bg-secondary)',
- border: '1px dashed var(--border)',
- borderRadius: 'var(--radius-md)',
- }}>
- 먼저 입력 단계로 돌아가 SRT 파일을 첨부하거나 대사를 직접 입력하세요.
- </div>
- )}
-
- {/* 이전 네비 (누르면 화면 전환) */}
- <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 12, marginTop: 4 }}>
- <button className="btn btn-secondary" onClick={() => { setTtsBulkSelection([]); setTtsToolData(p => ({ ...p, step: 'mapping' })); }}>
- <ChevronLeft size={14} /> 이전: 인물·보이스 매핑
- </button>
- </div>
-
- </>)}{/* ──────── /생성 ──────── */}
-
- </div>
- </>
- );
- })()}
+ 
 
  {/* v418: 음성 변조 (Voice Changer) 모드 — pseudoram/rvc-v2 */}
 
@@ -47658,6 +45408,7 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  {/* 작은 원형 버튼 (항상 표시) */}
  <button
  id="progress-floating-button"
+ className={overallStatus === 'progress' ? 'ff-pulse-progress' : overallStatus === 'error' ? 'ff-pulse-error' : undefined}
  onClick={() => setProgressPanelOpen(o => !o)}
  onMouseEnter={() => {
  if (progressPanelTimerRef.current) clearTimeout(progressPanelTimerRef.current);
@@ -47682,16 +45433,16 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  boxShadow: '0 6px 20px rgba(0,0,0,0.18)',
  zIndex: 9999,
  padding: 0,
- animation: overallStatus === 'progress'
- ? 'progressPulse 1.6s ease-in-out infinite'
- : (overallStatus === 'error' ? 'errorBlink 0.9s ease-in-out infinite' : 'none'),
+ // v1222: 그림자를 깜빡이면 매 프레임 다시 그린다 — 그림자는 고정하고 퍼지는 고리(::after)만 움직인다
+ ...(overallStatus === 'progress' ? { boxShadow: '0 6px 22px rgba(234, 88, 12, 0.45)' }
+ : overallStatus === 'error' ? { boxShadow: '0 6px 22px rgba(239, 68, 68, 0.55)' } : {}),
  transition: 'transform 0.2s, background 0.3s, border-color 0.3s, right 0.28s cubic-bezier(0.4,0,0.2,1)',
  }}
  onMouseOver={(e) => { e.currentTarget.style.transform = 'scale(1.06)'; }}
  onMouseOut={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
  >
  {/* 진행 중일 때 — 원형 프로그레스 링 + % */}
- {overallStatus === 'progress' && (() => {
+ {overallStatus === 'progress' && <ProgressLivePct build={progressBuild} ids={progIds} fallback={overallPct}>{(overallPct) => (() => {
  // v745: 버튼 크기(66px)에 맞춘 viewBox 기반 링 — 이전엔 56px 기준 좌표가 하드코딩돼
  //       버튼 확대(v738) 후 링이 작고 중심이 어긋나 깨져 보였음
  const r = 29;
@@ -47712,10 +45463,10 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  style={indet ? undefined : { transition: 'stroke-dashoffset 0.5s ease' }} />
  </svg>
  );
- })()}
+ })()}</ProgressLivePct>}
  {/* 중앙 표시 */}
  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
- {overallStatus === 'progress' && (
+ {overallStatus === 'progress' && <ProgressLivePct build={progressBuild} ids={progIds} fallback={overallPct}>{(overallPct) => (
  <>
  <span style={{ fontSize: overallPct == null ? 15 : 13, fontWeight: 700, lineHeight: 1, fontFamily: 'SF Mono, monospace' }}>
  {overallPct == null ? '···' : `${overallPct}%`}
@@ -47724,7 +45475,7 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  <span style={{ fontSize: 9, fontWeight: 600, opacity: 0.9, marginTop: 2 }}>{progressCount}개</span>
  )}
  </>
- )}
+ )}</ProgressLivePct>}
  {overallStatus === 'idle' && (
  <Activity size={22} strokeWidth={2.2} />
  )}
@@ -47768,10 +45519,10 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  {/* 헤더 */}
  <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
- <div style={{
+ {/* v1222: 그림자 깜빡임 대신 상태 점과 같은 파동(transform · opacity) */}
+ <div className={overallStatus === 'progress' ? 'ff-dot-progress' : undefined} style={{
  width: 8, height: 8, borderRadius: '50%',
  background: c.ring,
- animation: overallStatus === 'progress' ? 'progressPulse 1.6s ease-in-out infinite' : 'none',
  }} />
  <div>
  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>작업 진행 상황</div>
@@ -47899,7 +45650,7 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  </div>
  </div>
  </div>
- {item.status === 'progress' && (() => {
+ {item.status === 'progress' && <ProgressLive build={progressBuild} id={item.id} base={item}>{(live) => ((item) => (() => {
  // v790: 미확정은 0%가 아니라 '진행 중'으로 표시 (0% 고정처럼 보이던 문제)
  if (item.pct == null || !isFinite(Number(item.pct))) return (
  <span style={{ fontSize: 10, fontWeight: 700, color: sc.ring, flexShrink: 0 }}>진행 중</span>
@@ -47910,7 +45661,7 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  {Math.round(safeP)}%
  </span>
  );
- })()}
+ })())(live)}</ProgressLive>}
  {item.status === 'success' && (
  <Check size={14} color={sc.ring} strokeWidth={2.6} />
  )}
@@ -47918,7 +45669,7 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  <AlertCircle size={14} color={sc.ring} strokeWidth={2.4} />
  )}
  </div>
- {item.status === 'progress' && (() => {
+ {item.status === 'progress' && <ProgressLive build={progressBuild} id={item.id} base={item}>{(live) => ((item) => (() => {
  const indet = item.pct == null || !isFinite(Number(item.pct));
  const safeP = indet ? 0 : Math.min(100, Math.max(0, Number(item.pct)));
  return (
@@ -47944,7 +45695,7 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  )}
  </>
  );
- })()}
+ })())(live)}</ProgressLive>}
  {item.sub && (
  <div style={{ marginTop: 6, fontSize: 10, color: sc.ring, fontWeight: 500 }}>
  {item.sub}

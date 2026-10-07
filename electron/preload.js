@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   projectDelete: (id) => ipcRenderer.invoke('project-delete', id),
   // v934: 생성한 클립을 userData 에 받아 둔다 (결과 URL 은 24시간이면 죽는다)
   clipSave: (payload) => ipcRenderer.invoke('clip-save', payload),
+  clipDelete: (payload) => ipcRenderer.invoke('clip-delete', payload),   // v1215
   clipCheck: (paths) => ipcRenderer.invoke('clip-check', paths),
   clipUsage: (projectId) => ipcRenderer.invoke('clip-usage', projectId),
   // v974: 라이브러리 자산(캐릭터 시트 원본) — localStorage 대신 userData 파일

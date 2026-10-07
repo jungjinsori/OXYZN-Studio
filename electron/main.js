@@ -813,6 +813,17 @@ ipcMain.handle('clip-save', async (event, payload) => {
   } catch (e) { return { success: false, error: String(e && e.message || e) } }
 })
 
+// v1215: 프로젝트에서 버전을 지우면 받아 둔 클립 파일도 지운다. 클립 폴더(userData/clips) 안만 허용한다.
+ipcMain.handle('clip-delete', (event, payload) => {
+  try {
+    const root = path.resolve(path.join(app.getPath('userData'), 'clips'))
+    const full = path.resolve(String((payload && payload.path) || ''))
+    if (!full.toLowerCase().startsWith(root.toLowerCase() + path.sep)) return { success: false, error: '클립 폴더 밖의 경로입니다.' }
+    if (fs.existsSync(full)) fs.unlinkSync(full)
+    return { success: true }
+  } catch (e) { return { success: false, error: String(e && e.message || e) } }
+})
+
 // 받아둔 파일이 아직 있는지 (프로젝트를 열 때 확인용)
 ipcMain.handle('clip-check', (event, paths) => {
   const out = {}
