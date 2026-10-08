@@ -4811,7 +4811,14 @@ const PROJECT_EPISODE_MAX_SEC = 300;
 //   그 제약이 사라져 30초로 맞췄다. 종류에 따른 길이 차이는 이제 없다.
 const PROJECT_SEC_MAX_NORMAL = 30;   // 일반씬 구간 상한
 const PROJECT_SEC_MAX_ACTION = 30;   // 액션씬 구간 상한
-const PROJECT_SEC_MAX_FOR = (kind) => (kind === 'action' ? PROJECT_SEC_MAX_ACTION : PROJECT_SEC_MAX_NORMAL);
+const PROJECT_SEC_MAX_FOR = (kind) => (kind === 'action' ? PROJECT_SEC_MAX_ACTION : PROJECT_SEC_MAX_NORMAL);   // v1229: 커스텀은 일반과 같다(30초)
+// v1229: 구간 종류 — 일반 · 액션 · 커스텀. 커스텀은 사용자가 쓴 글이 Claude 를 거치지 않고 그대로 영상 프롬프트 본문이 된다.
+//   자동 구간 나누기(Claude)는 일반/액션만 낸다 — 커스텀은 2단계에서 사람이 고른다.
+const PROJECT_KIND_LABEL = { normal: '일반', action: '액션', custom: '커스텀' };
+const PROJECT_KIND_COLOR = { normal: 'var(--green-700)', action: '#ea580c', custom: '#7c3aed' };
+const PROJECT_KIND_BG = { normal: 'rgba(63,175,185,0.12)', action: 'rgba(234,88,12,0.14)', custom: 'rgba(124,58,237,0.12)' };
+const PROJECT_KIND_BORDER = { normal: 'var(--green-500)', action: '#ea580c', custom: '#7c3aed' };
+const projectKindOf = (g) => (g && PROJECT_KIND_LABEL[g.kind] ? g.kind : 'normal');
 
 const PROJECT_STEPS = [
  { n: 1, key: 'episode', label: '에피소드', desc: '한 편(5분 이내)을 첨부하거나 붙여넣기' },
@@ -5499,6 +5506,34 @@ const PROJECT_VIDEO_RULES_HEAD = [
 //   밤으로 바꿔달라면 연기 · 동선 · 컷은 그대로고 빛만 밤이 되어야 한다.
 // v947: 앞 클립이 있는데 영상은 붙이지 않을 때. 위치·시선은 프롬프트에 적힌
 //   '앞 클립이 끝났을 때의 상태' 가 나른다. 영상 레퍼런스가 없어도 이어져야 한다.
+// v1229: 원테이크 — 커스텀 구간에서 켤 수 있다. 머리 조항(PROJECT_VIDEO_RULES_HEAD — 여러 컷, 한 순간)을 이것으로 바꾼다.
+const PROJECT_VIDEO_ONETAKE_RULE = [
+ 'ONE CONTINUOUS TAKE — highest priority.',
+ 'The whole clip is a single unbroken shot: no cuts, no edits, no jump in time, from',
+ 'the first frame to the last.',
+ 'Framing changes only by the camera moving — walking in, drifting, turning, following.',
+ 'No zoom, no digital punch-in.',
+ 'Same people, same room, same light throughout. Wardrobe, hair and props hold unless',
+ 'the action here changes them; from that moment the new state stays.',
+].join('\n');
+// 원테이크면 공통 조항에서 컷 구성 문단(SHOT COVERAGE · CAMERA:)을 뺀다 — 컷을 나누라는 내용이다.
+//   ★ 문단은 빈 줄로 나뉘고 머리글로 거른다. 공통 조항의 머리글을 바꾸면 여기서 다시 붙는다.
+const PROJECT_ONETAKE_DROP_HEADS = ['SHOT COVERAGE', 'CAMERA:'];
+const projectRulesRestOneTake = (rest) => String(rest || '').split('\n\n')
+ .filter(p => !PROJECT_ONETAKE_DROP_HEADS.some(h => p.trim().startsWith(h))).join('\n\n');
+// 대사 조항의 '대사 중 한 번 다른 컷으로 갔다 와도 된다' 는 원테이크와 맞지 않는다 — 원테이크면 뺀다.
+const PROJECT_QUOTE_CUTAWAY = 'One cut away mid-line to a reaction or insert is fine;\nreturn before the line ends. ';
+const projectQuoteRuleFor = (oneTake) => (oneTake ? PROJECT_VIDEO_QUOTE_RULE.replace(PROJECT_QUOTE_CUTAWAY, '') : PROJECT_VIDEO_QUOTE_RULE);
+// v1229: 커스텀 — 앞 클립 끝 상태(한국어 메모)를 영어 위치 · 시선 줄로 옮기는 지시. 사용자 글은 건드리지 않는다.
+const PROJECT_ENDSTATE_EN_SYS = `You turn a Korean note about where people were at the end of the previous video clip into short English lines for a video model.
+
+Rules:
+- One line per person: posture, screen position (left / centre / right, near / far), facing direction, distance to the others, what is in their hands, state of their clothing.
+- Keep every name exactly as written. Do not romanize or translate names.
+- "확인 불가" or anything unknown becomes "unclear".
+- Add nothing that is not in the note. No heading, no commentary, no quotes.`;
+const PROJECT_ENDSTATE_HEAD = 'END STATE OF THE PREVIOUS CLIP — this clip starts exactly here:';
+
 const PROJECT_VIDEO_CONT_TEXT_RULE_FOR = (twoPlus) => [
  'CONTINUITY WITH THE PREVIOUS CLIP:',
  'This clip continues straight out of the previous one. The prompt states where',
@@ -6916,6 +6951,9 @@ const projectVideoActionRuleFor = (format) => (format === 'anime3d' ? PROJECT_VI
 // ═════════════════════════════════════════════════════════════════════ 포맷 끝
 
 // 구간을 씬 단위로 묶는다. 씬번호가 없으면 '기타' 로 몬다.
+// v1229: 커스텀 구간의 글은 영상 프롬프트 본문이라 '이름 : 대사' 로 읽지 않는다(CAMERA: 같은 줄이 대사로 잡힌다)
+const projectDlgLinesOf = (g) => (g && g.kind === 'custom' ? [] : projectDlgLines(g && g.text));
+
 const projectGroupByScene = (segments) => {
  const groups = [];
  const index = new Map();
@@ -19655,7 +19693,7 @@ ${'\n'}[★ 타이틀이 들어갈 자리를 비워 두세요 — 가로형에�
  if (L.id === 'ko') return segsIn.map(g => ({ ...g, dlg: [], dlgLang: 'ko' }));
  const order = [];
  const seen = new Set();
- segsIn.forEach(g => projectDlgLines(g.text).forEach(({ said }) => {
+ segsIn.forEach(g => projectDlgLinesOf(g).forEach(({ said }) => {
  if (seen.has(said)) return;
  seen.add(said); order.push(said);
  }));
@@ -19714,7 +19752,7 @@ ${'\n'}[★ 타이틀이 들어갈 자리를 비워 두세요 — 가로형에�
  if (miss) console.warn(`[프로젝트] 대사 ${miss}줄이 번역되지 않았습니다 — 그 줄은 한국어로 갑니다.`);
  return segsIn.map(g => ({
  ...g, dlgLang: L.id,
- dlg: projectDlgLines(g.text).map(({ who, said }) => {
+ dlg: projectDlgLinesOf(g).map(({ who, said }) => {
  const t = map.get(said);
  return { who, src: said, loc: t ? t.loc : '', back: t ? t.back : '' };
  }),
@@ -20375,6 +20413,9 @@ const projectRefLiveSrc = (item) => {
  const posInScene = Math.max(0, sceneItems.findIndex(it => it.seg.id === segId));
  const isSceneOpener = posInScene === 0;
  const fb = String(feedback || '').trim();
+ // v1229: 커스텀 — 쓴 글이 그대로 본문. 원테이크는 커스텀에서만.
+ const isCustom = seg.kind === 'custom';
+ const oneTake = isCustom && !!seg.oneTake;
 
  // v1167: 앞 클립이 아직 초안(480p)이면 여기서 멈춘다. 그대로 이어가면
  //   480p 가 Video 1 으로 들어가고, 이 클립을 1080p 최종으로 올려도
@@ -20494,6 +20535,8 @@ const projectRefLiveSrc = (item) => {
  //   3개까지만 받으므로, 넘치면 이 구간에서 대사가 많은 인물을 먼저 태운다.
  const reEsc = (t) => String(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
  const linesOf = (nm) => {
+ // v1229: 커스텀 글은 '이름 : 대사' 형식이 아닐 수 있다 — 이름이 나오면 말하는 사람으로 본다
+ if (isCustom) return String(seg.text || '').includes(nm) ? 1 : 0;
  try { return (String(seg.text || '').match(new RegExp(`^\\s*${reEsc(nm)}\\s*[(:]`, 'gm')) || []).length; }
  catch { return 0; }
  };
@@ -20620,7 +20663,8 @@ const projectRefLiveSrc = (item) => {
  let prompt;
  // v1086: 승인해 둔 프롬프트가 있으면 다시 쓰지 않는다. 고치기 · 지적 반영은
  //   예외 — 그때는 새로 써야 한다. finalPrompt 가 이 블록 바깥이라 여기서 선언한다.
- const rawDraft = (!feedback && !isEdit) ? String(seg.draftPrompt || '').trim() : '';
+ // v1229: 커스텀은 저장본을 쓰지 않는다 — 글을 고치면 바로 그 글이 나가야 한다
+ const rawDraft = (!feedback && !isEdit && !isCustom) ? String(seg.draftPrompt || '').trim() : '';
  // v1090: 저장하는 것은 컷 서술(본문)뿐이다. 규칙 블록은 생성할 때마다 새로
  //   조립한다 — 안 그러면 규칙을 고쳐도 저장본에 닿지 않아 조용히 옛 규칙으로
  //   나간다(실제로 그랬다: 1.0.36 을 깔았는데 저장본이 옛 WARDROBE 를 물고 있었다).
@@ -20658,6 +20702,8 @@ const projectRefLiveSrc = (item) => {
 [출력]
 영어 지시문만 적으십시오. 머리말 · 따옴표 · 설명 금지. 세 문장 안쪽.`;
  let change = '';
+ // v1229: 커스텀은 피드백을 쓴 그대로 지시로 — Claude 가 영어로 옮기지 않는다
+ if (!isCustom) {
  try {
  const raw2 = await callClaude(editSys, `[고쳐달라는 것]\n${fb}`, {
  model: 'claude-sonnet-4-5', maxTokens: 300, workCat: 'video',
@@ -20666,9 +20712,11 @@ const projectRefLiveSrc = (item) => {
  } catch (e2) {
  console.warn('[프로젝트] 수정 지시 변환 실패 — 원문을 그대로 넘깁니다.', e2?.message);
  }
+ }
  if (!change) change = fb;
  // 대사는 그대로여야 한다 — 영상만 보고 재현하면 흘러갈 수 있어 다시 못 박는다
- const lines = String(seg.text || '').split('\n')
+ // v1229: 커스텀은 대사 고정 목록을 만들지 않는다 — 'CAMERA: …' 같은 줄을 대사로 잘못 잡는다
+ const lines = isCustom ? [] : String(seg.text || '').split('\n')
  .map(x => x.trim())
  .filter(x => /^[^:]{1,24}\s*:/.test(x))
  .slice(0, 12);
@@ -20695,6 +20743,20 @@ const projectRefLiveSrc = (item) => {
  ? `The dialogue does not change. Keep these lines exactly, in this order:\n${lines.map(lineTag).join('\n')}`
  : '',
  ].filter(Boolean).join('\n\n');
+ } else if (isCustom) {
+ // v1229: 커스텀 — 쓴 글 그대로. Claude 작성 · 소리 교정 · 괄호 걷기 · 빈 줄 정리를 하지 않는다.
+ //   앞 클립 영상을 붙이지 않을 때만, 읽어 둔 끝 상태를 영어 줄로 옮겨 글 '뒤에 따로' 붙인다.
+ prompt = String(seg.text || '').trim();
+ if (prompt && !contVideo && contNote) {
+  setProjectGenJob(j2 => (j2 && j2.segId === segId ? { ...j2, phase: '앞 클립 끝 위치 옮기는 중' } : j2));
+  let en = '';
+  try {
+   en = String(await callClaude(PROJECT_ENDSTATE_EN_SYS, contNote, { model: 'claude-sonnet-4-5', maxTokens: 800, workCat: 'video' }) || '').trim();
+  } catch (e3) {
+   console.warn('[프로젝트] 커스텀 — 앞 클립 끝 위치를 옮기지 못해 붙이지 않고 진행합니다.', e3?.message);
+  }
+  if (en) prompt = `${prompt}\n\n${PROJECT_ENDSTATE_HEAD}\n${en}`;
+ }
  } else {
  const user = [
  `[구간] ${seg.kind === 'action' ? '액션씬' : '일반씬'} · ${seg.sec}초`,
@@ -20976,7 +21038,7 @@ const projectRefLiveSrc = (item) => {
  PROJECT_SOUND_RULE,
  prompt,
  voiceLines.length ? `[Voice]\n${voiceLines.join('\n')}` : '',
- PROJECT_VIDEO_RULES_HEAD,
+ oneTake ? PROJECT_VIDEO_ONETAKE_RULE : PROJECT_VIDEO_RULES_HEAD,   // v1229
  isEdit ? PROJECT_VIDEO_EDIT_RULE
  : contVideo ? PROJECT_VIDEO_CONT_RULE_FOR(twoPlus)
  : contNote ? PROJECT_VIDEO_CONT_TEXT_RULE_FOR(twoPlus)
@@ -20988,11 +21050,12 @@ const projectRefLiveSrc = (item) => {
  (!isEdit && !isSceneOpener && !contVideo && !contNote) ? PROJECT_VIDEO_MIDSCENE_RULE : '',
  // v1002: 대사 언어. 예전에는 RULES_REST 안에 한국어로 박혀 있었다.
  PROJECT_LANG_RULE_FOR(lang),
- projectVideoRulesRestFor(projectFormatOf(projectDataRef.current)),   // v1207
+ oneTake ? projectRulesRestOneTake(projectVideoRulesRestFor(projectFormatOf(projectDataRef.current)))   // v1229: 컷 구성 문단을 뺀다
+ : projectVideoRulesRestFor(projectFormatOf(projectDataRef.current)),   // v1207
  // v972: 어느 줄이 속마음인지 대사를 그대로 실어 못 박는다. 고치기에도 붙인다.
  // v989: 액션씬은 카메라를 영상 모델에도 못 박는다
  seg.kind === 'action' ? projectVideoActionRuleFor(projectFormatOf(projectDataRef.current)) : '',   // v1207
- PROJECT_VIDEO_QUOTE_RULE,
+ projectQuoteRuleFor(oneTake),   // v1229: 원테이크면 '한 번 다른 컷으로' 문장을 뺀다
  voLines.length
  ? PROJECT_VIDEO_VO_RULE_FOR(voLines.map(v => ({ ...v, line: localize(v.line) })), lang)
  : '',
@@ -33125,10 +33188,11 @@ ${sampleText}`;
  짧은 씬을 억지로 늘리거나 자투리를 맞출 필요가 없습니다.
  구간 하나가 영상 생성 한 번입니다 — 구간 1개 = 클립 1개.
  </p>
- <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 12 }}>
+ <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 12 }}>
  {[
  { k: 'normal', label: '일반씬', hint: '대화 · 상황 전개' },
  { k: 'action', label: '액션씬', hint: '합 · 추격 · 충돌' },
+ { k: 'custom', label: '커스텀', hint: '쓴 글이 그대로 프롬프트 · 원테이크 선택' },   // v1229
  ].map(({ k, label, hint }) => {
  const max = PROJECT_SEC_MAX_FOR(k);
  return (
@@ -33182,7 +33246,7 @@ ${sampleText}`;
  {projectLangOf(d) !== 'ko' && d.segments.length > 0 && (() => {
  const L = projectLangInfo(projectLangOf(d));
  const done = d.segments.filter(g => g.dlgLang === L.id && (g.dlg || []).length).length;
- const has = d.segments.filter(g => projectDlgLines(g.text).length).length;
+ const has = d.segments.filter(g => projectDlgLinesOf(g).length).length;
  const stale = done < has;
  return (
  <button type="button" className={`btn btn-sm ${stale ? 'btn-primary' : 'btn-secondary'}`}
@@ -33227,6 +33291,7 @@ ${sampleText}`;
  {d.segments.map((g, gi) => {
  const cap = PROJECT_SEC_MAX_FOR(g.kind);
  const isAction = g.kind === 'action';
+ const isCustomSeg = g.kind === 'custom';   // v1229
  // v942: 씬이 몇 번째로 나오는지에 따라 배경 톤을 번갈아 준다.
  //   씬 번호가 없는 저장본도 있으니 순서로 센다 — 씬이 바뀔 때마다 홀짝이 뒤집힌다.
  const prevSeg = gi > 0 ? d.segments[gi - 1] : null;
@@ -33240,7 +33305,7 @@ ${sampleText}`;
  <div key={g.id} style={{
  padding: '11px 13px', borderRadius: 10,
  background: band ? 'var(--ff-band-b)' : 'var(--ff-band-a)',
- border: `1px solid ${isAction ? 'rgba(234,88,12,0.45)' : 'var(--border)'}`,
+ border: `1px solid ${isAction ? 'rgba(234,88,12,0.45)' : isCustomSeg ? 'rgba(124,58,237,0.45)' : 'var(--border)'}`,
  // 씬이 바뀌는 자리를 위쪽 여백으로 벌린다 — 톤만으로는 경계가 덜 읽힌다
  marginTop: sceneBreak ? 8 : 0,
  }}>
@@ -33250,17 +33315,29 @@ ${sampleText}`;
  </span>
  {/* 종류 */}
  <div style={{ display: 'flex', gap: 3 }}>
- {[{ k: 'normal', t: '일반' }, { k: 'action', t: '액션' }].map(({ k, t }) => (
+ {['normal', 'action', 'custom'].map((k) => (
  <button key={k} type="button" onClick={() => projectSegKind(g.id, k)}
  className="btn btn-sm"
+ title={k === 'custom' ? '쓴 글이 Claude 를 거치지 않고 그대로 영상 프롬프트 본문이 됩니다' : undefined}
  style={{
  padding: '3px 9px', fontSize: 10.5, fontWeight: 700, minHeight: 0,
- background: g.kind === k ? (k === 'action' ? 'rgba(234,88,12,0.14)' : 'rgba(63,175,185,0.12)') : 'transparent',
- border: `1px solid ${g.kind === k ? (k === 'action' ? '#ea580c' : 'var(--green-500)') : 'var(--border)'}`,
- color: g.kind === k ? (k === 'action' ? '#ea580c' : 'var(--green-700)') : 'var(--text-quaternary)',
- }}>{t}</button>
+ background: g.kind === k ? PROJECT_KIND_BG[k] : 'transparent',
+ border: `1px solid ${g.kind === k ? PROJECT_KIND_BORDER[k] : 'var(--border)'}`,
+ color: g.kind === k ? PROJECT_KIND_COLOR[k] : 'var(--text-quaternary)',
+ }}>{PROJECT_KIND_LABEL[k]}</button>
  ))}
  </div>
+ {/* v1229: 원테이크 — 커스텀 구간만 */}
+ {isCustomSeg && (
+ <button type="button" onClick={() => projectSegUp(g.id, { oneTake: !g.oneTake })}
+  className="btn btn-sm" title="컷 없이 한 테이크로 — 화면은 카메라가 움직여서만 바뀝니다"
+  style={{ padding: '3px 9px', fontSize: 10.5, fontWeight: 700, minHeight: 0,
+   background: g.oneTake ? PROJECT_KIND_BG.custom : 'transparent',
+   border: `1px solid ${g.oneTake ? PROJECT_KIND_BORDER.custom : 'var(--border)'}`,
+   color: g.oneTake ? PROJECT_KIND_COLOR.custom : 'var(--text-quaternary)' }}>
+  {g.oneTake ? '✓ 원테이크' : '원테이크'}
+ </button>
+ )}
  {/* 초 */}
  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
  <input type="number" className="input" min={1} max={cap} value={g.sec}
@@ -33310,9 +33387,16 @@ ${sampleText}`;
  </div>
  <textarea value={g.text}
  onChange={(e) => projectSegUp(g.id, { text: e.target.value })}
- placeholder="이 구간의 대사와 지문"
+ placeholder={isCustomSeg ? '영상 프롬프트 본문을 그대로 적으세요' : '이 구간의 대사와 지문'}
  className="input"
- style={{ width: '100%', boxSizing: 'border-box', minHeight: 62, fontSize: 12, lineHeight: 1.65, resize: 'vertical' }} />
+ style={{ width: '100%', boxSizing: 'border-box', minHeight: isCustomSeg ? 96 : 62, fontSize: 12, lineHeight: 1.65, resize: 'vertical', ...(isCustomSeg ? { borderColor: '#7c3aed' } : {}) }} />
+ {isCustomSeg && (
+ <div className="micro" style={{ marginTop: 6, color: 'var(--text-tertiary)', lineHeight: 1.6 }}>
+  커스텀 — 이 글이 Claude 를 거치지 않고 그대로 영상 프롬프트 본문이 됩니다. 레퍼런스 연결 · 사운드 · 연속성 조항은 앱이 앞뒤에 붙입니다.
+  대사는 큰따옴표 "…" 로, 부연은 대괄호 […] 로 적으세요(소괄호는 음악으로 읽혀 대괄호로 바뀝니다).
+  {g.oneTake ? ' 원테이크 — 컷 없이 한 테이크로 만듭니다.' : ''}
+ </div>
+ )}
  {/* v1002: 대사가 어떻게 번역됐는지 — 원문 · 번역 · 역번역을 나란히 본다.
      역번역은 번역문만 보고 다시 한국어로 옮긴 것이라, 뜻이 어긋나면 여기서 보인다. */}
  {(() => {
@@ -33320,7 +33404,7 @@ ${sampleText}`;
  if (lang === 'ko') return null;
  const L = projectLangInfo(lang);
  const rows = (g.dlg || []).filter(x => x && x.loc);
- const src = projectDlgLines(g.text);
+ const src = projectDlgLinesOf(g);
  if (!src.length) return null;
  if (!rows.length || g.dlgLang !== L.id) {
  return (
@@ -33704,15 +33788,15 @@ ${sampleText}`;
  //   덮어버려서 왼쪽 줄이 사라졌다. 펼침 표시는 boxShadow 로 뺀다.
  style={{ padding: '10px 12px', borderRadius: 9, cursor: 'pointer',
  background: isOpen ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',
- borderLeft: `3px solid ${g.kind === 'action' ? '#ea580c' : 'var(--green-500)'}`,
+ borderLeft: `3px solid ${PROJECT_KIND_BORDER[projectKindOf(g)]}`,
  boxShadow: isOpen ? 'inset 0 0 0 1px var(--green-500)' : 'none',
  transition: 'background .14s, box-shadow .14s' }}>
  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5, flexWrap: 'wrap' }}>
  <span className="mono-font" style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-quaternary)' }}>
  {String(at + 1).padStart(2, '0')}
  </span>
- <span className="micro" style={{ fontWeight: 700, color: g.kind === 'action' ? '#ea580c' : 'var(--green-700)' }}>
- {g.kind === 'action' ? '액션' : '일반'}
+ <span className="micro" style={{ fontWeight: 700, color: PROJECT_KIND_COLOR[projectKindOf(g)] }}>
+ {PROJECT_KIND_LABEL[projectKindOf(g)]}{g.kind === 'custom' && g.oneTake ? ' · 원테이크' : ''}
  </span>
  <span className="mono-font" style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-primary)' }}>{g.sec}초</span>
  <span className="micro" style={{ color: 'var(--text-quaternary)' }}>
@@ -34117,8 +34201,8 @@ ${sampleText}`;
  {m.no && <span style={{ fontSize: 13, fontWeight: 800 }}>S#{m.no}</span>}
  {m.place && <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-secondary)' }}>{m.place}</span>}
  <ProjectTimeIcon time={m.time} size={15} />
- <span className="micro" style={{ fontWeight: 700, color: cur.kind === 'action' ? '#ea580c' : 'var(--green-700)' }}>
- {cur.kind === 'action' ? '액션' : '일반'}
+ <span className="micro" style={{ fontWeight: 700, color: PROJECT_KIND_COLOR[projectKindOf(cur)] }}>
+ {PROJECT_KIND_LABEL[projectKindOf(cur)]}{cur.kind === 'custom' && cur.oneTake ? ' · 원테이크' : ''}
  </span>
  <span className="mono-font" style={{ fontSize: 12, fontWeight: 800 }}>{cur.sec}초</span>
  </div>
