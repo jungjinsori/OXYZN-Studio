@@ -6952,7 +6952,65 @@ const projectVideoActionRuleFor = (format) => (format === 'anime3d' ? PROJECT_VI
 
 // 구간을 씬 단위로 묶는다. 씬번호가 없으면 '기타' 로 몬다.
 // v1229: 커스텀 구간의 글은 영상 프롬프트 본문이라 '이름 : 대사' 로 읽지 않는다(CAMERA: 같은 줄이 대사로 잡힌다)
-const projectDlgLinesOf = (g) => (g && g.kind === 'custom' ? [] : projectDlgLines(g && g.text));
+// v1230: 커스텀 글의 대사 = 큰따옴표("…" · “…”) 안의 말. 한글이 든 것만 옮길 대상이다
+//   (이미 다른 언어로 적은 말은 그대로 둔다). 같은 말은 한 번만.
+const PROJECT_QUOTE_RX = /["“]([^"“”\n]+)["”]/g;
+const projectQuotedLines = (text) => {
+ const seen = new Set();
+ const out = [];
+ for (const m of String(text || '').matchAll(PROJECT_QUOTE_RX)) {
+  const said = m[1].trim();
+  if (!said || !projectHasHangul(said) || seen.has(said)) continue;
+  seen.add(said);
+  out.push({ who: '대사', said });
+ }
+ return out;
+};
+// 생성할 때 — 큰따옴표 안 말만 번역문으로 바꾼다. 따옴표 밖(사용자가 쓴 지시)은 한 글자도 안 바꾼다.
+//   번역이 없는 말은 그대로 두고 몇 개인지 돌려준다.
+const projectLocalizeQuotes = (text, trMap) => {
+ let miss = 0;
+ const out = String(text || '').replace(PROJECT_QUOTE_RX, (m, inner) => {
+  const k = inner.trim();
+  if (!projectHasHangul(k)) return m;
+  const loc = trMap.get(k);
+  if (!loc) { miss++; return m; }
+  return `"${loc}"`;
+ });
+ return { text: out, miss };
+};
+// v1231: 커스텀 글의 대사 줄 — '이름 : 말' 을 코드가 '이름 [연기]: "말"' 로 바꾼다. Claude 를 거치지 않는다.
+//   대사로 보는 줄: 콜론 앞이 ① 이 씬에 등록된 인물 이름이거나 ② 짧은 이름 꼴(한글 · 영문 · 숫자 12자 이내)이면서
+//   지시어(카메라 · CAMERA · 컷 · 조명 …)가 아니고, 말에 한글이 있을 때.
+//   그래서 'CAMERA: slow push in' · '카메라 : 천천히 다가간다' 는 그대로 남는다.
+//   말 안의 괄호((손을 흔든다))는 따옴표 밖, 이름 뒤 [ ] 로 옮긴다 — 따옴표 안에 남으면 그걸 소리 내어 읽는다.
+//   괄호뿐인 말((한숨))은 대사가 아니다 — '이름 [한숨]' 으로만 남긴다. 이미 따옴표로 쓴 줄은 건드리지 않는다.
+const PROJECT_CUSTOM_DIRECTION_CUE = /^(카메라|촬영|컷|씬|장소|시간|조명|배경|음악|사운드|소리|효과음|자막|화면|스타일|질감|연출|지문|앵글|구도|렌즈|camera|cut|scene|shot|angle|lens|light|lighting|sound|music|sfx|style|look|location|time|subtitle|note|fx|vfx|transition)$/i;
+const projectCustomDialogueLine = (line, names = []) => {
+ const m = /^(\s*)([^:："“\n]{1,24}?)\s*[:：]\s*(.*)$/.exec(line);
+ if (!m) return null;
+ const [, lead, speakerRaw, rest0] = m;
+ const rest = rest0.trim();
+ if (!rest || /^["“]/.test(rest)) return null;
+ if (/\d$/.test(speakerRaw.trim()) && /^\d/.test(rest)) return null;   // 시각(3:00)은 대사가 아니다
+ const speaker = speakerRaw.replace(/[(（[][^)）\]]*[)）\]]/g, '').trim();
+ if (!speaker) return null;
+ const registered = names.some(nm => nm && String(nm).trim() === speaker);
+ const nameLike = /^[가-힣A-Za-z0-9 ]{1,12}$/.test(speaker) && !PROJECT_CUSTOM_DIRECTION_CUE.test(speaker.replace(/\s+/g, ''));
+ const notes = [];
+ const said = rest.replace(/[(（]([^)）]*)[)）]/g, (x, inner) => { if (inner.trim()) notes.push(inner.trim()); return ' '; })
+  .replace(/\s{2,}/g, ' ').trim();
+ if (!registered && !(nameLike && projectHasHangul(said || rest))) return null;
+ return { lead, speakerRaw: speakerRaw.trim(), notes, said };
+};
+const projectQuoteCustomText = (text, names = []) => String(text || '').split('\n').map(line => {
+ const d = projectCustomDialogueLine(line, names);
+ if (!d) return line;
+ const note = d.notes.length ? ` [${d.notes.join('; ')}]` : '';
+ return d.said ? `${d.lead}${d.speakerRaw}${note}: "${d.said}"` : `${d.lead}${d.speakerRaw}${note}`;
+}).join('\n');
+// 2단계 번역 — 따옴표를 씌운 뒤의 글에서 큰따옴표 안 말을 뽑는다(생성할 때와 같은 키가 된다)
+const projectDlgLinesOf = (g) => (g && g.kind === 'custom' ? projectQuotedLines(projectQuoteCustomText(g.text)) : projectDlgLines(g && g.text));
 
 const projectGroupByScene = (segments) => {
  const groups = [];
@@ -20746,7 +20804,14 @@ const projectRefLiveSrc = (item) => {
  } else if (isCustom) {
  // v1229: 커스텀 — 쓴 글 그대로. Claude 작성 · 소리 교정 · 괄호 걷기 · 빈 줄 정리를 하지 않는다.
  //   앞 클립 영상을 붙이지 않을 때만, 읽어 둔 끝 상태를 영어 줄로 옮겨 글 '뒤에 따로' 붙인다.
- prompt = String(seg.text || '').trim();
+ // v1231: '이름 : 대사' 줄만 코드가 큰따옴표로 감싼다(등록 인물 이름 우선). 나머지 글은 그대로.
+ prompt = projectQuoteCustomText(String(seg.text || '').trim(), use.characters.map(x => String(x?.name || '').trim()).filter(Boolean));
+ // v1230: 다른 언어 프로젝트면 큰따옴표 안 말만 2단계에서 옮겨 둔 번역문으로 바꾼다(따옴표 밖은 그대로)
+ if (prompt && lang !== 'ko') {
+  const lq = projectLocalizeQuotes(prompt, trMap);
+  prompt = lq.text;
+  if (lq.miss) console.warn(`[프로젝트] 커스텀 — 옮기지 않은 대사 ${lq.miss}줄이 한국어로 남습니다. 2단계에서 '대사를 ${langInfo.label}로' 를 다시 눌러주세요.`);
+ }
  if (prompt && !contVideo && contNote) {
   setProjectGenJob(j2 => (j2 && j2.segId === segId ? { ...j2, phase: '앞 클립 끝 위치 옮기는 중' } : j2));
   let en = '';
@@ -33393,7 +33458,7 @@ ${sampleText}`;
  {isCustomSeg && (
  <div className="micro" style={{ marginTop: 6, color: 'var(--text-tertiary)', lineHeight: 1.6 }}>
   커스텀 — 이 글이 Claude 를 거치지 않고 그대로 영상 프롬프트 본문이 됩니다. 레퍼런스 연결 · 사운드 · 연속성 조항은 앱이 앞뒤에 붙입니다.
-  대사는 큰따옴표 "…" 로, 부연은 대괄호 […] 로 적으세요(소괄호는 음악으로 읽혀 대괄호로 바뀝니다).
+  대사는 '이름 : 말' 로 써도 앱이 큰따옴표로 감싸 넣습니다(말 안의 괄호 연기는 따옴표 밖으로 뺍니다). 소괄호는 대괄호로 바뀝니다.
   {g.oneTake ? ' 원테이크 — 컷 없이 한 테이크로 만듭니다.' : ''}
  </div>
  )}
