@@ -5523,7 +5523,22 @@ const projectRulesRestOneTake = (rest) => String(rest || '').split('\n\n')
  .filter(p => !PROJECT_ONETAKE_DROP_HEADS.some(h => p.trim().startsWith(h))).join('\n\n');
 // 대사 조항의 '대사 중 한 번 다른 컷으로 갔다 와도 된다' 는 원테이크와 맞지 않는다 — 원테이크면 뺀다.
 const PROJECT_QUOTE_CUTAWAY = 'One cut away mid-line to a reaction or insert is fine;\nreturn before the line ends. ';
-const projectQuoteRuleFor = (oneTake) => (oneTake ? PROJECT_VIDEO_QUOTE_RULE.replace(PROJECT_QUOTE_CUTAWAY, '') : PROJECT_VIDEO_QUOTE_RULE);
+// v1233: 2D — 대사는 화자의 얼굴로 시작하고, 이어지는 동안 반응 · 뒷모습 · 풍경 위로 흘러도 된다(애니메이션 문법)
+const PROJECT_QUOTE_SPEAKER_HEAD = '★ THE SPEAKER IS ON CAMERA WHILE THEY SPEAK.';
+const PROJECT_2D_QUOTE_SPEAKER = [
+ '★ EACH LINE OPENS ON ITS SPEAKER. The person named before a quoted line is on camera when the line',
+ 'begins, face readable, mouth moving and lip-synced. The line may then carry on over the listener\'s',
+ 'reaction, the speaker\'s back or the scenery — the voice stays theirs. Exception: an INNER VOICE block',
+ 'naming that exact line. A note about tone or feeling does not make a line a voice-over.',
+].join('\n');
+const projectQuoteRuleFor = (oneTake, format) => {
+ let q = PROJECT_VIDEO_QUOTE_RULE;
+ if (format === 'anime2d') {
+  const at = q.indexOf(PROJECT_QUOTE_SPEAKER_HEAD);
+  if (at >= 0) q = q.slice(0, at) + PROJECT_2D_QUOTE_SPEAKER;
+ }
+ return oneTake ? q.replace(PROJECT_QUOTE_CUTAWAY, '') : q;
+};
 // v1229: 커스텀 — 앞 클립 끝 상태(한국어 메모)를 영어 위치 · 시선 줄로 옮기는 지시. 사용자 글은 건드리지 않는다.
 const PROJECT_ENDSTATE_EN_SYS = `You turn a Korean note about where people were at the end of the previous video clip into short English lines for a video model.
 
@@ -6735,11 +6750,13 @@ const PROJECT_DRAFT_CONT_WARN = '앞 클립이 아직 초안(480p)인 채로 다
 const PROJECT_FORMATS = [
  // 버튼에는 label 을 크게, desc 를 작게 적는다
  { id: 'live', label: '실사', desc: '실사 드라마&영화' },
- { id: 'anime2d', label: '2D', desc: '애니메이션', disabled: true },   // 준비 중
+ { id: 'anime2d', label: '2D', desc: '애니메이션' },   // v1232
  { id: 'anime3d', label: '3D', desc: '애니메이션' },
 ];
 // 옛 프로젝트에는 format 이 없다 — 실사로 연다
-const projectFormatOf = (d) => (d && d.format === 'anime3d') ? 'anime3d' : 'live';
+const projectFormatOf = (d) => (d && (d.format === 'anime3d' || d.format === 'anime2d')) ? d.format : 'live';
+// v1232: 애니메이션(2D · 3D)인가 — 몸 형태 판단 · 의상 조항 · 보조출연자는 둘이 같다
+const projectIsAnime = (f) => f === 'anime2d' || f === 'anime3d';
 // 로드맵 위 한 줄 — 실사는 '실사', 애니메이션은 '3D 애니메이션' 처럼 붙여 읽는다
 const projectFormatLabel = (d) => {
  const f = PROJECT_FORMATS.find(x => x.id === projectFormatOf(d)) || PROJECT_FORMATS[0];
@@ -6809,15 +6826,68 @@ const PROJECT_VIDEO_RULES_REST_3D = PROJECT_VIDEO_RULES_REST
  .replace(PROJECT_LIVE_BACKGROUND, PROJECT_3D_BACKGROUND)
  .replace(PROJECT_LIVE_PERFORMANCE, PROJECT_3D_PERFORMANCE);
 
+// ═══ v1232: 2D 애니메이션 — 일본 극장판 · TV 애니 그림체. 실사 RULES_REST 에서 3D 와 같은 세 문단(피부 · 보조출연자 · 연기)만 바꾼다.
+//   신원 · 빛 · 상태 · 컷 구성 · 줌 금지 · 소품은 실사 그대로. 보조출연자 문단은 3D 와 같은 것을 쓴다.
+const PROJECT_2D_STYLE_RULE = [
+ 'STYLE — A 2D ANIMATED FEATURE FILM in the modern Japanese anime look, not live action and not 3D CG.',
+ 'Clean, confident line art with a consistent line weight; cel shading in two or three flat tones with crisp',
+ 'shadow shapes and soft highlights; hand-painted background art with depth and atmosphere; light carried by',
+ 'colour — clear warm and cool keys, rim light separating each character from the background.',
+ 'Every character, human or not, stays on model in every frame — eye shape, hair shapes and colours exactly as drawn.',
+ 'Every person, place and object in every cut is drawn in this one style. The reference images are already in',
+ 'this style — keep their exact designs, proportions and colours; never turn anyone or anything photorealistic',
+ 'or 3D-rendered, and never mix in live-action footage.',
+].join('\n');
+const PROJECT_2D_SURFACE = [
+ 'SURFACES come from the identity image too, at every shot size — flat cel colours and clean shadow shapes.',
+ 'A close-up shows the SAME drawing as a wide — larger, with the same lines and tones, never more realistic or',
+ 'more textured. Only what the story put there — sweat, tears, dirt, a scrape, a blush — is drawn on.',
+].join('\n');
+const PROJECT_2D_PERFORMANCE = [
+ 'PERFORMANCE: expressive anime acting, specific to the situation and to each body. Clear, readable key',
+ 'poses — the silhouette alone shows what they are doing. Emotion shows in the eyes first — pupils, highlights,',
+ 'brows — then the whole body, with every part that body has: ears, tail, wings as much as shoulders and hands.',
+ 'Hair and cloth move in clean shapes and settle a beat late. A blush or a held, quiet beat only where the',
+ 'emotion calls for it, never as decoration.',
+ 'A character with no face or no hands acts through posture, tilt and rhythm, and is never given a human face,',
+ 'hands or stance its image does not show. A four-legged character moves on four legs.',
+ 'Mouths move with every spoken line for anyone who speaks with a mouth or beak. No looking at camera.',
+ '',
+ 'PHYSICS is real even though the look is drawn: weight, contact and momentum. Feet, paws or hooves plant on',
+ 'the ground, a seat gives under a body, a held object is gripped by whatever that body uses. Nothing floats or',
+ 'slides. Motion is smooth and fluid, theatrical full animation — never stuttering or choppy.',
+].join('\n');
+// v1233: 2D 컷 구성 — 실사의 '와이드는 2초' 문단을 극장판 애니 호흡으로. 머리글(SHOT COVERAGE)은 그대로 둔다 —
+//   원테이크가 이 머리글로 문단을 거른다(projectRulesRestOneTake).
+const PROJECT_LIVE_COVERAGE = (() => {
+ const a = PROJECT_VIDEO_RULES_REST.indexOf('SHOT COVERAGE:');
+ const b = PROJECT_VIDEO_RULES_REST.indexOf('an event filling the frame.', a);
+ return a >= 0 && b > a ? PROJECT_VIDEO_RULES_REST.slice(a, b + 'an event filling the frame.'.length) : '';
+})();
+const PROJECT_2D_COVERAGE = [
+ 'SHOT COVERAGE: singles, over-the-shoulder shots and close detail inserts — a clenched hand, feet, a',
+ 'swaying object, eyes alone — with the occasional wide scenery shot of this same place (sky, light, street,',
+ 'trees) where the scene pauses to breathe. Follow the shot named at the start of each cut; never widen a cut',
+ 'written as a single.',
+ 'PACING: cut lengths vary on purpose. Quick cuts sit beside held, quiet shots; a held shot may stay several',
+ 'seconds while only the wind, hair and light move. A wide carrying the mood may hold; a wide that only shows',
+ 'where people stand lands and cuts in closer.',
+].join('\n');
+const PROJECT_VIDEO_RULES_REST_2D = PROJECT_VIDEO_RULES_REST
+ .replace(PROJECT_LIVE_SKIN_BLOCK, PROJECT_2D_SURFACE)
+ .replace(PROJECT_LIVE_BACKGROUND, PROJECT_3D_BACKGROUND)
+ .replace(PROJECT_LIVE_PERFORMANCE, PROJECT_2D_PERFORMANCE)
+ .replace(PROJECT_LIVE_COVERAGE, PROJECT_2D_COVERAGE);   // v1233
+
 // 영상 모델 — 의상. 옷 밖으로 드러난 곳을 '살' 로 못 박지 않는다 — 털 · 깃털 · 비늘일 수 있다.
 const PROJECT_LIVE_OUTFIT_SKIN = 'render THEIR OWN LIVING SKIN, in the tone from their identity image.';
 const PROJECT_3D_OUTFIT_SKIN = 'render THEIR OWN BODY as their identity image shows it — skin, fur, feathers or scales, in its own colour.';
 const PROJECT_OUTFIT_RULE_3D = OUTFIT_RULE.replace(PROJECT_LIVE_OUTFIT_SKIN, PROJECT_3D_OUTFIT_SKIN);
-const projectOutfitRuleFor = (format) => (format === 'anime3d' ? PROJECT_OUTFIT_RULE_3D : OUTFIT_RULE);
+const projectOutfitRuleFor = (format) => (projectIsAnime(format) ? PROJECT_OUTFIT_RULE_3D : OUTFIT_RULE);   // v1232: 2D 도 같은 문구(몸 그대로)
 
 // v1208: 몸 형태 — 인물 레퍼런스 이미지를 Claude(비전)가 보고 판단한다. 사람과 사람이 아닌 캐릭터가
 //   한 편에 함께 나올 수 있어서, 프로젝트 전체가 아니라 인물마다 정한다.
-const PROJECT_BODY_SYS = `You look at ONE character reference image from a stylized 3D animated film and judge the character's BODY TYPE only — not clothes, colours or personality.
+const PROJECT_BODY_SYS = `You look at ONE character reference image from a stylized animated film (2D or 3D) and judge the character's BODY TYPE only — not clothes, colours or personality.
 Reply with JSON only, no other text:
 {"kind":"human"|"humanoid"|"nonhuman","ko":"<한국어 한 줄>","en":"<one English line>"}
 - human: an ordinary human. Stylized proportions are still human.
@@ -6864,6 +6934,15 @@ const PROJECT_3D_ACTION_CAMERA = [
  'and every pose stays crisp and readable.',
 ].join('\n');
 const PROJECT_VIDEO_ACTION_RULE_3D = PROJECT_VIDEO_ACTION_RULE.replace(PROJECT_LIVE_ACTION_CAMERA, PROJECT_3D_ACTION_CAMERA);
+// v1232: 2D — 애니 액션 카메라. 가장 센 타격에만 스피드 라인 · 임팩트 섬광.
+const PROJECT_2D_ACTION_CAMERA = [
+ 'ACTION SCENE: a dynamic anime action camera. It tracks fast with the bodies,',
+ 'sweeps around a move, looks up from low angles, and shakes only for the instant of an',
+ 'impact; it holds still for one beat after an impact.',
+ 'IMPACT: the hardest hits may flash with brief speed lines or an impact frame drawn in the same',
+ 'style, never covering a face. Every key pose stays crisp and readable.',
+].join('\n');
+const PROJECT_VIDEO_ACTION_RULE_2D = PROJECT_VIDEO_ACTION_RULE.replace(PROJECT_LIVE_ACTION_CAMERA, PROJECT_2D_ACTION_CAMERA);
 
 // Claude — 클립 프롬프트 지침서. 실사 지침서 전부를 바탕으로, 첫 줄(누구인가)만 바꾸고
 //   [출력] 앞에 3D 조항을 넣는다. 다른 곳과 부딪치면 3D 조항이 이긴다고 못 박는다.
@@ -6928,6 +7007,55 @@ const PROJECT_VIDEO_PROMPT_SYS_3D = PROJECT_VIDEO_PROMPT_SYS
  .replace(PROJECT_LIVE_SYS_HEAD, PROJECT_3D_SYS_HEAD)
  .replace('\n[출력]\n', '\n' + PROJECT_3D_DIRECTION_SYS + '\n\n[출력]\n');
 
+// v1232: 2D 지침서 — 3D 와 같은 자리에 같은 틀로. ⑥(사람이 아닌 캐릭터)은 3D 문단을 그대로 잇는다.
+const PROJECT_2D_SYS_HEAD = '당신은 2D 애니메이션 장편(일본 극장판 · TV 애니 그림체)의 영상 생성 프롬프트를 쓰는 연출자입니다. 대사는 대본 그대로입니다.';
+const PROJECT_ANIME_NONHUMAN_SYS = PROJECT_3D_DIRECTION_SYS.slice(PROJECT_3D_DIRECTION_SYS.indexOf('⑥'));
+const PROJECT_2D_DIRECTION_SYS = `[★ 이 프로젝트는 2D 애니메이션입니다 — 위 조항과 부딪치면 이 조항이 이깁니다]
+화면은 일본 극장판 · TV 애니메이션 그림체의 2D 장편입니다. 실사 드라마도, 3D CG 도 아닙니다.
+위의 레퍼런스 결속 · 배치 · 앞 클립 연결 · 대사 · 속마음 · 컷 형식 · 컷 호흡 조항은 그대로 지키고,
+아래만 바꿉니다. 등장하는 캐릭터는 사람일 수도, 사람이 아닐 수도 있고, 둘이 함께 나올 수도 있습니다.
+
+① 회사 · 작품 · 감독 이름을 쓰지 않습니다 — 스튜디오 이름, 작품 제목, 감독 이름 모두.
+   스타일은 코드가 프롬프트 맨 앞에 따로 붙입니다. 컷마다 '애니메이션' 을 되풀이하지 마십시오.
+
+② 연기 — 애니메이션 연기입니다. 실사의 절제된 연기가 아닙니다.
+   - 감정은 눈이 먼저 냅니다 — 눈동자 · 눈의 빛 · 눈썹. 그다음 몸 전체가, 그 몸이 가진 모든 부위로 따라갑니다.
+   - 포즈는 실루엣만 봐도 무엇을 하는지 읽히게, 동작은 또렷한 키 포즈로 적습니다.
+   - 머리카락 · 옷자락은 깔끔한 모양으로 흔들리고 한 박자 늦게 멈춥니다.
+   - 볼의 홍조나 숨을 고르는 정적처럼 애니메이션다운 표현은 장면의 감정이 요구할 때만 씁니다. 장식으로 넣지 않습니다.
+   - 과장하되 캐릭터를 벗어나지 않습니다. 코미디는 크고 탄력 있게, 슬픔은 작고 조용하게.
+
+③ 화면 구성
+   - 색과 빛이 감정을 끌고 갑니다. 첫 컷에 그 장면의 색온도와 빛의 방향을 한 마디로 적으십시오
+     (등 뒤의 따뜻한 노을빛 · 창으로 드는 차가운 달빛처럼). 클립 안에서는 바꾸지 않습니다.
+   - 배경 미술이 정서를 싣습니다 — 하늘 · 구름 · 빛줄기 · 비 · 흩날리는 것들을 한 마디씩, 장면의 감정에 맞게.
+   - 캐릭터가 배경에서 또렷이 떨어지게 — 테두리에 빛이 걸리고 배경보다 또렷합니다.
+   - 일반씬 카메라는 애니메이션 카메라답게 매끈합니다 — 느린 패닝 · 트래킹 · 천천히 다가가는 푸시, 그리고 고정 컷.
+     실사의 핸드헬드 흔들림은 쓰지 않습니다.
+   - 줌 금지, 같은 인물을 크기만 바꿔 잇지 않기는 위 실사 조항 그대로입니다. 컷 길이 · 와이드 · 대사와 화면은 ⑦ 을 따릅니다.
+
+④ 물리 — 무게 · 접촉 · 관성은 진짜입니다. 그림이라고 몸이 떠다니거나 물건이 무게 없이 움직이지
+   않습니다. 앉으면 쿠션이 꺼지고, 발 · 앞발 · 발굽은 바닥을 딛고, 물건은 그 몸이 쓰는 것으로 쥡니다.
+   움직임은 극장판처럼 매끄럽게 — 뚝뚝 끊기는 리미티드 애니메이션이 아닙니다. 액션씬의 인과 · 접촉 조항은 그대로입니다.
+
+⑤ 레퍼런스 — 인물 · 장소 · 오브제 이미지는 이미 이 2D 그림체로 그려진 것입니다. 생김새와 비율(눈의 모양,
+   머리 모양과 색, 머리와 몸의 비율)은 이미지가 정합니다. 실사나 3D 처럼 묘사하지 마십시오 — 피부 결 · 모공 ·
+   주름 같은 사실적인 질감 낱말도, 렌더 · 서브서피스 같은 3D 낱말도 쓰지 않습니다.
+
+${PROJECT_ANIME_NONHUMAN_SYS}
+
+⑦ 컷 호흡 — 극장판 애니메이션입니다. 위 실사 조항의 '풀샷 · 와이드는 2초' · '한 컷 6초' · '대사 내내 화자가 화면에' 는
+   여기서는 이렇게 바뀝니다(사용자 메시지의 [컷 호흡] 블록이 숫자를 줍니다).
+   - 컷 길이에 완급을 둡니다. 짧게 끊는 컷 사이에 '간(間)' — 말 없이 머무는 컷 — 을 둡니다.
+   - 감정의 전환점에 그 장소의 풍경 컷(하늘 · 구름 · 빛줄기 · 나뭇잎)과 디테일 인서트(쥔 손 · 발끝 · 소품 · 눈)를 씁니다.
+     이 클립에 실제로 있는 장소와 물건에서만 가져오고, 새 장소 · 새 인물을 지어내지 않습니다.
+   - 정서를 싣는 풍경 와이드는 오래 머물러도 됩니다. 사람이 어디 서 있는지만 보여주는 와이드는 짧게.
+   - 대사는 화자의 얼굴로 시작하고, 이어지는 동안 듣는 사람의 반응 · 화자의 뒷모습 · 풍경으로 넘어가도 됩니다.
+     대사 문장은 화자의 컷에 한 번만 적고, 넘어간 컷에는 무엇이 보이는지만 적습니다.`;
+const PROJECT_VIDEO_PROMPT_SYS_2D = PROJECT_VIDEO_PROMPT_SYS
+ .replace(PROJECT_LIVE_SYS_HEAD, PROJECT_2D_SYS_HEAD)
+ .replace('\n[출력]\n', '\n' + PROJECT_2D_DIRECTION_SYS + '\n\n[출력]\n');
+
 // Claude — 컷 호흡(사용자 메시지). 일반씬은 실사 그대로. 액션씬은 카메라 대목만 3D 로.
 const PROJECT_3D_ACTION_CAMERA_KO = [
  '[카메라 — 액션씬 · 3D 애니메이션]',
@@ -6939,15 +7067,64 @@ const PROJECT_3D_ACTION_CAMERA_KO = [
  '대사는 짧은 외침 정도입니다. 액션 도중에 긴 대사를 넣지 마십시오.',
  '액션 중에는 말하는 사람이 화면 밖이어도 됩니다 — 몸이 먼저입니다.',
 ].join('\n');
-const projectCutTempoFor = (kind, sec, format) => {
- const base = PROJECT_CUT_TEMPO_FOR(kind, sec);
- if (format !== 'anime3d' || kind !== 'action') return base;
- const at = base.indexOf('[카메라 — 액션씬]');
- return at >= 0 ? base.slice(0, at) + PROJECT_3D_ACTION_CAMERA_KO : base;
+// v1232: 2D — 액션 카메라 대목만 바꾼다
+const PROJECT_2D_ACTION_CAMERA_KO = [
+ '[카메라 — 액션씬 · 2D 애니메이션]',
+ '거친 핸드헬드가 아니라 동작을 따라 휘감는 역동적인 애니메이션 카메라입니다.',
+ '- 인물을 따라가는 빠른 추적, 동작을 감싸 도는 스윕, 낮은 앵글에서 올려보기, 부딪히기 직전의 짧은 다가섬.',
+ '- 흔들림은 충격 순간에만 짧게 — 그 밖에는 매끈합니다.',
+ '- 가장 센 타격에만 스피드 라인이나 임팩트 섬광을 짧게 — 얼굴을 가리지 않게. 키 포즈는 또렷이 읽히게.',
+ '- 줌인 · 줌아웃은 여기서도 쓰지 마십시오. 화면 크기는 컷으로 바꿉니다.',
+ '대사는 짧은 외침 정도입니다. 액션 도중에 긴 대사를 넣지 마십시오.',
+ '액션 중에는 말하는 사람이 화면 밖이어도 됩니다 — 몸이 먼저입니다.',
+].join('\n');
+// v1233: 2D 일반씬 — 극장판 애니 호흡. 화자 · 성별 · 컷 형식 규칙은 실사 블록의 [대사와 화면] 을 2D 문법으로 고쳐 쓴다.
+const PROJECT_2D_CUT_TEMPO_NORMAL = (sec) => {
+ const d = Math.max(1, Math.round(Number(sec) || 0));
+ const lo = Math.max(2, Math.round(d / 5));
+ const hi = Math.max(lo + 1, Math.round(d / 3));
+ return [
+  `[컷 호흡 — 일반씬 · 2D 애니메이션 · 이 클립 ${d}초]`,
+  '극장판 애니메이션의 호흡입니다. 컷 길이에 완급을 두십시오 — 짧게 끊는 컷 사이에 머무는 컷을 둡니다.',
+  `이 클립은 ${lo}~${hi}컷 안팎으로 짜십시오. 짧은 컷은 1~3초, '간(間)' 을 담은 컷은 4~8초까지 머물 수 있습니다.`,
+  '클립 전체를 컷 없이 한 컷으로 만들지는 마십시오.',
+  '',
+  '[간(間) — 말이 없는 멈춤]',
+  '감정이 바뀌는 자리, 결정적인 말 직후, 대사와 대사 사이에 말 없는 한 박자를 두십시오.',
+  '인물은 움직임을 멈추고 바람 · 머리카락 · 빛만 움직입니다. 매 클립 넣을 필요는 없습니다 — 장면이 숨을 고를 때만.',
+  '',
+  '[풍경 컷 · 디테일 인서트]',
+  '- 감정의 전환점에 이 장소의 풍경 컷을 한 번 끼울 수 있습니다 — 하늘 · 구름 · 빛줄기 · 흔들리는 나뭇잎 ·',
+  '  지나가는 전차처럼 장면의 감정과 같은 색의 것. 인물이 아주 작게 보이는 넓은 풍경 와이드도 좋습니다.',
+  '- 감정에 마침표를 찍을 때는 짧은 디테일 인서트 — 꽉 쥔 손, 발끝, 흔들리는 소품, 눈만 잡은 클로즈업.',
+  '- 둘 다 이 클립에 실제로 있는 장소와 물건에서 가져옵니다. 새 장소 · 새 인물 · 새 사건을 지어내지 마십시오.',
+  '- 사람이 어디 서 있는지만 보여주는 와이드는 짧게 보여주고 곧 인물에게 붙으십시오.',
+  '',
+  '[대사와 화면 — 화자로 시작하고, 이어서는 흘려도 됩니다]',
+  '- 대사는 말하는 사람의 얼굴로 시작합니다. 그 컷의 \'누구\' 는 그 대사를 하는 사람입니다.',
+  '    Cut to medium shot of 민수: "얼른 먹어."',
+  '- 말이 이어지는 동안 듣는 사람의 반응 · 화자의 뒷모습 · 풍경으로 넘어가도 됩니다 — 애니메이션의 문법입니다.',
+  '  넘어간 컷에는 대사를 옮겨 적지 말고 무엇이 보이는지만 적으십시오.',
+  '    Cut to medium shot of 민수: "얼른 먹어. 식기 전에."',
+  '    Cut to the steam rising from the bowl between them.        ← 대사 없음, 말은 이어진다',
+  '- 대사 문장은 대본에 적힌 한 줄 그대로 화자의 컷에 한 번만 적습니다. 문장을 쪼개 두 컷에 나눠 적지 마십시오.',
+  '- 이름 뒤 (남)/(여) 는 성별입니다. 대명사 · 호칭 · 목소리를 그것에 맞추고,',
+  '  표기가 없으면 대본에서 읽어 정하십시오. 따로 적을 항목은 아닙니다.',
+  '- 대사가 없는 구간(지문 · 행동)은 리액션 · 인서트 · 풍경으로 자유롭게 채우십시오.',
+ ].join('\n');
 };
-const projectVideoPromptSysFor = (format) => (format === 'anime3d' ? PROJECT_VIDEO_PROMPT_SYS_3D : PROJECT_VIDEO_PROMPT_SYS);
-const projectVideoRulesRestFor = (format) => (format === 'anime3d' ? PROJECT_VIDEO_RULES_REST_3D : PROJECT_VIDEO_RULES_REST);
-const projectVideoActionRuleFor = (format) => (format === 'anime3d' ? PROJECT_VIDEO_ACTION_RULE_3D : PROJECT_VIDEO_ACTION_RULE);
+const projectCutTempoFor = (kind, sec, format) => {
+ if (format === 'anime2d' && kind !== 'action') return PROJECT_2D_CUT_TEMPO_NORMAL(sec);   // v1233
+ const base = PROJECT_CUT_TEMPO_FOR(kind, sec);
+ if (!projectIsAnime(format) || kind !== 'action') return base;
+ const at = base.indexOf('[카메라 — 액션씬]');
+ return at >= 0 ? base.slice(0, at) + (format === 'anime2d' ? PROJECT_2D_ACTION_CAMERA_KO : PROJECT_3D_ACTION_CAMERA_KO) : base;
+};
+const projectVideoPromptSysFor = (format) => (format === 'anime3d' ? PROJECT_VIDEO_PROMPT_SYS_3D : format === 'anime2d' ? PROJECT_VIDEO_PROMPT_SYS_2D : PROJECT_VIDEO_PROMPT_SYS);
+const projectVideoRulesRestFor = (format) => (format === 'anime3d' ? PROJECT_VIDEO_RULES_REST_3D : format === 'anime2d' ? PROJECT_VIDEO_RULES_REST_2D : PROJECT_VIDEO_RULES_REST);
+const projectVideoActionRuleFor = (format) => (format === 'anime3d' ? PROJECT_VIDEO_ACTION_RULE_3D : format === 'anime2d' ? PROJECT_VIDEO_ACTION_RULE_2D : PROJECT_VIDEO_ACTION_RULE);
+// v1232: 맨 앞 스타일 조항 — 실사면 없다
+const projectStyleRuleFor = (format) => (format === 'anime3d' ? PROJECT_3D_STYLE_RULE : format === 'anime2d' ? PROJECT_2D_STYLE_RULE : '');
 // ═════════════════════════════════════════════════════════════════════ 포맷 끝
 
 // 구간을 씬 단위로 묶는다. 씬번호가 없으면 '기타' 로 몬다.
@@ -7580,7 +7757,7 @@ const emptyProject = () => ({
  // 3단계 — 씬별 레퍼런스. { [sceneNo]: { characters:[], places:[], objects:[] } }
  //   레퍼런스는 씬 단위로 걸고, 그 씬에 속한 클립들이 자동으로 물려 쓴다.
  sceneRefs: {},
- // v1207: 포맷 — 'live' | 'anime3d' ('anime2d' 는 준비 중). 옛 프로젝트에는 없다 — 실사로 연다.
+ // v1207 · v1232: 포맷 — 'live' | 'anime2d' | 'anime3d'. 옛 프로젝트에는 없다 — 실사로 연다.
  format: 'live',
  // v1218: 초안 모드 기본 켜짐 — 새 프로젝트만. 이미 있는 프로젝트는 저장된 설정 그대로 연다.
  genDraft: true,
@@ -19604,6 +19781,11 @@ ${'\n'}[★ 타이틀이 들어갈 자리를 비워 두세요 — 가로형에�
  };
 
  const handleProjectOpen = async (id) => {
+ // v1234: 뽑는 중에 다른 프로젝트로 바꾸면 결과가 붙을 구간이 없어 사라진다
+ if ((projectGenJob || projectBatch) && id !== projectData.id) {
+  try { showToast('지금 뽑는 클립이 끝난 뒤에 열어 주세요 — 바꾸면 그 결과가 사라집니다.', 'error'); } catch {}
+  return;
+ }
  try {
  const r = await window.electronAPI?.projectLoad?.(id);
  if (!r?.success) throw new Error(r?.error || '열지 못했습니다.');
@@ -19647,6 +19829,7 @@ ${'\n'}[★ 타이틀이 들어갈 자리를 비워 두세요 — 가로형에�
  };
 
  const handleProjectDelete = (item) => {
+ if ((projectGenJob || projectBatch) && projectData.id === item.id) { try { showToast('지금 뽑는 중인 프로젝트는 지울 수 없습니다.', 'error'); } catch {} return; }   // v1234
  setConfirmDialog({
  title: '프로젝트 삭제',
  message: `"${item.name}"\n\n저장된 작업이 지워집니다. 되돌릴 수 없습니다.`,
@@ -19684,9 +19867,17 @@ ${'\n'}[★ 타이틀이 들어갈 자리를 비워 두세요 — 가로형에�
  //   결과가 있어야 UI 를 다듬을 수 있어서 먼저 붙였다. 나중에 LLM 분류·분할로 교체.
  // v888: 구간 나누기 — 모델이 나눈다.
  //   feedback 을 주면 그 지적을 반영해 다시 나눈다(3단계의 되돌리기 경로).
+// v1234: 구간을 새로 만들면 지금 구간에 붙은 클립(이전 결과 · 이어받기 포함)이 프로젝트에서 빠진다 — 먼저 묻는다
+ const projectConfirmDropClips = async (what) => {
+  const n = (projectDataRef.current.segments || []).filter(g => g && (g.clipUrl || (g.takes || []).length || g.pendingTaskId)).length;
+  if (!n) return true;
+  return askConfirm({ title: '뽑아 둔 클립이 빠집니다', danger: true, confirmLabel: '계속',
+   message: `${what} 구간이 새로 만들어집니다. 지금 구간에 붙어 있는 클립 ${n}곳(이전 결과 · 이어받기 포함)과\n커스텀 구간 · 대사 번역이 프로젝트에서 빠집니다.\n받아 둔 영상 파일은 지워지지 않습니다.\n\n계속할까요?` });
+ };
  const handleProjectSplitEpisode = async ({ goNext, feedback } = {}) => {
  const text = (projectData.episode.text || '').trim();
  if (!text) { projectUp({ error: '에피소드 대본을 먼저 넣어주세요.' }); return; }
+ if (!(await projectConfirmDropClips('구간을 다시 나누면'))) return;   // v1234
  projectUp({ isSegmenting: true, error: '', segMode: '' });
  try {
  const fb = String(feedback || '').trim();
@@ -19881,9 +20072,10 @@ ${'\n'}[★ 타이틀이 들어갈 자리를 비워 두세요 — 가로형에�
  };
 
  // 모델 없이 규칙으로 나눈다. 실패했을 때·키가 없을 때 UI 를 보기 위한 길이다.
- const handleProjectSplitLocal = ({ goNext } = {}) => {
+ const handleProjectSplitLocal = async ({ goNext } = {}) => {
  const text = (projectData.episode.text || '').trim();
  if (!text) { projectUp({ error: '에피소드 대본을 먼저 넣어주세요.' }); return; }
+ if (!(await projectConfirmDropClips('규칙으로 다시 나누면'))) return;   // v1234
  try {
  const segs = projectSplitEpisode(text);
  if (!segs.length) throw new Error('구간을 만들지 못했습니다.');
@@ -19899,6 +20091,7 @@ ${'\n'}[★ 타이틀이 들어갈 자리를 비워 두세요 — 가로형에�
  // 에피소드 대본 파일 → 텍스트. pdf·docx·txt 는 기존 extractText 를 그대로 쓴다.
  const handleProjectEpisodeFile = async (file) => {
  if (!file) return;
+ if (!(await projectConfirmDropClips('새 대본 파일을 넣으면'))) return;   // v1234
  const name = (file.name || '').toLowerCase();
  if (!['.pdf', '.docx', '.txt'].some(e => name.endsWith(e))) {
  projectUp({ error: 'PDF · DOCX · TXT 파일만 첨부할 수 있습니다.' });
@@ -19913,7 +20106,7 @@ ${'\n'}[★ 타이틀이 들어갈 자리를 비워 두세요 — 가로형에�
  // 원문을 먼저 담아 둔다 — 정리가 실패해도 원문은 남는다
  projectUp({ episode: { mode: 'file', fileName: file.name, raw: t, text: '', meta: { title: '', episodeNo: '', scenes: [] } } });
  setProjectParsing(false);
- await handleProjectCleanScript(t);
+ await handleProjectCleanScript(t, { confirmed: true });
  } catch (e) {
  projectUp({ error: `에피소드 대본을 읽지 못했습니다: ${e.message}` });
  setProjectParsing(false);
@@ -20330,11 +20523,11 @@ const projectRefLiveSrc = (item) => {
     return { ...g, clipUrl: url, clipFile, clipTs, clipIsDraft: false, clipDraftTaskId: '', clipDraftAt: 0,
      clipRes: '1080p', clipUpgraded: true,   // v1188: 초안을 올린 버전 — 배지로 가른다
      clipPubUrl: '',   // v1167: 480p 초안을 올려둔 사본을 버린다
+     pendingTaskId: '', pendingAt: 0, pendingDraft: false, pendingFinal: false, pendingPrompt: '',   // v1234
 
      clipGenNo: genNo, genSeq: genNo, takes: [...prev, ...stamped].slice(0, 8) };
    }) }));
-   try { recordCreditUsage(estimateSeedance2Cost(seg.sec, '1080p', projectRatioOf(projectDataRef.current),
-    { tier: PROJECT_TIER_FOR(seg.kind) }), 'video', { workCat: 'video' }); } catch {}
+   // v1234: 요금은 callSeedanceFinalFromDraft 가 기록한다 — 여기서 또 적으면 두 번 잡혔다
    try { showToast('1080p 최종을 만들었습니다.', 'load'); } catch {}
   } catch (e) {
    // v1187: 시간만 넘긴 것이면 서버는 아직 만들고 있다. id 를 버리면 다시 눌렀을 때
@@ -20388,14 +20581,14 @@ const projectRefLiveSrc = (item) => {
  const handleProjectGenerateScene = async (sceneKey) => {
  const grp = projectGroupByScene(projectDataRef.current.segments).find(x => x.key === sceneKey);
  if (!grp) return;
- const todo = grp.items.map(x => x.seg).filter(g => projectCanGenerate(g) && !g.clipUrl);
+ const todo = grp.items.map(x => x.seg).filter(g => projectCanGenerate(g) && !g.clipUrl && !g.pendingTaskId);   // v1234: 이어받을 것은 건너뛴다
  await projectRunBatch(todo, sceneKey);
  };
 
  // 전체 생성 — 15초 이하만 순서대로. 하나 실패하면 거기서 멈춘다
  //   (뒤 클립이 앞 클립에 이어지므로, 중간이 비면 그 뒤는 의미가 없다).
  const handleProjectGenerateAll = async () => {
- const todo = projectDataRef.current.segments.filter(g => projectCanGenerate(g) && !g.clipUrl);
+ const todo = projectDataRef.current.segments.filter(g => projectCanGenerate(g) && !g.clipUrl && !g.pendingTaskId);   // v1234
  await projectRunBatch(todo, '__all__');
  };
 
@@ -20452,6 +20645,14 @@ const projectRefLiveSrc = (item) => {
  }
  // 배치는 순서대로 기다리며 도는 것이라 이 문에 걸리면 안 된다
  if (!fromBatch && projectGenJob) { projectUp({ error: '한 번에 한 클립씩 뽑습니다. 지금 뽑는 것이 끝나면 다시 눌러주세요.' }); return false; }
+ // v1234: 커스텀 구간이 비어 있으면 아무것도 부르기 전에 멈춘다(앞 클립 읽기 비용도 안 나가게)
+ if (seg.kind === 'custom' && !String(seg.text || '').trim()) { projectUp({ error: '커스텀 구간의 글이 비어 있습니다 — 2단계에서 프롬프트 본문을 적어주세요.' }); return false; }
+ // v1234: 시간이 넘어 서버에서 아직 만들고 있을 수 있는 구간 — 새로 뽑으면 비용이 또 나간다. 먼저 묻는다.
+ if (!promptOnly && !fromBatch && seg.pendingTaskId) {
+  const ok = await askConfirm({ title: '서버에서 아직 만들고 있을 수 있습니다', confirmLabel: '새로 뽑기',
+   message: '이 구간은 앞선 생성이 시간을 넘겨 끊겼고, 서버에서는 계속 만들고 있을 수 있습니다.\n[이어받기] 를 누르면 비용 없이 그 결과를 받습니다.\n\n그래도 새로 뽑을까요? (비용이 다시 나갑니다)' });
+  if (!ok) return false;
+ }
 
  const grp = projectGroupByScene(now.segments).find(x => x.items.some(it => it.seg.id === segId));
  const sceneKey = grp?.key || '_';
@@ -20547,7 +20748,7 @@ const projectRefLiveSrc = (item) => {
  }
  // v1208: 3D — 붙은 인물 이미지를 보고 몸 형태를 판단한다(사람 · 사람 같은 비인간 · 비인간). 실사면 하지 않는다.
  let bodyNotes = [];
- if (projectFormatOf(projectDataRef.current) === 'anime3d') {
+ if (projectIsAnime(projectFormatOf(projectDataRef.current))) {   // v1232: 2D 도
   try { bodyNotes = await projectBodyNotesFor(fullList.filter(x => x.kindLabel === '인물')); } catch { bodyNotes = []; }
  }
  const prevAlive = !!prev?.clipUrl && arkUrlFresh(prev.clipTs);
@@ -21096,7 +21297,7 @@ const projectRefLiveSrc = (item) => {
  //   그 자리를 음악에 내주자 인물·의상이 흔들렸다. 음악은 그 바로 뒤에 둔다 —
  //   12,000자 프롬프트에서 여전히 상위 14% 지점이다.
  // v1207: 3D 면 스타일이 맨 앞 — 모든 인물 · 장소 · 물건이 한 스타일로. 실사면 빈 줄이라 빠진다.
- projectFormatOf(projectDataRef.current) === 'anime3d' ? PROJECT_3D_STYLE_RULE : '',
+ projectStyleRuleFor(projectFormatOf(projectDataRef.current)),   // v1232: 2D · 3D
  placeDirectives.join('\n'),
  outfitDirectives.join('\n'),
  projectBodyRuleEn(bodyNotes),   // v1208: 사람이 아닌 캐릭터가 있을 때만
@@ -21120,7 +21321,7 @@ const projectRefLiveSrc = (item) => {
  // v972: 어느 줄이 속마음인지 대사를 그대로 실어 못 박는다. 고치기에도 붙인다.
  // v989: 액션씬은 카메라를 영상 모델에도 못 박는다
  seg.kind === 'action' ? projectVideoActionRuleFor(projectFormatOf(projectDataRef.current)) : '',   // v1207
- projectQuoteRuleFor(oneTake),   // v1229: 원테이크면 '한 번 다른 컷으로' 문장을 뺀다
+ projectQuoteRuleFor(oneTake, projectFormatOf(projectDataRef.current)),   // v1229 · v1233: 원테이크 · 2D
  voLines.length
  ? PROJECT_VIDEO_VO_RULE_FOR(voLines.map(v => ({ ...v, line: localize(v.line) })), lang)
  : '',
@@ -21215,6 +21416,8 @@ const projectRefLiveSrc = (item) => {
  clipIsDraft: isDraft, clipDraftTaskId: isDraft ? draftTaskId : '', clipDraftAt: isDraft ? clipTs : 0,
  promptModel: clipPromptModel(),   // v1186: 어느 모델이 쓴 프롬프트인지
  clipRes: genRes, clipUpgraded: false,   // v1188: 배지 — 무엇으로 뽑았는지
+ // v1234: 새로 뽑았으면 예전에 시간이 넘어 남겨 둔 '이어받기' 는 낡은 것이다 — 이어받으면 새 클립을 덮는다
+ pendingTaskId: '', pendingAt: 0, pendingDraft: false, pendingFinal: false, pendingPrompt: '',
  };
  setProjectData(p => {
  const segments = p.segments.map(g => (g.id === segId ? { ...g, ...clipPatch } : g));
@@ -21288,12 +21491,22 @@ const projectRefLiveSrc = (item) => {
  setProjectGenJob({ segId, ts: seg.pendingAt || Date.now(), estSec: 600, phase: '결과 이어받는 중' });
  projectUp({ error: '' });
  try {
+ let resumedTask = null;   // v1234: 요금 기록용 — 서버가 알려 준 토큰
  const url = await resumeArkVideoTask(seg.pendingTaskId, {
  maxPolls: 200,
+ onDone: (t) => { resumedTask = t; },
  onStatus: (st) => setProjectGenJob(j => (j && j.segId === segId
  ? ((ph) => (j.phase === ph ? j : { ...j, phase: ph }))(st === 'queued' ? '대기열에서 기다리는 중' : '결과 이어받는 중') : j)   /* v1214: 같으면 그대로 */),
  });
  const resumedTs = Date.now();
+ // v1234: 이어받은 클립의 요금을 여기서 적는다. 처음 호출은 시간이 넘어 끊겨 기록 전에 빠져나갔다.
+ try {
+  const rRes = seg.pendingFinal ? '1080p' : seg.pendingDraft ? '480p' : projectResOf(projectDataRef.current);
+  const tokens = Number(resumedTask && resumedTask.usage && resumedTask.usage.completion_tokens) || 0;
+  const usd = tokens ? (tokens * arkVideoRate(rRes, false, PROJECT_TIER_FOR(seg.kind))) / 1e6
+   : estimateSeedance2Cost(seg.sec, rRes, projectRatioOf(projectDataRef.current), { tier: PROJECT_TIER_FOR(seg.kind) });
+  recordCreditUsage(usd, 'video', { workCat: 'video' });
+ } catch {}
  let resumedFile = '';
  try {
  const rs = await window.electronAPI?.clipSave?.({ projectId: projectDataRef.current.id || '', segId, url, ts: resumedTs });
@@ -21661,10 +21874,15 @@ const projectRefLiveSrc = (item) => {
  });
  const fresh = projectNormalizeSegments(parseJsonFromResponse(out));
  if (!fresh.length) throw new Error('다시 나눈 결과가 비어 있습니다.');
+ // v1234: 기다리는 동안 구간을 고쳤을 수 있다 — 자리를 번호가 아니라 id 로 다시 찾는다
+ const ids = target.map(g => g.id);
  setProjectData(p => {
- const next = [...p.segments];
- next.splice(from, to - from + 1, ...fresh);
- return { ...p, segments: next, isSegmenting: false, approvedAt: null };
+  const at = p.segments.findIndex(g => g.id === ids[0]);
+  const same = at >= 0 && ids.every((id, k) => p.segments[at + k]?.id === id);
+  if (!same) return { ...p, isSegmenting: false, error: '다시 나누는 동안 구간이 바뀌어 적용하지 않았습니다. 다시 시도해 주세요.' };
+  const next = [...p.segments];
+  next.splice(at, ids.length, ...fresh);
+  return { ...p, segments: next, isSegmenting: false, approvedAt: null };
  });
  } catch (e) {
  projectUp({ isSegmenting: false, error: `다시 나누기 실패: ${e.message}` });
@@ -21673,9 +21891,10 @@ const projectRefLiveSrc = (item) => {
 
  // v889: 긁어온 원문을 읽고 정리한다 — 실제 내용만 남기고 메타데이터를 뽑는다.
  //   PDF 텍스트를 그대로 구간 나누기에 넘기면 페이지 번호와 머리말이 구간이 된다.
- const handleProjectCleanScript = async (rawText) => {
+ const handleProjectCleanScript = async (rawText, { confirmed } = {}) => {
  const raw = String(rawText || projectData.episode.raw || '').trim();
  if (!raw) { projectUp({ error: '정리할 원문이 없습니다.' }); return; }
+ if (!confirmed && !(await projectConfirmDropClips('대본을 다시 정리하면'))) return;   // v1234
  // 실측 근거는 없다. Sonnet 이 대본을 그대로 옮겨 담으므로 길이에 비례한다고 보고
  //   1000자당 약 6초 + 기본 8초로 잡는다. 어긋나면 게이지가 99%에서 기다린다.
  setProjectCleanJob({ ts: Date.now(), estSec: Math.max(10, Math.round(8 + raw.length / 1000 * 6)) });
@@ -21729,6 +21948,7 @@ const projectRefLiveSrc = (item) => {
  // 랜딩에서 들어가기 — 하던 것이 있으면 이어가고, 없으면 새로 시작(이름부터)
   // 새로 시작 — 저장 안 된 내용이 있으면 먼저 묻는다
  const handleProjectNew = () => {
+ if (projectGenJob || projectBatch) { try { showToast('지금 뽑는 클립이 끝난 뒤에 새로 시작해 주세요 — 결과가 사라집니다.', 'error'); } catch {} return; }   // v1234
  const dirty = !projectData.id && (
  !!(projectData.episode.text || '').trim() || projectData.segments.length > 0);
  if (!dirty) { startNewProject(); return; }
@@ -21751,7 +21971,10 @@ const projectRefLiveSrc = (item) => {
  // eslint-disable-next-line react-hooks/exhaustive-deps
  }, [projectData.name, projectData.step, projectData.episode,
  projectData.segments, projectData.approvedAt, projectData.sceneRefs,
- projectData.reachedStep]);
+ projectData.reachedStep,
+ // v1234: 이 설정만 바꾸고 앱을 닫으면 저장되지 않았다
+ projectData.format, projectData.lang, projectData.genDraft, projectData.genRes, projectData.genRatio,
+ projectData.useContVideo, projectData.draftContOk, projectData.bodyNotes, projectData.segMode]);
 
  // v895: 4단계에 처음 들어오면 레퍼런스를 한 번 자동으로 뽑아 건다.
  //   사용자가 지운 것을 되살리지 않도록, 비어 있을 때만 돌린다.
@@ -32836,7 +33059,7 @@ ${sampleText}`;
 
  {/* v1207: 이 프로젝트의 포맷 */}
  <div className="micro" style={{ padding: '0 8px', marginBottom: 10, color: 'var(--text-tertiary)' }}>
-  포맷 · <strong style={{ color: projectFormatOf(d) === 'anime3d' ? 'var(--green-700)' : 'var(--text-secondary)' }}>{projectFormatLabel(d)}</strong>
+  포맷 · <strong style={{ color: projectIsAnime(projectFormatOf(d)) ? 'var(--green-700)' : 'var(--text-secondary)' }}>{projectFormatLabel(d)}</strong>
  </div>
  <div className="micro" style={{ fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '0 8px', marginBottom: 8 }}>
  로드맵
@@ -32998,6 +33221,12 @@ ${sampleText}`;
       </button>
      ))}
     </div>
+    {fmt === 'anime2d' && (
+     <div className="micro" style={{ marginTop: 6, lineHeight: 1.55, color: 'var(--text-tertiary)' }}>
+      2D 애니메이션(일본 극장판 · TV 애니 그림체) 지침으로 프롬프트를 씁니다 — 연기 · 화면 구성 · 빛이 2D 장편 기준이고, 앞 클립 이어받기와 일반씬 · 액션씬 구분은 실사와 같습니다.
+      <br />인물 · 장소 · 오브제 레퍼런스는 <strong>2D 그림체 이미지로 넣어 주세요</strong> — 직접 올리거나, 턴어라운드 시트에서 '2D 애니' 스타일로 만든 시트를 쓰면 됩니다.
+     </div>
+    )}
     {fmt === 'anime3d' && (
      <div className="micro" style={{ marginTop: 6, lineHeight: 1.55, color: 'var(--text-tertiary)' }}>
       3D 애니메이션 지침으로 프롬프트를 씁니다 — 연기 · 화면 구성 · 빛이 3D 장편 기준이고, 앞 클립 이어받기와 일반씬 · 액션씬 구분은 실사와 같습니다.
@@ -33927,6 +34156,11 @@ ${sampleText}`;
      style={{ fontSize: 11, lineHeight: 1.55, fontFamily: 'inherit', resize: 'vertical',
        color: 'var(--text-secondary)' }} />
    )}
+   {g.kind === 'custom' ? (
+   <div className="micro" style={{ marginTop: 8, color: PROJECT_KIND_COLOR.custom, lineHeight: 1.6 }}>
+     커스텀 구간은 2단계의 글이 그대로 나갑니다 — 고치려면 2단계에서 글을 고치세요. 위 전체는 확인용입니다.   {/* v1234 */}
+   </div>
+   ) : (<>
    <div className="micro" style={{ marginTop: 8, marginBottom: 4, color: 'var(--text-tertiary)', fontWeight: 700 }}>
      컷 서술 — 여기만 고칠 수 있습니다 ({String(g.draftPrompt).trim().split(/\s+/).length} 단어)
    </div>
@@ -33945,10 +34179,11 @@ ${sampleText}`;
        title="이 프롬프트를 버립니다. 다음에 뽑을 때 새로 씁니다."
        style={{ height: 22, padding: '0 8px', fontSize: 10 }}>버리기</button>
    </div>
+   </>)}
  </div>
  )}
  {/* v916: 시간 초과로 끊긴 작업 — 서버에 남아 있으면 결과만 되찾는다 */}
- {!g.clipUrl && g.pendingTaskId && (
+ {g.pendingTaskId && (   /* v1234: 다시 뽑다 끊긴 것(클립이 이미 있는 구간)도 */
  <div className="micro" style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap',
  padding: '7px 9px', borderRadius: 7, background: 'rgba(234,88,12,0.10)', border: '1px solid rgba(234,88,12,0.3)' }}>
  <span style={{ color: '#ea580c', lineHeight: 1.5 }}>
