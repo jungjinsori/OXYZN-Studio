@@ -158,6 +158,8 @@ const PROJECT_SOUND_RULE = 'SOUND: dialogue goes in {}. Nobody says a word that 
 //   두 작업(다큐 · POV)에 함께 붙인다. v1196: 음악을 부르던 낱말을 뺐다.
 const TAKE_TURN_SOUND_RULE = 'Only things in this place make sound. Moving the frame is silent: across a turn only'
  + ' the balance of the same sounds changes, and the sounds of this place carry on without a break.';
+// v1235: 퀵프롬프트(영상) › 셀프캠 — 휴대폰 자체 마이크 소리
+const SELFCAM_SOUND_RULE = 'SOUND: the phone\'s own microphone — their voice close and clear, the room or street around it, no music.';
 // ═════════════════════════════════════════════════════════════════════ 소리 지침 끝
 
 // ═════════════════════════════════════════════════════════════════════
@@ -5878,9 +5880,9 @@ const PROJECT_FINAL_LINE = 'FINAL: ' + SUBTITLE_NEG_CN + ' ' + SOUND_NEG_CN;   /
 //   컷 호흡 · 화면 질감은 앱 지침(PROJECT_CUT_TEMPO_FOR 일반씬 · 영상 규칙 머리 · 필름룩 조항)을
 //   영상 모델에 그대로 붙일 수 있는 영어 문단으로 옮긴 것이다. 패널에서 고쳐 쓰면 이 PC 에 저장된다.
 const QUICK_PROMPTS = [
- { id: 'sound_subtitle', label: '사운드&자막 금지',
+ { id: 'sound_subtitle', label: '사운드&자막 금지', group: 'drama',
    text: PROJECT_SOUND_RULE + '\n' + SUBTITLE_NEG_CN },
- { id: 'cut_rhythm', label: '드라마틱 컷 호흡',
+ { id: 'cut_rhythm', label: '드라마틱 컷 호흡', group: 'drama',
    // v1228: 컷 리듬 + 컷 콘티뉴이티. 콘티뉴이티는 앱이 모든 클립 머리에 붙이는 조항(PROJECT_VIDEO_RULES_HEAD)을
    //   그대로 잇는다 — 그쪽을 고치면 여기도 바뀐다. 리듬 문단에서 그 조항과 겹치던 두 문장(앞 프레임에서 이어짐 ·
    //   같은 각도 크기만 바꾸기 금지)은 빼고, 180도 선은 앞 클립 조항(PROJECT_VIDEO_CONT_TEXT_RULE_FOR)의 문구를 옮겼다.
@@ -5901,13 +5903,69 @@ const QUICK_PROMPTS = [
      'from the two speaking, keep the rest on one side.',
     ].join(' '),
    ].join('\n') },
- { id: 'film_look', label: '드라마틱 화면질감',
+ { id: 'film_look', label: '드라마틱 화면질감', group: 'drama',
    text: [
     'LOOK — live-action cinematic drama, shot on a 35mm cinema camera with prime lenses: organic',
     'film grain, natural shallow depth of field, muted natural colour grading, light that comes',
     'from the scene itself. Real skin with true texture, the same at every shot size. Photographed,',
     'not rendered — no glossy CG, no plastic skin, no 3D or game-render look.',
    ].join(' ') },
+ // v1235: 셀프캠 — 휴대폰 앞카메라로 본인이 찍는 영상. 한 테이크(컷 없음), 손에 들거나 받침대 · 벽에 세워 둔 폰.
+ { id: 'selfcam', label: '셀프캠 (휴대폰 셀카)', group: 'selfcam',
+   text: [
+    'SELF-SHOT PHONE VIDEO — the whole clip is ONE continuous take filmed by the person on screen with the front',
+    'camera of their own phone. No cuts, no edits, no jump in time, from the first frame to the last.',
+    '',
+    'HOW THE PHONE IS HELD — pick one and keep it for the whole clip:',
+    '- HANDHELD: the phone is at arm\'s length in their own outstretched hand. Their arm reaches toward the lens and',
+    '  leaves the frame at the bottom or side edge; the phone itself is never seen. The framing follows their arm —',
+    '  a small natural sway with each breath and step, a slight drift as they turn, a quick re-frame when they shift',
+    '  their grip. Never a smooth gimbal glide, never violent shake.',
+    '- PROPPED: the phone stands on a stand, a shelf or a table, or leans against a wall, at the height and tilt that',
+    '  spot gives. The frame stays fixed; only the person moves inside it — leaning in, stepping back, half out of frame.',
+    '',
+    'LENS AND FRAMING: a phone front camera — wide and close, the face large in frame, slight wide-lens stretch toward',
+    'the edges, the background sharp the way phones keep it. They look into the lens most of the time, as if talking',
+    'to whoever will watch, and glance away naturally.',
+    '',
+    'LOOK: real phone footage — auto exposure and white balance shifting a little as they move, the light that is',
+    'actually there, mild phone sharpening and a little noise in the shadows. Not cinematic: no film grain, no',
+    'shallow cinema bokeh, no dolly, crane or drone moves.',
+    '',
+    SELFCAM_SOUND_RULE,   // 소리 문장은 맨 위 소리 블록에 둔다
+   ].join('\n') },
+ // v1236: 이미지 — 폰카 느낌. 이미지 모델 프롬프트에 붙인다(영상 탭에는 안 나온다).
+ { id: 'img_selfie', label: '폰카느낌(셀피)', group: 'image',
+   text: [
+    'PHONE SELFIE PHOTO — taken by the person in the picture with the front camera of their own phone, held at',
+    'arm\'s length.',
+    'FRAMING: their arm reaches toward the lens and leaves the frame at the bottom or side edge; the phone itself is',
+    'not in the picture — no mirror, no second phone. The camera sits level with the face or a little above it,',
+    'tilted slightly; the face is large and close, with the shoulders and a little of the place behind them in frame.',
+    'Slightly off-centre and casually framed — not a composed portrait.',
+    'LENS: a phone front camera — wide and close, a slight wide-lens stretch toward the edges, the background',
+    'mostly in focus the way phones keep it.',
+    'LOOK: a real, unedited phone photo — the light that is actually there, auto exposure and white balance, mild',
+    'phone sharpening, a little noise in the shadows, true skin with its texture. Not a professional photo: no',
+    'studio lighting, no shallow cinema bokeh, no retouched skin, no posed model look.',
+    'EXPRESSION: relaxed and natural, looking into the lens.',
+    'No text, no watermark, no camera-app interface on the image.',
+   ].join('\n') },
+ { id: 'img_byother', label: '폰카느낌(남이 찍어준)', group: 'image',
+   text: [
+    'CANDID PHONE PHOTO TAKEN BY SOMEONE ELSE — a friend holds a phone\'s main rear camera a few steps away, at',
+    'their own eye height.',
+    'FRAMING: everyday and slightly imperfect — a small tilt, the subject not quite centred, maybe a sliver of a',
+    'passer-by or an object at the edge; half body or full body with the place around them. Only the subject',
+    'poses; nobody else looks at the camera.',
+    'LENS: a phone main camera — a natural wide angle, the subject and most of the background fairly sharp.',
+    'Phone portrait-mode blur only if it plainly looks like that, never cinema bokeh.',
+    'LOOK: a real, unedited phone photo — the available light (daylight, shop lights, street lights), auto',
+    'exposure and white balance, mild phone sharpening, a little noise, true skin with its texture. Not a',
+    'professional photo: no studio lighting, no retouching, no fashion-shoot pose.',
+    'MOMENT: natural — caught mid-moment, or a casual pose for a friend: a relaxed smile, a glance, a step.',
+    'No text, no watermark, no camera-app interface on the image.',
+   ].join('\n') },
 ];
 const QUICK_PROMPT_STORE = 'oxyzn_quick_prompts';   // { [id]: 고쳐 쓴 글 }
 // v1227: 합본 — 위 세 지침을 한 번에. 사용자는 컨셉 · 상황묘사 자리만 채운다.
@@ -24521,8 +24579,19 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
   mapJob(j => ({ ...j, loading: true, error: '', phase: '결과 이어받는 중', ts: Date.now(), estSec: 600 }));
   up2({ error: '' });
   try {
+   let fin = null;   // v1235: 요금 기록용 — 서버가 알려 준 토큰
    const url = await resumeArkVideoTask(tid, {
+    onDone: (t) => { fin = t; },
     onStatus: (() => { let last = ''; return (st) => { const ph = st === 'queued' ? '대기열에서 기다리는 중' : '결과 이어받는 중'; if (ph === last) return; last = ph; mapJob(j => ({ ...j, phase: ph })); }; })() });   // v1214: 단계가 바뀔 때만
+   // v1235: 이어받은 결과의 요금을 적는다. 처음 호출은 시간이 넘어 끊겨 기록 전에 빠져나갔다.
+   try {
+    const rRes = job.pendingDraft ? '480p' : String(job.params?.resolution || '1080p');
+    const rTier = job.params?.tier || 'video25';
+    const tokens = Number(fin && fin.usage && fin.usage.completion_tokens) || 0;
+    const usd = tokens ? (tokens * arkVideoRate(rRes, false, rTier)) / 1e6
+     : estimateSeedance2Cost(Number(job.params?.duration) || 10, rRes, job.params?.aspect || '16:9', { tier: rTier });
+    recordCreditUsage(usd, 'video', { workCat: 'video' });
+   } catch {}
    mapJob(j => ({ ...j, phase: '받아두는 중' }));
    const kept = await keepGenResult(ws, job.id, url, 'mp4');
    const wasDraft = !!job.pendingDraft;
@@ -30219,8 +30288,7 @@ ${sampleText}`;
  const [homePage, setHomePage] = useState(0);
  // 챗봇 패널의 설정 탭 표시 여부
  const [chatSettingsOpen, setChatSettingsOpen] = useState(false);
- // v1226: 퀵 프롬프트 탭 · 고쳐 쓴 글(이 PC 에 저장) · 방금 복사한 항목
- const [chatQuickOpen, setChatQuickOpen] = useState(false);
+ // v1226 · v1235: 퀵 프롬프트 — 고쳐 쓴 글(이 PC 에 저장) · 방금 복사한 항목. 화면은 설정 › 퀵프롬프트(영상)
  const [quickPromptEdits, setQuickPromptEdits] = useState(() => { try { return JSON.parse(localStorage.getItem(QUICK_PROMPT_STORE)) || {}; } catch { return {}; } });
  const [quickCopied, setQuickCopied] = useState('');
  useEffect(() => { try { localStorage.setItem(QUICK_PROMPT_STORE, JSON.stringify(quickPromptEdits)); } catch {} }, [quickPromptEdits]);
@@ -43993,6 +44061,8 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  { id: 'common', label: '공용', icon: <Settings size={14} color="currentColor" /> },
  { id: 'credit', label: '크레딧 소모량', icon: <Activity size={14} color="currentColor" /> },
  { id: 'arkTasks', label: '서버 작업', icon: <Film size={14} color="currentColor" /> },   // v1195
+ { id: 'quickImage', label: '퀵프롬프트(이미지)', icon: <Copy size={14} color="currentColor" /> },   // v1235
+ { id: 'quickVideo', label: '퀵프롬프트(영상)', icon: <Zap size={14} color="currentColor" /> },   // v1235
  ...(isAdmin ? [{ id: 'api', label: 'API 관리', icon: <Sparkles size={14} color="currentColor" /> }] : []),
  { id: 'etc', label: '기타', icon: <AlertCircle size={14} color="currentColor" /> },
  ].map((tab) => {
@@ -44775,6 +44845,144 @@ ${VFX_AUDIO_RULE}${refBlock}`;
    </>)}
   </>);
  })()}
+ </>)}
+
+ {/* ── v1235: 퀵프롬프트 — 챗봇 창에서 설정으로 옮겼다. 이미지 · 영상으로 나눈다 ── */}
+ {settingsTab === 'quickImage' && (<>
+ <div style={{ marginBottom: 20, paddingBottom: 18, borderBottom: '1px solid var(--border)' }}>
+ <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+ <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, #06b6d4, #67e8f9)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+ <Copy size={18} color="#fff" strokeWidth={2} />
+ </div>
+ <div>
+ <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>퀵프롬프트 (이미지)</div>
+ <div className="meta" style={{ marginTop: 2 }}>이미지 모델 프롬프트에 붙이는 고정 지침입니다.</div>
+ </div>
+ </div>
+ </div>
+ <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+ <div className="micro" style={{ fontWeight: 700, color: 'var(--text-secondary)' }}>폰카 느낌 <span style={{ fontWeight: 400, color: 'var(--text-quaternary)' }}>— 휴대폰으로 찍은 사진처럼. 상황 · 인물 묘사 뒤에 붙여 쓰세요.</span></div>
+ {QUICK_PROMPTS.filter(q => q.group === 'image').map((q) => {
+ const edited = Object.prototype.hasOwnProperty.call(quickPromptEdits, q.id) && quickPromptEdits[q.id] !== q.text;
+ const text = edited ? quickPromptEdits[q.id] : q.text;
+ const copied = quickCopied === q.id;
+ return (
+ <div key={q.id} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', padding: '10px 12px' }}>
+ <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+ <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)' }}>{q.label}</span>
+ {edited && <span className="micro" style={{ fontSize: 9.5, color: 'var(--green-700)', textTransform: 'none', letterSpacing: 0 }}>고쳐 씀</span>}
+ <span style={{ flex: 1 }} />
+ {edited && (
+ <button className="btn btn-ghost btn-sm" style={{ padding: '3px 8px', fontSize: 11 }} title="앱 기본 문구로 되돌립니다"
+ onClick={() => setQuickPromptEdits(p => { const n = { ...p }; delete n[q.id]; return n; })}>
+ <RotateCcw size={11} /> 기본값
+ </button>
+ )}
+ <button className={copied ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm'} style={{ padding: '3px 10px', fontSize: 11 }}
+ onClick={() => copyQuickPrompt(q.id, text)}>
+ {copied ? <><Check size={11} /> 복사됨</> : <><Copy size={11} /> 복사</>}
+ </button>
+ </div>
+ <textarea value={text} onChange={(e) => { const v = e.target.value; setQuickPromptEdits(p => ({ ...p, [q.id]: v })); }}
+ rows={5} spellCheck={false} data-ff-nogrow="1"
+ style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', fontSize: 11.5, lineHeight: 1.55, padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontFamily: 'inherit' }} />
+ </div>
+ );
+ })}
+ </div>
+ </>)}
+ {settingsTab === 'quickVideo' && (<>
+ <div style={{ marginBottom: 20, paddingBottom: 18, borderBottom: '1px solid var(--border)' }}>
+ <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+ <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, #7c3aed, #a78bfa)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+ <Zap size={18} color="#fff" strokeWidth={2} />
+ </div>
+ <div>
+ <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>퀵프롬프트 (영상)</div>
+ <div className="meta" style={{ marginTop: 2 }}>영상 모델 프롬프트에 그대로 붙이는 고정 지침입니다. 고쳐 쓰면 이 PC 에 저장됩니다.</div>
+ </div>
+ </div>
+ </div>
+ <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+ <div className="micro" style={{ fontWeight: 700, color: 'var(--text-secondary)', marginTop: 6 }}>드라마 · 실사 <span style={{ fontWeight: 400, color: 'var(--text-quaternary)' }}>— 컷을 나누는 드라마 연출</span></div>
+ {/* v1227: 합본 — 세 지침 + 컨셉 · 상황묘사 빈자리 */}
+ {(() => {
+ const text = quickPromptCombined(quickTextOf);
+ const copied = quickCopied === 'combined';
+ return (
+ <div style={{ border: '1px solid var(--green-500)', borderRadius: 'var(--radius-md)', background: 'var(--green-50)', padding: '10px 12px' }}>
+ <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+ <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--green-700)' }}>합본 · 세 가지 한꺼번에</span>
+ <span style={{ flex: 1 }} />
+ <button className={copied ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm'} style={{ padding: '3px 10px', fontSize: 11 }}
+ onClick={() => copyQuickPrompt('combined', text)}>
+ {copied ? <><Check size={11} /> 복사됨</> : <><Copy size={11} /> 복사</>}
+ </button>
+ </div>
+ <div className="micro" style={{ fontSize: 10.5, color: 'var(--text-tertiary)', textTransform: 'none', letterSpacing: 0, lineHeight: 1.5, marginBottom: 6 }}>
+ 붙여 넣은 뒤 {QUICK_SLOT_CONCEPT} · {QUICK_SLOT_SCENE} 두 자리만 채우세요. 아래 세 지침을 고치면 합본에도 바로 반영됩니다.
+ </div>
+ <textarea value={text} readOnly rows={6} spellCheck={false} data-ff-nogrow="1"
+ style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', fontSize: 11.5, lineHeight: 1.55, padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', color: 'var(--text-secondary)', fontFamily: 'inherit' }} />
+ </div>
+ );
+ })()}
+ {QUICK_PROMPTS.filter(q => q.group === 'drama').map((q) => {
+ const edited = Object.prototype.hasOwnProperty.call(quickPromptEdits, q.id) && quickPromptEdits[q.id] !== q.text;
+ const text = edited ? quickPromptEdits[q.id] : q.text;
+ const copied = quickCopied === q.id;
+ return (
+ <div key={q.id} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', padding: '10px 12px' }}>
+ <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+ <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)' }}>{q.label}</span>
+ {edited && <span className="micro" style={{ fontSize: 9.5, color: 'var(--green-700)', textTransform: 'none', letterSpacing: 0 }}>고쳐 씀</span>}
+ <span style={{ flex: 1 }} />
+ {edited && (
+ <button className="btn btn-ghost btn-sm" style={{ padding: '3px 8px', fontSize: 11 }} title="앱 기본 문구로 되돌립니다"
+ onClick={() => setQuickPromptEdits(p => { const n = { ...p }; delete n[q.id]; return n; })}>
+ <RotateCcw size={11} /> 기본값
+ </button>
+ )}
+ <button className={copied ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm'} style={{ padding: '3px 10px', fontSize: 11 }}
+ onClick={() => copyQuickPrompt(q.id, text)}>
+ {copied ? <><Check size={11} /> 복사됨</> : <><Copy size={11} /> 복사</>}
+ </button>
+ </div>
+ <textarea value={text} onChange={(e) => { const v = e.target.value; setQuickPromptEdits(p => ({ ...p, [q.id]: v })); }}
+ rows={5} spellCheck={false} data-ff-nogrow="1"
+ style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', fontSize: 11.5, lineHeight: 1.55, padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontFamily: 'inherit' }} />
+ </div>
+ );
+ })}
+ <div className="micro" style={{ fontWeight: 700, color: 'var(--text-secondary)', marginTop: 6 }}>셀프캠 <span style={{ fontWeight: 400, color: 'var(--text-quaternary)' }}>— 휴대폰으로 본인을 찍는 한 테이크 (컷 없음). 위 드라마 지침과 섞지 마세요 — 컷 호흡은 컷을 나누라는 내용입니다.</span></div>
+ {QUICK_PROMPTS.filter(q => q.group === 'selfcam').map((q) => {
+ const edited = Object.prototype.hasOwnProperty.call(quickPromptEdits, q.id) && quickPromptEdits[q.id] !== q.text;
+ const text = edited ? quickPromptEdits[q.id] : q.text;
+ const copied = quickCopied === q.id;
+ return (
+ <div key={q.id} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', padding: '10px 12px' }}>
+ <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+ <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)' }}>{q.label}</span>
+ {edited && <span className="micro" style={{ fontSize: 9.5, color: 'var(--green-700)', textTransform: 'none', letterSpacing: 0 }}>고쳐 씀</span>}
+ <span style={{ flex: 1 }} />
+ {edited && (
+ <button className="btn btn-ghost btn-sm" style={{ padding: '3px 8px', fontSize: 11 }} title="앱 기본 문구로 되돌립니다"
+ onClick={() => setQuickPromptEdits(p => { const n = { ...p }; delete n[q.id]; return n; })}>
+ <RotateCcw size={11} /> 기본값
+ </button>
+ )}
+ <button className={copied ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm'} style={{ padding: '3px 10px', fontSize: 11 }}
+ onClick={() => copyQuickPrompt(q.id, text)}>
+ {copied ? <><Check size={11} /> 복사됨</> : <><Copy size={11} /> 복사</>}
+ </button>
+ </div>
+ <textarea value={text} onChange={(e) => { const v = e.target.value; setQuickPromptEdits(p => ({ ...p, [q.id]: v })); }}
+ rows={5} spellCheck={false} data-ff-nogrow="1"
+ style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', fontSize: 11.5, lineHeight: 1.55, padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontFamily: 'inherit' }} />
+ </div>
+ );
+ })}
+ </div>
  </>)}
 
  {settingsTab === 'etc' && (<>
@@ -46284,21 +46492,13 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  <div>
  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{chatPetName}</div>
  <div className="micro" style={{ fontSize: 10, color: 'var(--text-tertiary)', textTransform: 'none', letterSpacing: 0, fontFamily: 'inherit' }}>
- {chatSettingsOpen ? '설정' : chatQuickOpen ? '퀵 프롬프트 · 영상 고정 지침' : `${PET_ICON_LABELS[chatPetIcon] || ''} · 웹 검색 · 번역`}
+ {chatSettingsOpen ? '설정' : `${PET_ICON_LABELS[chatPetIcon] || ''} · 웹 검색 · 번역`}
  </div>
  </div>
  </div>
  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
- {!chatSettingsOpen && !chatQuickOpen && (
+ {!chatSettingsOpen && (
  <>
- {/* v1226: 퀵 프롬프트 */}
- <button
- onClick={() => setChatQuickOpen(true)}
- title="퀵 프롬프트 — 영상 고정 지침 복사"
- style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: 4 }}
- >
- <Zap size={14} />
- </button>
  <button
  onClick={() => {
  setChatNameInput(chatPetName);
@@ -46318,16 +46518,16 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  </button>
  </>
  )}
- {(chatSettingsOpen || chatQuickOpen) && (
+ {chatSettingsOpen && (
  <button
- onClick={() => { setChatSettingsOpen(false); setChatQuickOpen(false); }}
+ onClick={() => setChatSettingsOpen(false)}
  title="대화로 돌아가기"
  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: 4, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}
  >
  <ArrowRight size={12} style={{ transform: 'rotate(180deg)' }} /> 대화
  </button>
  )}
- <button onClick={() => { setChatOpen(false); setChatSettingsOpen(false); setChatQuickOpen(false); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: 4 }}>
+ <button onClick={() => { setChatOpen(false); setChatSettingsOpen(false); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: 4 }}>
  <X size={16} />
  </button>
  </div>
@@ -46446,62 +46646,6 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  설정은 자동으로 저장되며 다음 실행에도 유지됩니다.
  </div>
  </div>
- ) : chatQuickOpen ? (
- // ── v1226: 퀵 프롬프트 ──
- <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
- <div className="meta" style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--text-tertiary)' }}>
- 영상 모델 프롬프트에 그대로 붙이는 고정 지침입니다. 고쳐 쓰면 이 PC 에 저장됩니다.
- </div>
- {/* v1227: 합본 — 세 지침 + 컨셉 · 상황묘사 빈자리 */}
- {(() => {
- const text = quickPromptCombined(quickTextOf);
- const copied = quickCopied === 'combined';
- return (
- <div style={{ border: '1px solid var(--green-500)', borderRadius: 'var(--radius-md)', background: 'var(--green-50)', padding: '10px 12px' }}>
- <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
- <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--green-700)' }}>합본 · 세 가지 한꺼번에</span>
- <span style={{ flex: 1 }} />
- <button className={copied ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm'} style={{ padding: '3px 10px', fontSize: 11 }}
- onClick={() => copyQuickPrompt('combined', text)}>
- {copied ? <><Check size={11} /> 복사됨</> : <><Copy size={11} /> 복사</>}
- </button>
- </div>
- <div className="micro" style={{ fontSize: 10.5, color: 'var(--text-tertiary)', textTransform: 'none', letterSpacing: 0, lineHeight: 1.5, marginBottom: 6 }}>
- 붙여 넣은 뒤 {QUICK_SLOT_CONCEPT} · {QUICK_SLOT_SCENE} 두 자리만 채우세요. 아래 세 지침을 고치면 합본에도 바로 반영됩니다.
- </div>
- <textarea value={text} readOnly rows={6} spellCheck={false} data-ff-nogrow="1"
- style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', fontSize: 11.5, lineHeight: 1.55, padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', color: 'var(--text-secondary)', fontFamily: 'inherit' }} />
- </div>
- );
- })()}
- {QUICK_PROMPTS.map((q) => {
- const edited = Object.prototype.hasOwnProperty.call(quickPromptEdits, q.id) && quickPromptEdits[q.id] !== q.text;
- const text = edited ? quickPromptEdits[q.id] : q.text;
- const copied = quickCopied === q.id;
- return (
- <div key={q.id} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', padding: '10px 12px' }}>
- <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
- <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)' }}>{q.label}</span>
- {edited && <span className="micro" style={{ fontSize: 9.5, color: 'var(--green-700)', textTransform: 'none', letterSpacing: 0 }}>고쳐 씀</span>}
- <span style={{ flex: 1 }} />
- {edited && (
- <button className="btn btn-ghost btn-sm" style={{ padding: '3px 8px', fontSize: 11 }} title="앱 기본 문구로 되돌립니다"
- onClick={() => setQuickPromptEdits(p => { const n = { ...p }; delete n[q.id]; return n; })}>
- <RotateCcw size={11} /> 기본값
- </button>
- )}
- <button className={copied ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm'} style={{ padding: '3px 10px', fontSize: 11 }}
- onClick={() => copyQuickPrompt(q.id, text)}>
- {copied ? <><Check size={11} /> 복사됨</> : <><Copy size={11} /> 복사</>}
- </button>
- </div>
- <textarea value={text} onChange={(e) => { const v = e.target.value; setQuickPromptEdits(p => ({ ...p, [q.id]: v })); }}
- rows={5} spellCheck={false} data-ff-nogrow="1"
- style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', fontSize: 11.5, lineHeight: 1.55, padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontFamily: 'inherit' }} />
- </div>
- );
- })}
- </div>
  ) : (
  // ── 메시지 영역 ──
  <div ref={chatScrollRef} style={{ flex: 1, overflowY: 'auto', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -46568,8 +46712,8 @@ ${VFX_AUDIO_RULE}${refBlock}`;
  </div>
  )}
 
- {/* 입력 영역 — 설정 · 퀵 프롬프트 탭일 때는 숨김 */}
- {!chatSettingsOpen && !chatQuickOpen && (
+ {/* 입력 영역 — 설정 탭일 때는 숨김 */}
+ {!chatSettingsOpen && (
  <div style={{
  padding: '12px 14px',
  borderTop: '1px solid var(--border)',
