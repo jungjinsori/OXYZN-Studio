@@ -1515,6 +1515,18 @@ const POV_BODY_RULE_FOR = (hands, held) => {
 const POV_STARTLE_CUE = /놀라(?!운|울)|놀랐|놀란|놀래|깜짝|흠칫|움찔|소스라|기겁|질겁|화들짝|비명|덮치|덮쳐|달려들|튀어나|뛰쳐나|들이닥|급습|startl|flinch|lunge|pounce|jump ?scare/i;
 const POV_STARTLE_RULE = 'STARTLE, SHOWN BY THE FRAME: when something appears close or lunges, the body flinches first and the frame goes with it — in under a third of a second it throws back and up by about a quarter turn, overshoots past the thing, smears into motion blur, then swings back and hunts for it, missing once before catching it off-centre. From there the frame keeps trembling with fast breath for the rest of the take, and never returns to a calm hold. The frame is one unbroken take through all of this: the thing grows in frame because it is coming closer or because the shot tightens, never because the frame cuts to another shot. The take never cuts and never jumps to a new angle.';
 
+// v1258: POV 커스텀 — 상황 묘사를 쓴 그대로 보낼 때. 글 속 '나' 가 누구인지 영상 모델에 알려 준다.
+const POV_CUSTOM_VIEWER_LINE = 'In the text below, "나" (I, me, my) is the viewer — the one whose eyes are the frame. Everyone else is someone on screen.';
+// 커스텀은 Claude 가 '나' 의 손 동작을 읽어 주지 않는다 — '내 손: …' 한 줄로 적는다. 없으면 내 손은 화면에 나오지 않는다.
+const POV_CUSTOM_HANDS_LINE = /^\s*(?:VIEWER HANDS|내\s*손)\s*[:：]\s*(.*)$/i;
+const POV_REF_KIND_EN = { character: 'person', object: 'object', space: 'place', situation: 'scene reference' };
+// v1263: POV 에서 의상이 '나' 의 몸에 입혀져 나왔다. 화면에 내 몸도 들어오는데 의상 조항에는 '나는 입지 않는다' 가 없었다.
+const POV_WARDROBE_NOT_VIEWER_FOR = (names = []) => {
+ const who = names.filter(Boolean);
+ return `THE VIEWER WEARS NONE OF THIS: each wardrobe image above belongs only to the person it is paired with${who.length ? ` (${who.join(', ')})` : ''}.`
+  + ' Whatever of the viewer\'s own body comes into frame — hands, arms, chest, lap, legs, feet — never has any of these garments on;'
+  + ' those clothes stay on that person alone.';
+};
 const POV_SPEECH_RULE = 'WHO SPEAKS: only the people on screen, and their lines are lip-synced. The viewer makes no vocal sound at all — no dialogue, no gasp, no grunt, no scream, no whisper — unless a line in double quotes is written for them below; then it is heard from behind the frame, close and not lip-synced to any mouth. Their breathing stays faint under the room, never a performance. Whoever speaks to the viewer looks straight into the frame.';
 
 // v1150: 짧게, 그리고 앞쪽에. 긴 조항 속에 넣으면 묻힌다.
@@ -5799,6 +5811,69 @@ const PROJECT_VIDEO_VO_RULE_FOR = (voLines, lang) => [
  'Every OTHER line here IS ordinary dialogue, spoken on camera.',
 ].join('\n');
 
+// ─────────────────────────────────────────────────────────────
+// v1259: 영상 피드백(고치기) — 프로젝트 · 커스텀 · 내러티브 · 다큐 · POV 가 모두 이것 하나를 쓴다.
+//   여기(와 컴포넌트 안의 buildVideoEdit · callSeedanceEdit · runSingleVideoEdit)를 고치면 모든 영상 피드백에 함께 들어간다.
+//   · 시댄스 2.5 '영상 편집' 작업으로 원본(Video 1)을 고친다 — 화면비 · 길이는 원본을 따른다(v1251).
+//   · 방식은 앱 전체에 하나: Claude 가 편집 지시로 옮기기 / 커스텀(쓴 그대로).
+//   · 그림은 피드백이 그림을 가리킬 때만, 거기 이름이 나온 것만 붙인다 — 늘 붙이면 의상 그림이 변경을 되돌린다.
+// ─────────────────────────────────────────────────────────────
+const VIDEO_FB_MODE_KEY = 'oxyzn_video_feedback_mode';   // 'claude' | 'raw'
+const VIDEO_EDIT_SYS = `당신은 이미 뽑힌 영상 클립에 대한 수정 요청을 영어 지시문으로 옮깁니다.
+
+[규칙]
+- 사용자가 지적한 것만 옮기십시오. 새 연출 · 새 동작 · 새 컷을 지어내지 마십시오.
+- 무엇이 어떻게 바뀌는지 눈에 보이는 말로 적으십시오.
+    '밤 느낌으로' → Change the time of day to night: daylight becomes night,
+    lit by streetlamps and shop signs, the sky dark.
+- 바꾸지 않아야 할 것을 함께 못 박으십시오.
+    ... Everything else is unchanged: the same blocking, the same performance,
+    the same cuts, the same dialogue.
+- 인물 이름은 한국어 원문 그대로 씁니다. 로마자로 바꾸지 마십시오.
+- 사용자가 대사를 고쳐달라고 하지 않았다면 대사는 건드리지 마십시오.
+- 고칠 영상은 Video 1 이라고 부르십시오. 첫 문장은 Remove · Add · Replace · Change 같은
+  편집 동사로 시작하십시오 — 영상 모델이 이 동사를 보고 '편집' 으로 처리합니다.
+    '렌 재킷 빼줘' → Remove the jacket 렌 is wearing in Video 1; he wears only his shirt in every shot.
+
+[출력]
+영어 지시문만 적으십시오. 머리말 · 따옴표 · 설명 금지. 세 문장 안쪽.`;
+const VIDEO_EDIT_REF_CUE = /레퍼런스|참고|시트|이미지|그림|reference|image/i;
+// refs: [{ name, kindLabel, src }] — 의상은 kindLabel '의상' · 이름 '<인물>의 의상'
+const videoEditPickRefs = (fb, change, refs = []) => (!VIDEO_EDIT_REF_CUE.test(String(fb || '')) ? [] : refs.filter(x => {
+ const who = x.kindLabel === '의상' ? String(x.name || '').replace(/의 의상$/, '') : String(x.name || '');
+ return !!who && (String(fb || '').includes(who) || String(change || '').includes(who));
+}));
+const videoEditPromptOf = (change, picked = []) => [
+ 'Edit the video: change Video 1 as described below, and change nothing else.',
+ change,
+ picked.length ? picked.map((x, i) => `Image ${i + 1} = ${x.name} (${x.kindLabel}) — use it only for this change.`).join('\n') : '',
+ 'Everything this change does not touch stays exactly as it is in Video 1 — the same people, place, camera, cuts, timing, dialogue, voices and sound.',
+].filter(Boolean).join('\n\n');
+const videoEditErrText = (e) => {
+ const m = String((e && e.message) || e);
+ return /TaskTypeMismatch|task type/i.test(m)
+  ? `시댄스가 이 피드백을 '편집' 으로 읽지 않았습니다. 무엇을 없애는지 · 넣는지 · 바꾸는지 한 가지를 분명히 적어 주세요 (예: 렌의 재킷을 없애줘).\n(${m})`
+  : m;
+};
+// 피드백 칸마다 같은 전환 버튼 — 어디서 바꿔도 앱 전체에 적용된다
+function VideoFbModeToggle({ mode, onChange, disabled }) {
+ const opts = [
+  { id: 'claude', label: 'Claude', title: 'Claude 가 피드백을 영상 모델이 알아듣는 편집 지시(영어)로 옮겨 보냅니다.' },
+  { id: 'raw', label: '커스텀', title: '적은 피드백을 Claude 없이 그대로 편집 지시로 보냅니다.' },
+ ];
+ return (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+   {opts.map(o => (
+    <button key={o.id} type="button" title={o.title} disabled={disabled} onClick={() => onChange(o.id)}
+     className={mode === o.id ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+     style={{ height: 22, padding: '0 9px', fontSize: 10.5, ...(mode === o.id && o.id === 'raw' ? { background: '#7c3aed', borderColor: '#7c3aed' } : {}) }}>
+     {o.label}
+    </button>
+   ))}
+  </div>
+ );
+}
+
 // v940: 씬의 2번째 이후 클립에 붙는다. 장소는 이미 보여줬으므로 다시 세우지 않는다.
 const PROJECT_VIDEO_MIDSCENE_RULE = [
  'THIS CLIP IS NOT THE START OF THE SCENE. Location and blocking were already',
@@ -6277,7 +6352,14 @@ const OUTFIT_RULE = [
  'no shot in which they wear something else; they own no other clothes.',
  'The wardrobe image is the SOLE AUTHORITY on what they wear. Match it exactly —',
  'design, colour, pattern, fabric, fit, closures; every layer it shows, and no',
- 'layer it does not. Open stays open, fastened stays fastened.',
+ 'extra layer over or under it. Open stays open, fastened stays fastened.',
+ // v1260: 의상 이미지가 한 피스(상의만 · 하의만 · 겉옷만 · 신발만)여도 그 피스는 반드시 입힌다 — 빠뜨리지 않는다.
+ //   v1261: 다른 옷으로 채우지 않는다(정진님). 마네킹이 입은 것만 입고, 마네킹이 맨몸인 곳은 그 사람도 맨살이다.
+ 'ONE PIECE IS ENOUGH: the wardrobe image may show a whole outfit or a single piece —',
+ 'only a top, only trousers or a skirt, only a jacket, only shoes. Whatever it shows',
+ 'is worn exactly as shown and is never dropped. Nothing is added to complete it:',
+ 'they wear only what the display form wears, and where the display form is bare,',
+ 'they are bare.',
  'Garment only — not its display form, pose, framing or background. It defines',
  'what the garment IS, not whether it is worn now.',
  // v1131: 의상 시트가 피부색 마네킹으로 바뀌었다. 그 살색은 마네킹의 것이지 이 사람의
@@ -6297,6 +6379,13 @@ const OUTFIT_RULE = [
  'nothing worn in their identity image appears on them. Anyone not listed below',
  'wears exactly what their own image shows.',
 ].join('\n');
+
+// v1262: 인물 · 의상 짝 줄과 본문 결속 줄 — 프로젝트 · 단일 작업이 함께 쓴다(번호 표기만 다르다: 'Image 1' / '[Image1]').
+//   인물 시트가 입은 옷이 계속 새어 나왔다(POV 10/14). 일반 문장('신원 이미지의 옷은 나오지 않는다')만으로는
+//   약해서, 그 사람 이름과 신원 이미지 번호를 짚어 '그 옷은 여기서 입지 않는다' 고 한 번 더 못 박는다.
+const outfitPairLine = (who, idTok, wardTok, label = '') => `${who} — ${idTok} is the face and body of ${who}, ${wardTok} is what ${who} wears${label ? ` (${label})` : ''}.`
+ + ` Both images are ${who}; neither is optional. Whatever ${who} wears in ${idTok} is not worn here — only ${wardTok}.`;
+const outfitBindLine = (who, idTok, wardTok) => `${who} is the person in ${idTok}, wearing the outfit in ${wardTok}.`;
 
 // 앞 클립과 같은 씬일 때만 붙인다. 씬이 바뀌면 장소가 바뀌므로
 //   '같은 방 같은 자리에서 이어가라' 는 새 씬의 장소 레퍼런스와 정면으로 싸운다.
@@ -16593,7 +16682,7 @@ WEARING: the outfit sits on this person's own body with its true weight, drape a
 
 IDENTITY: one individual in all six panels, identical to Image 1 — the same face, the same features, the same hair, the same build. Reproduce; do not beautify, restyle, age, slim or reshape.
 
-OUTFIT: identical in all six panels and exactly as Image 2 — the same colours, pattern, fabric and every layer it shows, and no layer it does not. Invent nothing.
+OUTFIT: identical in all six panels and exactly as Image 2 — the same colours, pattern, fabric and every layer it shows, and no extra layer over or under it. If Image 2 shows only one piece (only a top, only trousers or a skirt, only a jacket, only shoes), that piece is worn exactly as shown and never dropped, and nothing is added to complete it — they wear only what the display form wears, and wherever the display form is bare, their own skin from Image 1 shows. Invent nothing.
 
 POSE & EXPRESSION: a relaxed natural standing stance, weight even, arms hanging loosely at the sides. The front and back full shots are the same pose from opposite sides. Calm neutral expression, eyes open, mouth closed.
 
@@ -21159,7 +21248,7 @@ const projectRefLiveSrc = (item) => {
  // v1067: 인물 이미지가 없어도 의상 줄은 남긴다. 전에는 통째로 버려서,
  //   의상 이미지는 보내면서 그것이 누구의 옷인지 한 마디도 안 했다.
  outfitPairs.push(ci >= 0
- ? `${who} — Image ${ci + 1} is the face and body of ${who}, Image ${i + 1} is what ${who} wears. Both images are ${who}; neither is optional.`
+ ? outfitPairLine(who, `Image ${ci + 1}`, `Image ${i + 1}`)   // v1262: 공용 짝 줄(신원 이미지의 옷을 이름으로 뺀다)
  : `${who} — wardrobe Image ${i + 1}. No identity image for ${who}; take the garment from it and nothing else.`);
  });
  const outfitDirectives = outfitPairs.length ? [projectOutfitRuleFor(projectFormatOf(projectDataRef.current)), ...outfitPairs] : [];   // v1208
@@ -21242,56 +21331,12 @@ const projectRefLiveSrc = (item) => {
  // v928: 고치기 — 대본에서 프롬프트를 다시 쓰지 않는다. 이미 뽑힌 클립이
  //   내용을 다 갖고 있으므로, 바꿀 것 한 가지만 영어 지시문으로 옮긴다.
  setProjectGenJob(j2 => (j2 && j2.segId === segId ? { ...j2, phase: '고칠 내용 정리하는 중' } : j2));
- const editSys = `당신은 이미 뽑힌 영상 클립에 대한 수정 요청을 영어 지시문으로 옮깁니다.
-
-[규칙]
-- 사용자가 지적한 것만 옮기십시오. 새 연출 · 새 동작 · 새 컷을 지어내지 마십시오.
-- 무엇이 어떻게 바뀌는지 눈에 보이는 말로 적으십시오.
-    '밤 느낌으로' → Change the time of day to night: daylight becomes night,
-    lit by streetlamps and shop signs, the sky dark.
-- 바꾸지 않아야 할 것을 함께 못 박으십시오.
-    ... Everything else is unchanged: the same blocking, the same performance,
-    the same cuts, the same dialogue.
-- 인물 이름은 한국어 원문 그대로 씁니다. 로마자로 바꾸지 마십시오.
-- 사용자가 대사를 고쳐달라고 하지 않았다면 대사는 건드리지 마십시오.
-- 고칠 영상은 Video 1 이라고 부르십시오. 첫 문장은 Remove · Add · Replace · Change 같은
-  편집 동사로 시작하십시오 — 영상 모델이 이 동사를 보고 '편집' 으로 처리합니다.
-    '렌 재킷 빼줘' → Remove the jacket 렌 is wearing in Video 1; he wears only his shirt in every shot.
-
-[출력]
-영어 지시문만 적으십시오. 머리말 · 따옴표 · 설명 금지. 세 문장 안쪽.`;
- let change = '';
- // v1229: 커스텀은 피드백을 쓴 그대로 지시로 — Claude 가 영어로 옮기지 않는다
- if (!isCustom) {
- try {
- const raw2 = await callClaude(editSys, `[고쳐달라는 것]\n${fb}`, {
- model: 'claude-sonnet-4-5', maxTokens: 300, workCat: 'video',
- });
- change = String(raw2 || '').trim().replace(/^["'`]+|["'`]+$/g, '');
- } catch (e2) {
- console.warn('[프로젝트] 수정 지시 변환 실패 — 원문을 그대로 넘깁니다.', e2?.message);
- }
- }
- if (!change) change = fb;
- // v1251: 고치기는 시댄스 '영상 편집' 작업으로 간다 — 원본을 참고해 새로 뽑지 않고 Video 1 을 고친다.
- //   전에는 레퍼런스 모드로 새로 뽑으면서 '똑같이 재현하라' · 의상 그림 · 인물 일관성 규칙을 함께 실었다.
- //   바꿀 내용 한 줄이 9,900자 중 27% 지점에서 그 지시들과 싸워 여러 번 넣어도 반영이 안 됐다(2026-10-11).
- //   편집 작업은 바꾸지 않은 것을 모델이 알아서 지키므로 규칙 블록 · 대사 목록 · 목소리는 싣지 않는다.
- //   문서: 프롬프트에 edit · add · remove · change 같은 편집 동사가 있어야 편집으로 판정한다.
- // 레퍼런스 그림은 피드백이 그림을 가리킬 때만(예: '유이 얼굴을 레퍼런스대로') 그 인물 것만 붙인다.
- //   늘 붙이면 의상 그림이 '옷을 벗겨 줘 · 바꿔 줘' 같은 변경을 도로 되돌린다.
- const wantsRef = /레퍼런스|참고|시트|이미지|그림|reference|image/i.test(fb);
- editRefs = !wantsRef ? [] : fullList.filter(x => {
-  const who = x.kindLabel === '의상' ? String(x.name || '').replace(/의 의상$/, '') : String(x.name || '');
-  return !!who && (fb.includes(who) || change.includes(who));
- });
- refImages = editRefs.map(x => x.assetUrl);   // 프롬프트의 Image 번호와 같은 순서
- prompt = [
-  'Edit the video: change Video 1 as described below, and change nothing else.',
-  change,
-  editRefs.length ? editRefs.map((x, i) => `Image ${i + 1} = ${x.name} (${x.kindLabel}) — use it only for this change.`).join('\n') : '',
-  'Everything this change does not touch stays exactly as it is in Video 1 — the same people, place, camera, cuts, timing, dialogue, voices and sound.',
- ].filter(Boolean).join('\n\n');
+ // v1259: 지시 만들기는 모든 영상 피드백이 함께 쓰는 buildVideoEdit 로 — 방식(Claude / 커스텀)은 앱 전체 설정을 따른다.
+ //   (v1229 의 '커스텀 구간은 늘 쓴 그대로' 는 이 설정으로 바뀌었다)
+ const ed = await buildVideoEdit(fb, fullList.map(x => ({ name: x.name, kindLabel: x.kindLabel, src: x.assetUrl })));
+ editRefs = ed.picked;
+ refImages = editRefs.map(x => x.src);   // 프롬프트의 Image 번호와 같은 순서
+ prompt = ed.prompt;
  } else if (isCustom) {
  // v1229: 커스텀 — 쓴 글 그대로. Claude 작성 · 소리 교정 · 괄호 걷기 · 빈 줄 정리를 하지 않는다.
  //   앞 클립 영상을 붙이지 않을 때만, 읽어 둔 끝 상태를 영어 줄로 옮겨 글 '뒤에 따로' 붙인다.
@@ -21688,7 +21733,19 @@ const projectRefLiveSrc = (item) => {
  ? { ...j, ts: Date.now(), phase: '영상 생성 중',
  estSec: estSecFor(durKeyVideo(genRes, dur, !!contVideo || isEdit), estVideoGenSeconds(genRes, dur)) }
  : j));
- const url = await callSeedanceVideo({
+ // v916: 큐에서 기다리는 중인지 만드는 중인지 보여준다. 15분 넘게 아무 표시가
+ //   없으면 멈춘 것인지 알 수가 없다.
+ const onGenStatus = (st, i, tid) => {
+ if (tid) draftTaskId = tid;   // v1162
+ if (st === 'queued') T.queuedPolls++; else T.runPolls++;
+ if (i === 0) mark('태스크 만들기(업로드 포함)');
+ setProjectGenJob(j => (j && j.segId === segId
+ ? ((ph) => (j.phase === ph ? j : { ...j, phase: ph }))(st === 'queued' ? '대기열에서 기다리는 중' : '영상 만드는 중') : j)   /* v1214: 같으면 그대로 */);
+ };
+ // v1259: 고치기는 모든 영상 피드백이 함께 쓰는 callSeedanceEdit 로(편집 작업 · 원본이 Video 1 · 목소리 그대로)
+ const url = isEdit
+  ? await callSeedanceEdit({ prompt: finalPrompt, video: editVideo, images: refImages, duration: dur, resolution: genRes, draft: isDraft, onStatus: onGenStatus })
+  : await callSeedanceVideo({
  prompt: finalPrompt,
  duration: dur,
  resolution: genRes,
@@ -21701,20 +21758,9 @@ const projectRefLiveSrc = (item) => {
  draft: isDraft,   // v1162
  images: refImages,
  // v926: 원본 URL 그대로 (ModelArk 생성물이라 출처가 유지된다)
- //   v928: 고치기면 앞 클립이 아니라 '고칠 그 클립' 자신이 Video 1 이다
- videos: isEdit ? [editVideo] : (contVideo ? [contVideo] : []),
- audios: isEdit ? [] : audios,   // v1251: 편집은 Video 1 의 목소리를 그대로 둔다
- taskType: isEdit ? 'edit' : '',   // v1251: 시댄스 '영상 편집' 작업
-
- // v916: 큐에서 기다리는 중인지 만드는 중인지 보여준다. 15분 넘게 아무 표시가
- //   없으면 멈춘 것인지 알 수가 없다.
- onStatus: (st, i, tid) => {
- if (tid) draftTaskId = tid;   // v1162
- if (st === 'queued') T.queuedPolls++; else T.runPolls++;
- if (i === 0) mark('태스크 만들기(업로드 포함)');
- setProjectGenJob(j => (j && j.segId === segId
- ? ((ph) => (j.phase === ph ? j : { ...j, phase: ph }))(st === 'queued' ? '대기열에서 기다리는 중' : '영상 만드는 중') : j)   /* v1214: 같으면 그대로 */);
- },
+ videos: contVideo ? [contVideo] : [],
+ audios,
+ onStatus: onGenStatus,
  });
  mark('영상 생성');
  if (!url) throw new Error('영상 주소를 받지 못했습니다.');
@@ -21785,8 +21831,8 @@ const projectRefLiveSrc = (item) => {
  error: `클립 생성이 오래 걸립니다: ${e.message}`,
  }));
  } else if (isEdit && /TaskTypeMismatch|task type/i.test(String(e?.message || ''))) {
- // v1251: 편집으로 보냈는데 모델이 편집으로 읽지 않았다 — 무엇을 하면 되는지 알린다
- projectUp({ error: `고치기 실패 — 시댄스가 이 피드백을 '편집' 으로 읽지 않았습니다. 무엇을 없애는지 · 넣는지 · 바꾸는지 한 가지를 분명히 적어 주세요 (예: 렌의 재킷을 없애줘).\n(${e.message})` });
+ // v1251 · v1259: 편집으로 보냈는데 모델이 편집으로 읽지 않았다 — 안내 문구는 공용(videoEditErrText)
+ projectUp({ error: `고치기 실패 — ${videoEditErrText(e)}` });
  } else {
  projectUp({ error: `클립 생성 실패: ${e.message}` });
  // 출력 쪽 심사에 걸렸고 앞 클립을 붙였다면, 그것이 원인인지 가를 수 있게 한다
@@ -24877,6 +24923,57 @@ typography, calligraphy, logo, wordmark, sign, signage, label, headline, caption
  // v1154: 초안 task ID 로 1080p 최종을 만든다. 2.5 는 최종 해상도로 1080p 만 받는다.
  //   프롬프트 · 레퍼런스 · 길이 · 화면비 · 시드 · 오디오 설정은 다시 보내지 않는다 —
  //   값이 같아도 오류다(문서). 초안 ID 는 만든 지 7일까지만 쓸 수 있다.
+ // v1259: 영상 피드백 — ① 피드백 → 편집 지시 + 붙일 그림(방식은 앱 전체 설정)
+ const buildVideoEdit = async (fb, refs = [], mode = videoFbMode) => {
+  let change = '';
+  if (mode !== 'raw') {
+   try {
+    const raw2 = await callClaude(VIDEO_EDIT_SYS, `[고쳐달라는 것]\n${fb}`, { model: 'claude-sonnet-4-5', maxTokens: 300, workCat: 'video' });
+    change = String(raw2 || '').trim().replace(/^["'`]+|["'`]+$/g, '');
+   } catch (e2) { console.warn('[영상 피드백] 수정 지시 변환 실패 — 원문을 그대로 넘깁니다.', e2?.message); }
+  }
+  if (!change) change = String(fb || '').trim();
+  const picked = videoEditPickRefs(fb, change, refs);
+  return { prompt: videoEditPromptOf(change, picked), picked, change, mode };
+ };
+ // ② 시댄스 '영상 편집' 작업으로 보낸다 — 원본이 Video 1, 목소리는 원본 그대로(오디오 레퍼런스 없음)
+ const callSeedanceEdit = ({ prompt, video, images = [], duration, resolution, draft = false, onStatus }) => callSeedanceVideo({
+  prompt, duration, resolution, aspectRatio: 'adaptive', generateAudio: true,
+  images, videos: [video], audios: [], tier: 'video25', draft, taskType: 'edit', onStatus,
+ });
+ // ③ 단일 작업(커스텀 · 내러티브 · 다큐 · POV) — 생성기록까지 한 번에
+ const runSingleVideoEdit = async ({ up, seq, idPrefix, wsKey, job, fb, refs = [], draft = false, resolution, draftWs = '' }) => {
+  const video = job?.resultUrl || '';
+  if (!video) { up({ error: '고칠 영상이 없습니다 — 생성기록에서 영상을 먼저 고르세요.' }); return; }
+  const dur = Number(job.params?.duration) || 5;   // 편집 결과는 원본 길이 — 비용 · 예상 시간도 그 길이로
+  const res = draft ? '480p' : (resolution || job.params?.resolution || '720p');
+  const mode = videoFbMode;
+  const jobId = `${idPrefix}_${Date.now()}_${(seq.current += 1)}`;
+  const params = { ...(job.params || {}), resolution: res, feedback: fb, feedbackMode: mode, editOf: job.id || '' };
+  up(p => ({ ...p, error: '', feedback: '', feedbackOpen: false, jobs: [{ id: jobId, version: seq.current, loading: true,
+   phase: mode === 'raw' ? '영상 고치는 중' : '고칠 내용 정리하는 중', ts: Date.now(),
+   estSec: estSecFor(durKeyVideo(res, dur, true), estVideoGenSeconds(res, dur)), params }, ...p.jobs] }));
+  try {
+   const ed = await buildVideoEdit(fb, refs, mode);
+   up(p => ({ ...p, jobs: p.jobs.map(j => (j.id === jobId ? { ...j, phase: '영상 고치는 중', generatedPrompt: ed.prompt, sentPrompt: ed.prompt } : j)) }));
+   let draftTaskId = '';
+   const url = await callSeedanceEdit({ prompt: ed.prompt, video, images: ed.picked.map(x => x.src), duration: dur, resolution: res, draft,
+    onStatus: (st, i, tid) => { if (tid) draftTaskId = tid; } });
+   up(p => ({ ...p, jobs: p.jobs.map(j => (j.id === jobId ? { ...j, phase: '받아두는 중' } : j)) }));
+   const kept = await keepGenResult(wsKey, jobId, url, 'mp4');
+   up(p => ({ ...p, jobs: p.jobs.map(j => (j.id === jobId
+    ? { ...j, loading: false, phase: '', ...kept, ...(draft ? { isDraft: true, draftTaskId, draftAt: Date.now(), ...(draftWs ? { draftWs } : {}) } : {}) } : j)),
+    selectedUrl: kept.resultUrl }));
+  } catch (e) {
+   if (e?.pending && e?.taskId) {
+    up(p => ({ ...p, error: GEN_PENDING_MSG, jobs: p.jobs.map(j => (j.id === jobId ? { ...j, ...jobPendingPatch(e, { pendingDraft: draft }) } : j)) }));
+    return;
+   }
+   const msg = videoEditErrText(e);
+   up(p => ({ ...p, error: `영상 고치기 실패: ${msg}`, jobs: p.jobs.map(j => (j.id === jobId ? { ...j, loading: false, phase: '', error: msg } : j)) }));
+  }
+ };
+
  const callSeedanceFinalFromDraft = async (draftTaskId, { onStatus, dur, aspect } = {}) => {
   const apiKey = arkKey();
   const body = {
@@ -30642,6 +30739,9 @@ ${sampleText}`;
  // 챗봇 패널의 설정 탭 표시 여부
  const [chatSettingsOpen, setChatSettingsOpen] = useState(false);
  // v1226 · v1235: 퀵 프롬프트 — 고쳐 쓴 글(이 PC 에 저장) · 방금 복사한 항목. 화면은 설정 › 퀵프롬프트(영상)
+ // v1259: 영상 피드백 방식 — 앱 전체에 하나(프로젝트 · 커스텀 · 내러티브 · 다큐 · POV 공통)
+ const [videoFbMode, setVideoFbMode] = useState(() => { try { return localStorage.getItem(VIDEO_FB_MODE_KEY) === 'raw' ? 'raw' : 'claude'; } catch { return 'claude'; } });
+ useEffect(() => { try { localStorage.setItem(VIDEO_FB_MODE_KEY, videoFbMode); } catch {} }, [videoFbMode]);
  const [quickPromptEdits, setQuickPromptEdits] = useState(() => { try { return JSON.parse(localStorage.getItem(QUICK_PROMPT_STORE)) || {}; } catch { return {}; } });
  const [quickCopied, setQuickCopied] = useState('');
  useEffect(() => { try { localStorage.setItem(QUICK_PROMPT_STORE, JSON.stringify(quickPromptEdits)); } catch {} }, [quickPromptEdits]);
@@ -35023,11 +35123,15 @@ ${sampleText}`;
  </div>
 
  <div className="card" style={{ padding: '16px 18px' }}>
- <div className="scenario-section-label" style={{ marginBottom: 8 }}>피드백으로 고치기</div>
+ <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+  <div className="scenario-section-label" style={{ margin: 0 }}>피드백으로 고치기</div>
+  <span style={{ flex: 1 }} />
+  <VideoFbModeToggle mode={videoFbMode} onChange={setVideoFbMode} disabled={busyMine} />   {/* v1259: 앱 전체 설정 */}
+ </div>
  <p className="body-secondary" style={{ fontSize: 11.5, margin: '0 0 9px', lineHeight: 1.65 }}>
- 처음부터 새로 만드는 것이 아니라 <b>지금 영상을 고칩니다.</b> 지금 클립을
- 레퍼런스로 넣고, 인물 · 장소 · 오브제 레퍼런스도 그대로 둔 채 적으신 것만
- 바꿉니다. 연기 · 동선 · 컷 · 대사는 그대로 갑니다.
+ 처음부터 새로 만드는 것이 아니라 <b>지금 영상을 고칩니다.</b> 시댄스 영상 편집으로
+ 적으신 것만 바꾸고, 연기 · 동선 · 컷 · 대사 · 목소리는 그대로 갑니다.
+ {videoFbMode === 'raw' ? ' 커스텀 — 적은 글이 그대로 편집 지시가 됩니다.' : ' Claude 가 편집 지시로 옮겨 보냅니다.'}
  <br />
  <span style={{ color: 'var(--text-quaternary)' }}>
  그래서 상황 자체를 바꾸는 지시(다른 장소에서 · 다른 대사로)는 잘 안 먹습니다.
@@ -39214,6 +39318,7 @@ ${sampleText}`;
  const images = [], videos = [], tokenMap = {}, manifest = [];
  // v770: 캐릭터+의상 묶음 — 캐릭터 이미지 뒤에 의상 이미지를 넣고, 적용 지시를 자동 생성한다
  const outfitDirectives = [];
+ const outfitBinds = [];   // v1262: 본문 결속을 확인할 짝
  const voiceDirectives = [], audios = [];
  v.refs.forEach(r => {
  if (r.kind === 'image') {
@@ -39230,7 +39335,8 @@ ${sampleText}`;
  // v783: 부정문 나열은 확산모델에서 약하게 작동한다(오히려 그 대상에 주의가 붙는다).
  // 최종 상태를 '긍정 서술'로 먼저 확정하고, 부정은 보조로 둔다. 배치도 프롬프트 선두로 옮긴다.
  const cLabel = String(r.costume.label || '').trim();
- outfitDirectives.push(`${r.refName || tok} — identity ${tok}, wardrobe ${ctok}${cLabel ? ` (${cLabel})` : ''}.`);
+ outfitDirectives.push(outfitPairLine(r.refName || tok, tok, ctok, cLabel));   // v1262
+ outfitBinds.push({ name: r.refName || tok, tok, ctok });
  }
  // v773: 캐릭터에 저장된 보이스 → reference_audio (최대 3개). 공식 음색 지시 문구를 자동 부착.
  const vsrc = voiceRefSrc(r.voice);
@@ -39256,6 +39362,8 @@ ${sampleText}`;
  if (manifest.length) prompt += `\n\n[Reference mapping]\n${manifest.join('\n')}`;
  // v783: 의상 지시는 프롬프트 '선두'에 둔다 — 긴 프롬프트에서 뒤쪽 지시는 주의가 흐려진다.
  //   (사용자는 여전히 아무것도 쓰지 않아도 된다)
+ // v1262: 본문이 의상 번호로 묶지 않은 인물은 코드가 묶는다
+ { const miss = outfitBinds.filter(b => !prompt.includes(`wearing the outfit in ${b.ctok}`)); if (miss.length) prompt = `${miss.map(b => outfitBindLine(b.name, b.tok, b.ctok)).join('\n')}\n${prompt}`; }
  if (outfitDirectives.length) prompt = `[Wardrobe — highest priority, overrides any clothing seen in references]\n${OUTFIT_RULE}\n${outfitDirectives.join('\n')}\n\n${prompt}`;
  if (voiceDirectives.length) prompt += `\n\n[Voice]\n${voiceDirectives.join('\n')}`;
  if (ONSCREEN_WRITING_CUE.test(String(text || ''))) prompt += `\n\n${ONSCREEN_WRITING_RULE}`;   // v1203
@@ -39302,21 +39410,17 @@ ${sampleText}`;
   up(p => ({ ...p, error: `영상 생성 실패: ${e.message}`, jobs: p.jobs.map(j => j.id === jobId ? { ...j, loading: false, error: e.message } : j) }));
  }
  };
- // v643: 피드백 = 사용자의 간결한 수정 의도를 Claude가 반영해 프롬프트를 다시 다듬어 재생성
- const doFeedback = async () => {
- if (!v.feedback.trim() || !selectedJob) return;
- const fb = v.feedback.trim(); const orig = selectedJob.params?.prompt || v.prompt;
- up({ feedbackBusy: true, error: '' });
- try {
- const sys = '너는 영상 생성 프롬프트 편집기다. 기존 프롬프트에 사용자의 간결한 수정 의도를 반영해, 자연스럽고 효율적인 새 프롬프트로 다시 써라. 원문 언어와 @레퍼런스이름은 그대로 유지한다. 설명 없이 수정된 프롬프트 본문만 출력.';
- const revised = String(await callClaude(sys, `[기존 프롬프트]\n${orig}\n\n[수정 의도]\n${fb}`, { model: adaptModel, maxTokens: 900, workCat: 'video' }) || '').replace(/```/g, '').trim();
- up({ feedbackBusy: false, prompt: revised || orig });
- // v789: 이전 결과 영상을 동반해 '새로 만들기'가 아닌 '그 영상 수정'이 되게 한다
- const editLead = selectedJob.resultUrl
- ? `Edit the attached reference video [Video1]: keep its subjects, wardrobe, setting, lighting, camera language and overall look unchanged, and apply ONLY this change — ${fb}.\n\n`
- : '';
- runGen({ prompt: editLead + (revised || orig), feedbackNote: fb, baseVideoUrl: selectedJob.resultUrl || null });
- } catch (e) { up({ feedbackBusy: false, error: `피드백 처리 실패: ${e.message}` }); }
+ // v1259: 피드백 = 모든 영상 피드백이 함께 쓰는 '영상 편집'(runSingleVideoEdit). 선택한 영상을 고친다.
+ const doFeedback = () => {
+  if (!v.feedback.trim() || !selectedJob) return;
+  const refs = [];
+  v.refs.forEach(r => {
+   if (!r || r.kind !== 'image') return;
+   refs.push({ name: r.refName, kindLabel: '레퍼런스', src: liveCharSrc(r) || r.srcUrl || `data:${r.mimeType};base64,${r.base64}` });
+   if (r.costume && r.costume.base64) refs.push({ name: `${r.refName}의 의상`, kindLabel: '의상', src: `data:${r.costume.mimeType};base64,${r.costume.base64}` });
+  });
+  runSingleVideoEdit({ up, seq: videoJobSeq, idPrefix: 'vc', wsKey: 'video-custom', job: selectedJob, fb: v.feedback.trim(), refs,
+   draft: !!v.draft, resolution: v.draft ? '480p' : arkClampRes('video25', v.resolution) });
  };
  const loadJob = (job) => up(p => ({ ...p, prompt: job.params?.prompt ?? '', duration: job.params?.duration ?? 5, aspect: job.params?.aspect ?? '16:9', resolution: job.params?.resolution ?? '480p', refs: (job.params?.refsSnapshot || []).map(r => ({ ...r })), selectedUrl: job.resultUrl || null, feedbackOpen: false, feedback: '' }));
  const newFootage = () => up({ prompt: '', duration: 5, aspect: '16:9', resolution: '480p', refs: [], selectedUrl: null, feedbackOpen: false, feedback: '', error: '' });
@@ -39344,25 +39448,30 @@ ${sampleText}`;
  </div>
  {v.feedbackOpen && v.selectedUrl && selectedJob && (
  <div className="card fade-in" style={{ padding: '18px 20px' }}>
- <div className="micro" style={{ color: 'var(--green-700)', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 8 }}>💬 피드백 반영 재생성</div>
- <div className="meta" style={{ color: 'var(--text-tertiary)', marginBottom: 10 }}>수정 방향을 적어주세요. <strong>선택한 영상을 레퍼런스로 넣어</strong> 그 영상을 수정합니다.</div>
+ <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+  <div className="micro" style={{ color: 'var(--green-700)', fontWeight: 700, letterSpacing: '0.05em' }}>💬 피드백으로 고치기</div>
+  <span style={{ flex: 1 }} />
+  <VideoFbModeToggle mode={videoFbMode} onChange={setVideoFbMode} />   {/* v1259: 앱 전체 설정 */}
+ </div>
+ <div className="meta" style={{ color: 'var(--text-tertiary)', marginBottom: 10 }}>선택한 영상을 <strong>시댄스 영상 편집으로 고칩니다</strong> — 적은 것만 바뀌고, 화면비 · 길이 · 목소리는 원본 그대로입니다.{videoFbMode === 'raw' ? ' 커스텀 — 적은 글이 그대로 편집 지시가 됩니다.' : ' Claude 가 편집 지시로 옮겨 보냅니다.'}</div>
  {/* v790: 피드백은 이전 영상을 입력으로 넣으므로 토큰이 늘어난다 — 늘어난 비용을 미리 보여준다 */}
  {(() => {
  const inSec = Math.min(ARK_VIDEO_MAX_SEC.video25, Math.max(0, Number(selectedJob.params?.duration) || 0));
  // v1221: 다시 만들 때의 해상도 — 초안이면 480p (설정 해상도가 아니라 실제로 보내는 값)
  const fbRes = v.draft ? '480p' : arkClampRes('video25', v.resolution);
- const base = estimateSeedance2Cost(v.duration, fbRes, v.aspect, { tier: 'video25' });
- const fbCost = estimateSeedance2Cost(v.duration, fbRes, v.aspect, { tier: 'video25', hasVideoInput: true, inputSec: inSec });
+ // v1259: 편집 결과는 원본 길이다 — 지금 길이 설정이 아니라 그 영상의 길이로
+ const base = estimateSeedance2Cost(inSec || v.duration, fbRes, v.aspect, { tier: 'video25' });
+ const fbCost = estimateSeedance2Cost(inSec || v.duration, fbRes, v.aspect, { tier: 'video25', hasVideoInput: true, inputSec: inSec });
  const b = formatCostDisplay(base), f = formatCostDisplay(fbCost);
  return (
  <div className="meta" style={{ marginBottom: 10, padding: '8px 11px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-tertiary)', lineHeight: 1.6 }}>
- 피드백 재생성 비용 <strong style={{ color: 'var(--green-700)' }}>{f.usd}</strong> <span>({f.krw})</span>
+ 고치기 비용 <strong style={{ color: 'var(--green-700)' }}>{f.usd}</strong> <span>({f.krw})</span>
  <span style={{ color: 'var(--text-quaternary)' }}> · 일반 생성 {b.usd} 대비 이전 영상 {inSec}초가 입력으로 더해집니다</span>
  </div>
  );
  })()}
  <textarea className="input" value={v.feedback} onChange={(e) => up({ feedback: e.target.value })} placeholder="예: 더 어두운 톤으로 · 카메라를 더 느리게 · 비를 더 강하게" rows={3} disabled={v.feedbackBusy} style={{ width: '100%', resize: 'vertical', fontSize: 13, lineHeight: 1.6, marginBottom: 12, boxSizing: 'border-box' }} />
- <div style={{ display: 'flex', justifyContent: 'flex-end' }}><button className="btn btn-primary" onClick={doFeedback} disabled={!v.feedback.trim() || v.feedbackBusy}><RefreshCw size={14} /> {v.feedbackBusy ? '프롬프트 수정 중...' : '피드백 반영해 재생성'}</button></div>
+ <div style={{ display: 'flex', justifyContent: 'flex-end' }}><button className="btn btn-primary" onClick={doFeedback} disabled={!v.feedback.trim() || v.feedbackBusy}><RefreshCw size={14} /> 이 영상 고치기</button></div>
  </div>
  )}
  {jobs.length > 0 && (
@@ -40132,6 +40241,8 @@ ${sampleText}`;
  const frameEnd = isPov ? frameSrc(v.endFrame) : '';
  const frameExact = !!frameStart && (v.frameMode || 'exact') === 'exact';
  const sizeFree = TAKE_SIZE_CUE.test(situation);   // v1204: 상황 묘사가 크기 변화를 말하는가
+ // v1258: POV 커스텀 — 상황 묘사가 Claude 를 거치지 않고 본문이 된다(피드백 재생성은 제외)
+ const povCustom = isPov && !!v.povCustom && !opts.directPrompt;
  // v1201: 레퍼런스 유지(키프레임) 방식은 설정한 화면비로 만들어서, 그림과 비율이 다르면 모델이 구도를
  //   다시 잡을 수밖에 없었다. 시작 그림(없으면 끝 그림)의 비율에 가장 가까운 화면비로 만든다.
  let asp = v.aspect;
@@ -40155,6 +40266,7 @@ ${sampleText}`;
  const frameSlots = (isPov && !frameExact) ? (frameStart ? 1 : 0) + (frameEnd ? 1 : 0) : 0;
  const IMG_CAP = IMG_MAX - frameSlots;
  const outfitDirectives = [];
+ const outfitBinds = [];   // v1262: 본문 결속을 확인할 짝
  // v1127: 보이스 지시문을 프로젝트 작업의 조항으로 바꾼다. 예전에는 [ImageN] 으로
  //   가리켰는데, 그러면 보이스가 없는 인물에게도 그 목소리가 실린다(프로젝트에서 겪었다).
  //   이름으로 묶고, 없는 사람은 없다고 이름까지 적어 못 박는다.
@@ -40184,11 +40296,13 @@ ${sampleText}`;
  if (r.costume && r.costume.base64 && imgN < IMG_CAP) { imgN++; imgList.push(`data:${r.costume.mimeType};base64,${r.costume.base64}`); const ctok = `[Image${imgN}]`;
  // v781: 캐릭터는 신원 전용 — 시트의 기본 무채색 의상이 섞여 나오지 않게 명시
  manifest[charIdx] = `${tok} = "${r.refName}" (${g.label} · 신원 전용: 얼굴·헤어·체형만. 의상은 ${ctok})`;
- manifest.push(`${ctok} = "${r.refName}의 의상" (이 인물의 유일한 의상 출처 · 자동 적용, [Shots]에서 따로 지칭하지 말 것)`);
+ // v1262: 본문에서도 의상 번호로 묶게 한다 — 부르지 말라고 하던 것을 뒤집었다(인물 시트의 옷이 새어 나왔다)
+ manifest.push(`${ctok} = "${r.refName}의 의상" (이 인물이 입는 유일한 옷 — 이 인물을 처음 부를 때 '${tok}, wearing the outfit in ${ctok}' 로 함께 적고, 옷을 말로 묘사하지 말 것)`);
  // v783: 부정문 나열은 확산모델에서 약하게 작동한다(오히려 그 대상에 주의가 붙는다).
  // 최종 상태를 '긍정 서술'로 먼저 확정하고, 부정은 보조로 둔다. 배치도 프롬프트 선두로 옮긴다.
  const cLabel = String(r.costume.label || '').trim();
- outfitDirectives.push(`${r.refName || tok} — identity ${tok}, wardrobe ${ctok}${cLabel ? ` (${cLabel})` : ''}.`); }
+ outfitDirectives.push(outfitPairLine(r.refName || tok, tok, ctok, cLabel));   // v1262
+ outfitBinds.push({ name: r.refName || tok, tok, ctok }); }
  // v773: 캐릭터 보이스 → reference_audio (최대 3개)
  const vsrc = voiceKeep.has(r) ? voiceRefSrc(r.voice) : null;   // v1199
  if (vsrc && audioList.length < arkRefMax(tier, 'audios')) {
@@ -40222,6 +40336,7 @@ ${sampleText}`;
   for (let k = manifest.length - 1; k >= 0; k -= 1) { if (/^\[(Image|Video|Audio)/.test(String(manifest[k] || ''))) manifest.splice(k, 1); }
   imgList.length = 0; vidList.length = 0; audioList.length = 0; voiceNamed.length = 0;
   outfitDirectives.length = 0;
+  outfitBinds.length = 0;   // v1262
   if (lostNames.length || lostVoices) {
    try { showToast(`'정확히' 방식이라 레퍼런스(${lostNames.join(' · ') || '없음'})${lostVoices ? ` · 목소리 ${lostVoices}개` : ''}는 보내지 않습니다 — 프레임과 함께 못 갑니다. 함께 보내려면 [레퍼런스 유지] 로 바꾸세요.`, 'error'); } catch {}
   }
@@ -40250,7 +40365,23 @@ ${sampleText}`;
  //   소리내어 말한다. 화면에서는 레퍼런스가 잘 걸린 것처럼 보여 눈에 띄지 않는다.
  //   ★ 어떤 줄이 대사인지 생김새로 판정하지 않는다. 콜론 앞이 '우리가 아는 인물 이름'
  //     일 때만 대사로 본다 — ^이름: 꼴로 자르면 지문의 '시간: 밤. @임싸가…' 까지 먹는다.
- let situationClean = situation.replace(/"([^"\n]{0,400})"/g, (m, inner) => `"${inner.split('@').join('')}"`);
+ // v1258: 커스텀이면 '내 손: …' 줄을 떼어 VIEWER HANDS 로 넘기고(아래 시점 조항이 읽는다),
+ //   '이름: 대사' · '나: 대사' 줄을 큰따옴표로 감싼다(프로젝트 커스텀과 같은 규칙). 나머지 글은 그대로.
+ let situationSrc = situation;
+ if (povCustom) {
+  const handBits = [];
+  situationSrc = situationSrc.split('\n').filter(line => {
+   const hm = POV_CUSTOM_HANDS_LINE.exec(line);
+   if (!hm) return true;
+   const hv = hm[1].trim();
+   if (hv && !/^(none|없음|-)$/i.test(hv)) handBits.push(hv);
+   return false;
+  }).join('\n');
+  const speakerNames = (v.refs?.character || []).map(r => String(r?.refName || '').trim()).filter(Boolean);
+  situationSrc = projectQuoteCustomText(situationSrc, [...speakerNames, '나']);
+  if (handBits.length) situationSrc += `\nVIEWER HANDS: ${handBits.join('; ')}`;
+ }
+ let situationClean = situationSrc.replace(/"([^"\n]{0,400})"/g, (m, inner) => `"${inner.split('@').join('')}"`);
  {
   const speakers = (v.refs?.character || []).map(r => String(r?.refName || '').trim()).filter(Boolean);
   situationClean = situationClean.split('\n').map(line => {
@@ -40276,13 +40407,24 @@ ${sampleText}`;
  const params = { situation, aspect: asp, resolution: res, duration: dur, tier,
   refsSnapshot: JSON.parse(JSON.stringify(v.refs || {})), feedback: opts.feedbackNote || null,
   ...(isTake ? { camera: v.camera || (isPov ? 'eyes' : 'handheld'), hasPrevClip: !!(v.prevClip && v.prevClip.dataUrl) } : {}),
-  ...(isPov ? { povGender: v.povGender || 'male', frameMode: v.frameMode || 'exact', hasFrames: !!(v.startFrame || v.endFrame) } : {}) };
- const estSec = estSecFor(durKeyVideo(res, dur, opts.baseVideoUrl ? true : false), estVideoGenSeconds(res, dur) + (opts.directPrompt ? 0 : 12));  // v791: 실측 학습값 우선, 표본 없으면 상수 추정
- up(p => ({ ...p, error: '', feedback: '', feedbackOpen: false, jobs: [{ id: jobId, version: narrJobSeq.current, loading: true, phase: opts.directPrompt ? '영상 생성 중' : '프롬프트 생성 중', ts: Date.now(), estSec, params }, ...p.jobs] }));
+  ...(isPov ? { povGender: v.povGender || 'male', frameMode: v.frameMode || 'exact', hasFrames: !!(v.startFrame || v.endFrame), povCustom } : {}) };
+ const estSec = estSecFor(durKeyVideo(res, dur, opts.baseVideoUrl ? true : false), estVideoGenSeconds(res, dur) + ((opts.directPrompt || povCustom) ? 0 : 12));  // v791: 실측 학습값 우선, 표본 없으면 상수 추정
+ up(p => ({ ...p, error: '', feedback: '', feedbackOpen: false, jobs: [{ id: jobId, version: narrJobSeq.current, loading: true, phase: (opts.directPrompt || povCustom) ? '영상 생성 중' : '프롬프트 생성 중', ts: Date.now(), estSec, params }, ...p.jobs] }));
  // v1139: 심의가 content[N] 을 짚으면 그것이 어느 레퍼런스인지 알아야 고칠 수 있다
  let contentNames = [];
  try {
  let genPrompt = opts.directPrompt || null;
+ // v1258: POV 커스텀 — 레퍼런스 번호표 · '나' 안내 한 줄 · 쓴 글. 시점 조항(맨눈 / 손에 든 카메라 · 몸 · 목소리)은
+ //   아래 isTake 블록이 CAMERA 로 붙이고, 사운드 · 화면 크기 · 놀람 · 의상 · 목소리 조항도 평소처럼 코드가 붙인다.
+ if (!genPrompt && povCustom) {
+  const refIdx = [];
+  GROUPS.forEach(g => (v.refs[g.key] || []).forEach(r => {
+   const tok = r && !r.pending && r.refName ? tokenMap[r.refName] : '';
+   const ob = outfitBinds.find(b => b.tok === tok);   // v1262: 의상이 붙은 인물은 번호표에서도 묶는다
+   if (tok && !refIdx.some(x => x.startsWith(`${tok} `))) refIdx.push(`${tok} = ${r.refName} (${POV_REF_KIND_EN[g.key] || 'reference'}${ob ? `, wearing the outfit in ${ob.ctok}` : ''})`);
+  }));
+  genPrompt = [refIdx.length ? `REFERENCES: ${refIdx.join(' · ')}` : '', POV_CUSTOM_VIEWER_LINE, situationText.trim()].filter(Boolean).join('\n\n');
+ }
  if (!genPrompt) {
  const manifestStr = manifest.length ? `\n\n[첨부 레퍼런스 — 이 토큰으로 [Shots]에서 지칭]\n${manifest.join('\n')}` : '\n\n(첨부 레퍼런스 없음)';
  // v1132: 시작 · 끝 그림을 클로드는 못 본다 — 테이크가 거기서 출발하고 거기서 끝난다는 것만 알린다
@@ -40322,7 +40464,7 @@ ${sampleText}`;
   }
  }
  // v1204: 크기가 고정인데 구간 머리에 CU · ECU 가 오면 모델은 그것을 줌으로 한다 — MCU 로 되돌린다
- if (isTake && !sizeFree) genPrompt = genPrompt.replace(/(\[\d+:\d{2}\s*[–-]\s*\d+:\d{2}\]\s*)(?:ECU|CU|extreme close-?up|close-?up)\b/gi, '$1MCU');
+ if (isTake && !sizeFree && !povCustom) genPrompt = genPrompt.replace(/(\[\d+:\d{2}\s*[–-]\s*\d+:\d{2}\]\s*)(?:ECU|CU|extreme close-?up|close-?up)\b/gi, '$1MCU');
  if (isTake) {
   // v1172: 인터뷰는 부가콘텐츠 탭으로 옮겼다. 여기서 글자로 걸어 조항을 바꾸지 않는다 —
   //   다큐에 '인터뷰' 라는 말이 나온다고 해서 그 클립이 인터뷰 형식인 것은 아니다.
@@ -40352,12 +40494,16 @@ ${sampleText}`;
  up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, generatedPrompt: genPrompt } : j) }));
  }
  let finalPrompt = genPrompt;
+ // v1262: 의상이 붙은 인물이 본문에서 의상 번호로 한 번도 묶이지 않았으면 코드가 묶는다(프로젝트 v1010 과 같은 방식)
+ { const miss = outfitBinds.filter(b => !finalPrompt.includes(`wearing the outfit in ${b.ctok}`)); if (miss.length) finalPrompt = `${miss.map(b => outfitBindLine(b.name, b.tok, b.ctok)).join('\n')}\n${finalPrompt}`; }
  const voiceOthers = (v.refs?.character || [])
   .filter(r => r && r.kind === 'image' && r.refName && !voiceNamed.includes(r.refName))
   .map(r => r.refName);
  if (voiceNamed.length) finalPrompt += `\n\n${PROJECT_VOICE_RULE_FOR(voiceNamed, voiceOthers)}`;
  // v783: 의상 지시는 선두 배치 (Claude가 쓴 본문보다 앞)
- if (outfitDirectives.length) finalPrompt = `[Wardrobe — highest priority, overrides any clothing seen in references]\n${OUTFIT_RULE}\n${outfitDirectives.join('\n')}\n\n${finalPrompt}`;
+ // v1263: POV — 의상이 '나' 의 몸(다리 · 무릎 · 손)에 입혀져 나왔다(10/14). 의상은 짝지은 그 사람만 입는다고 짚는다.
+ if (outfitDirectives.length) finalPrompt = `[Wardrobe — highest priority, overrides any clothing seen in references]\n${OUTFIT_RULE}\n${outfitDirectives.join('\n')}`
+  + `${isPov ? `\n${POV_WARDROBE_NOT_VIEWER_FOR(outfitBinds.map(b => b.name))}` : ''}\n\n${finalPrompt}`;
  // v1129: 앞 클립 이어받기. 프로젝트의 콘티뉴이티 조항을 그대로 쓰되, 그 조항은
  //   '인물마다 신원 스틸이 붙어 있다' 를 전제로 쓰여 있다 — 다큐는 스틸 없이 앞 클립만
  //   붙일 수 있어서 얼굴의 출처가 사라진다. 인물 단위로 한 문장을 더 얹어 갈라 둔다.
@@ -40433,7 +40579,7 @@ ${sampleText}`;
   firstFrame: frameExact ? frameStart : null, endFrame: frameExact ? (frameEnd || null) : null,
   draft: isDraft, onStatus: (st, i, tid) => { if (tid) draftTaskId = tid; } });
  // v789: 영상 비용은 callSeedanceVideo가 실제 토큰으로 기록한다. 여기서는 프롬프트 변환에 쓴 Claude 비용만 적립.
- try { if (!opts.directPrompt) recordCreditUsage(estimateClaudeCost(adaptModel, (situation.length + 2000), genPrompt.length), 'claude', { workCat: 'video' }); } catch {}
+ try { if (!opts.directPrompt && !povCustom) recordCreditUsage(estimateClaudeCost(adaptModel, (situation.length + 2000), genPrompt.length), 'claude', { workCat: 'video' }); } catch {}   // v1258: 커스텀은 Claude 를 안 쓴다
  up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId ? { ...j, phase: '받아두는 중' } : j) }));
  const vKept = await keepGenResult(isPov ? 'video-pov' : isDocu ? 'video-documentary' : 'video-narrative', jobId, url, 'mp4');   // v1133
  up(p => ({ ...p, jobs: p.jobs.map(j => j.id === jobId
@@ -40485,27 +40631,21 @@ ${sampleText}`;
    up(p => ({ ...p, error: `최종 생성 실패: ${msg}`, jobs: p.jobs.map(j => (j.id === fid ? { ...j, loading: false, phase: '', error: msg } : j)) }));
   }
  };
- // v643: 피드백 = 선택 영상의 Seedance 프롬프트를 룰북 규칙 유지하며 Claude가 의도 반영해 다시 다듬어 재생성
- const doFeedback = async () => {
- if (!v.feedback.trim() || !selectedJob) return;
- const fb = v.feedback.trim(); const origPrompt = selectedJob.generatedPrompt || '';
- if (!origPrompt) { runGen({ feedbackNote: fb, baseVideoUrl: selectedJob.resultUrl || null }); return; }
- up({ feedbackBusy: true, error: '' });
- try {
- // 다듬을 때도 그 영상이 만들어진 길이를 그대로 쓴다.
- //   현재 슬라이더 값을 쓰면, 15초로 뽑아둔 프롬프트를 30초 룰북으로 고쳐
- //   샷 수가 어긋난다. 옛 기록에는 duration 이 없으므로 15초로 본다.
- const fbDur = Number(selectedJob.params?.duration) || 15;
- const userMsg = `아래는 이미 완성된 ${fbDur}초 Seedance 영상 프롬프트다. 사용자의 간결한 수정 의도를 반영해 룰북 규칙을 지키며 프롬프트를 다시 다듬어라. 설명 없이 프롬프트 본문만 출력.\n\n[기존 프롬프트]\n${origPrompt}\n\n[수정 의도]\n${fb}`;
- const revised = String(await callClaude(seedanceNarrativeRulebook(fbDur), userMsg, { model: adaptModel, maxTokens: 2000, workCat: 'video' }) || '').replace(/```/g, '').trim();
- up({ feedbackBusy: false });
- const editLead = selectedJob.resultUrl
- ? `Edit the attached reference video [Video1]: keep its subjects, wardrobe, setting, lighting, camera language and overall look unchanged, and apply ONLY this change — ${fb}.\n\n`
- : '';
- runGen({ directPrompt: editLead + (revised || origPrompt), feedbackNote: fb, baseVideoUrl: selectedJob.resultUrl || null });
- } catch (e) { up({ feedbackBusy: false, error: `피드백 처리 실패: ${e.message}` }); }
+ // v1259: 피드백 = 모든 영상 피드백이 함께 쓰는 '영상 편집'(runSingleVideoEdit). 선택한 영상을 고친다.
+ //   전에는 내러티브 룰북으로 프롬프트 전체를 다시 써서 새로 뽑았다(다큐 · POV 도 내러티브 룰북이었다).
+ const doFeedback = () => {
+  if (!v.feedback.trim() || !selectedJob) return;
+  const refs = [];
+  GROUPS.forEach(g => (v.refs[g.key] || []).forEach(r => {
+   if (!r || r.pending || r.kind !== 'image') return;
+   refs.push({ name: r.refName, kindLabel: g.label, src: liveCharSrc(r) || r.srcUrl || `data:${r.mimeType};base64,${r.base64}` });
+   if (r.costume && r.costume.base64) refs.push({ name: `${r.refName}의 의상`, kindLabel: '의상', src: `data:${r.costume.mimeType};base64,${r.costume.base64}` });
+  }));
+  const ws = isPov ? 'video-pov' : isDocu ? 'video-documentary' : 'video-narrative';
+  runSingleVideoEdit({ up, seq: narrJobSeq, idPrefix: 'vn', wsKey: ws, job: selectedJob, fb: v.feedback.trim(), refs,
+   draft: !!v.draft, resolution: v.draft ? '480p' : arkClampRes('video25', v.resolution), draftWs: ws });
  };
- const loadJob = (job) => up(p => ({ ...p, situation: job.params?.situation ?? '', aspect: job.params?.aspect ?? '16:9', resolution: job.params?.resolution ?? '480p', refs: job.params?.refsSnapshot ? JSON.parse(JSON.stringify(job.params.refsSnapshot)) : { situation: [], character: [], space: [], object: [] }, selectedUrl: job.resultUrl || null, feedbackOpen: false, feedback: '', camera: job.params?.camera ?? p.camera, povGender: job.params?.povGender ?? p.povGender }));
+ const loadJob = (job) => up(p => ({ ...p, situation: job.params?.situation ?? '', aspect: job.params?.aspect ?? '16:9', resolution: job.params?.resolution ?? '480p', refs: job.params?.refsSnapshot ? JSON.parse(JSON.stringify(job.params.refsSnapshot)) : { situation: [], character: [], space: [], object: [] }, selectedUrl: job.resultUrl || null, feedbackOpen: false, feedback: '', camera: job.params?.camera ?? p.camera, povGender: job.params?.povGender ?? p.povGender, povCustom: job.params?.povCustom ?? p.povCustom }));
  const newFootage = () => up({ situation: '', aspect: '16:9', resolution: '480p', refs: { situation: [], character: [], space: [], object: [] }, selectedUrl: null, feedbackOpen: false, feedback: '', error: '', fillTarget: null, prevClip: null, startFrame: null, endFrame: null });
  return (
  <div className="fade-in" style={{ maxWidth: 1240, margin: '0 auto', padding: '0 8px' }}>
@@ -40530,8 +40670,12 @@ ${sampleText}`;
  </div>
  {v.feedbackOpen && v.selectedUrl && selectedJob && (
  <div className="card fade-in" style={{ padding: '18px 20px' }}>
- <div className="micro" style={{ color: 'var(--green-700)', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 8 }}>💬 피드백 반영 재생성</div>
- <div className="meta" style={{ color: 'var(--text-tertiary)', marginBottom: 10 }}>수정 방향을 적어주세요. <strong>선택한 영상을 레퍼런스로 넣어</strong> 그 영상을 수정합니다.</div>
+ <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+  <div className="micro" style={{ color: 'var(--green-700)', fontWeight: 700, letterSpacing: '0.05em' }}>💬 피드백으로 고치기</div>
+  <span style={{ flex: 1 }} />
+  <VideoFbModeToggle mode={videoFbMode} onChange={setVideoFbMode} />   {/* v1259: 앱 전체 설정 */}
+ </div>
+ <div className="meta" style={{ color: 'var(--text-tertiary)', marginBottom: 10 }}>선택한 영상을 <strong>시댄스 영상 편집으로 고칩니다</strong> — 적은 것만 바뀌고, 화면비 · 길이 · 목소리는 원본 그대로입니다.{videoFbMode === 'raw' ? ' 커스텀 — 적은 글이 그대로 편집 지시가 됩니다.' : ' Claude 가 편집 지시로 옮겨 보냅니다.'}</div>
  {/* v790: 피드백은 이전 영상을 입력으로 넣으므로 토큰이 늘어난다 */}
  {(() => {
  // 재생성은 그 영상이 만들어진 길이를 기준으로 잡는다(입력으로도 그 길이가 들어간다).
@@ -40544,13 +40688,13 @@ ${sampleText}`;
  const b = formatCostDisplay(base), f = formatCostDisplay(fbCost);
  return (
  <div className="meta" style={{ marginBottom: 10, padding: '8px 11px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-tertiary)', lineHeight: 1.6 }}>
- 피드백 재생성 비용 <strong style={{ color: 'var(--green-700)' }}>{f.usd}</strong> <span>({f.krw})</span>
+ 고치기 비용 <strong style={{ color: 'var(--green-700)' }}>{f.usd}</strong> <span>({f.krw})</span>
  <span style={{ color: 'var(--text-quaternary)' }}> · 일반 생성 {b.usd} 대비 이전 영상 {fbSec}초가 입력으로 더해집니다</span>
  </div>
  );
  })()}
  <textarea className="input" value={v.feedback} onChange={(e) => up({ feedback: e.target.value })} placeholder="예: 인물 감정을 더 강조 · 카메라를 고정 · 밤 분위기로" rows={3} disabled={v.feedbackBusy} style={{ width: '100%', resize: 'vertical', fontSize: 13, lineHeight: 1.6, marginBottom: 12, boxSizing: 'border-box' }} />
- <div style={{ display: 'flex', justifyContent: 'flex-end' }}><button className="btn btn-primary" onClick={doFeedback} disabled={!v.feedback.trim() || v.feedbackBusy}><RefreshCw size={14} /> {v.feedbackBusy ? '프롬프트 수정 중...' : '피드백 반영해 재생성'}</button></div>
+ <div style={{ display: 'flex', justifyContent: 'flex-end' }}><button className="btn btn-primary" onClick={doFeedback} disabled={!v.feedback.trim() || v.feedbackBusy}><RefreshCw size={14} /> 이 영상 고치기</button></div>
  </div>
  )}
  {selectedJob?.sent && (() => {
@@ -40651,6 +40795,15 @@ ${sampleText}`;
  <div>
  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
  <div className="meta" style={{ fontWeight: 600 }}>상황 묘사 <span style={{ color: 'var(--state-error)' }}>*</span></div>
+ {/* v1258: POV — 상황 묘사를 쓴 그대로 보낸다 */}
+ {isPov && (
+  <button type="button" onClick={() => up({ povCustom: !v.povCustom })} disabled={busy}
+   className={v.povCustom ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+   style={{ height: 24, fontSize: 10.5, ...(v.povCustom ? { background: '#7c3aed', borderColor: '#7c3aed' } : {}) }}
+   title="켜면 상황 묘사가 Claude 를 거치지 않고 쓴 그대로 영상 프롬프트가 됩니다. 맨눈 · 손에 든 카메라 지침은 코드가 붙입니다.">
+   {v.povCustom ? '✓ 커스텀' : '커스텀'}
+  </button>
+ )}
  {/* v1128: 본문을 읽어 대기 칸을 만들고, 본문의 그 이름 앞에 @ 를 붙인다 */}
  <button type="button" className="btn btn-secondary btn-sm"
  style={{ marginLeft: 'auto', height: 24, fontSize: 10.5 }}
@@ -40667,12 +40820,22 @@ ${sampleText}`;
  onClick={(e) => detectSuggest(e.target.value, e.target.selectionStart)}
  onBlur={() => setTimeout(() => setNarrRefSuggest(null), 150)}
  placeholder={isPov
-  ? "'나' 를 중심으로 적어주세요. 예: 눈 앞에 보이는 건 젊은 무당 하나. 고개를 들어 왼쪽을 보니 귀신이 다가오고 있었다"
+  ? (v.povCustom
+   ? '영상 프롬프트 본문을 그대로 적으세요. @이름 · 이름: 대사 · 내 손: (내가 손으로 하는 일)'
+   : "'나' 를 중심으로 적어주세요. 예: 눈 앞에 보이는 건 젊은 무당 하나. 고개를 들어 왼쪽을 보니 귀신이 다가오고 있었다")
   : isDocu
    ? '그 자리에서 무슨 일이 찍히고 있는지 적어주세요. 예: 좁은 부엌에서 @엄마 가 김치를 담그고, 카메라를 든 사람이 옆에서 따라다니며 묻는다'
    : '시나리오 원문을 붙여넣거나 상황을 적어주세요. 예: S#12 리버클럽 입구 — @인물1 과 @인물2 가 인파 뒤에서 광경을 주시한다'}
  style={{ width: '100%', resize: 'vertical', fontSize: 13, lineHeight: 1.6, boxSizing: 'border-box' }} />
  <TextClearButton show={!!v.situation} onClear={() => { up({ situation: '' }); setNarrRefSuggest(null); }} />
+ {isPov && v.povCustom && (
+  <div className="micro" style={{ marginTop: 6, lineHeight: 1.6, color: 'var(--text-tertiary)', borderLeft: '2px solid #7c3aed', paddingLeft: 8 }}>
+   커스텀 — 이 글이 Claude 를 거치지 않고 그대로 영상 프롬프트 본문이 됩니다. 시점 지침(맨눈 / 손에 든 카메라)과
+   '나' 조항(얼굴 · 손 · 목소리) · 소리 · 화면 크기 · 의상 · 목소리는 코드가 붙입니다.
+   <br />· <strong>@이름</strong> 은 그 레퍼런스 번호로, <strong>이름: 대사</strong> · <strong>나: 대사</strong> 줄은 큰따옴표로 감쌉니다.
+   <br />· 내가 손으로 하는 일은 <strong>내 손: …</strong> 한 줄로 적으세요. 없으면 내 손은 화면에 나오지 않습니다.
+  </div>
+ )}
  {narrRefSuggest?.matches?.length > 0 && (
  <div style={{ position: 'absolute', left: 0, right: 0, top: '100%', marginTop: 4, zIndex: 30, background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
  {narrRefSuggest.matches.slice(0, 6).map((name, i) => { const ref = findRef(name); return (
@@ -41203,7 +41366,7 @@ ${sampleText}`;
  <input type="range" min={4} max={vMaxSec} step={1} value={vDur} disabled={busy} onChange={(e) => up({ duration: parseInt(e.target.value, 10) })} style={{ width: '100%', accentColor: 'var(--green-500)' }} />
  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-quaternary)', fontSize: 9, marginTop: 2 }}><span>4초</span><span>{vMaxSec}초</span></div>
  </div>
- <div className="meta" style={{ color: 'var(--text-tertiary)', textAlign: 'center' }}>예상 비용 <strong style={{ color: 'var(--green-700)' }}>{cf.usd}</strong> <span>({cf.krw})</span> <span style={{ marginLeft: 4 }}>· 프롬프트 생성 + {vDur}초 영상</span></div>
+ <div className="meta" style={{ color: 'var(--text-tertiary)', textAlign: 'center' }}>예상 비용 <strong style={{ color: 'var(--green-700)' }}>{cf.usd}</strong> <span>({cf.krw})</span> <span style={{ marginLeft: 4 }}>· {isPov && v.povCustom ? '' : '프롬프트 생성 + '}{vDur}초 영상</span></div>
  <button className="btn btn-primary" onClick={() => runGen()} disabled={!v.situation.trim()} style={{ fontSize: 14, padding: '11px 20px', justifyContent: 'center' }}><Film size={15} /> {vDur}초 영상 생성{anyLoading ? ` (진행 중 ${jobs.filter(j => j.loading).length})` : ''}</button>
  </div>
  </div>
