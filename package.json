@@ -1,7 +1,7 @@
 {
   "name": "oxyzn-studio",
   "productName": "OXYZN Studio",
-  "version": "1.0.183",
+  "version": "1.0.192",
   "description": "영상 제작 자동화 스튜디오 (개인용)",
   "author": "OXYZN <jungjinsori@oxyzn.co.kr>",
   "main": "electron/main.js",
@@ -10,11 +10,12 @@
     "dev": "vite",
     "build": "vite build",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "build:win": "node scripts/bump-version.cjs && vite build && electron-builder --win",
-    "build:mac": "node scripts/bump-version.cjs && vite build && electron-builder --mac",
-    "build:all": "node scripts/bump-version.cjs && vite build && electron-builder --win --mac",
+    "build:win": "node scripts/bump-version.cjs && node scripts/fetch-ffmpeg.cjs win32-x64 && vite build && electron-builder --win",
+    "build:mac": "node scripts/bump-version.cjs && node scripts/fetch-ffmpeg.cjs darwin-arm64 && vite build && electron-builder --mac",
+    "build:all": "node scripts/bump-version.cjs && node scripts/fetch-ffmpeg.cjs win32-x64 && node scripts/fetch-ffmpeg.cjs darwin-arm64 && vite build && electron-builder --win --mac",
     "postinstall": "node scripts/copy-pdfjs-assets.cjs",
-    "prebuild": "node scripts/copy-pdfjs-assets.cjs"
+    "prebuild": "node scripts/copy-pdfjs-assets.cjs",
+    "fetch:ffmpeg": "node scripts/fetch-ffmpeg.cjs"
   },
   "build": {
     "appId": "com.oxyzn.studio",
@@ -37,7 +38,16 @@
           ]
         }
       ],
-      "icon": "electron/icon.ico"
+      "icon": "electron/icon.ico",
+      "extraResources": [
+        {
+          "from": "vendor/ffmpeg/win32-x64",
+          "to": "ffmpeg",
+          "filter": [
+            "ffmpeg.exe"
+          ]
+        }
+      ]
     },
     "mac": {
       "target": [
@@ -49,7 +59,16 @@
         }
       ],
       "icon": "electron/icon.icns",
-      "category": "public.app-category.productivity"
+      "category": "public.app-category.productivity",
+      "extraResources": [
+        {
+          "from": "vendor/ffmpeg/darwin-arm64",
+          "to": "ffmpeg",
+          "filter": [
+            "ffmpeg"
+          ]
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,

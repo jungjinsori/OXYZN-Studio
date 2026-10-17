@@ -581,7 +581,7 @@ function assetPathInside(p) {
   } catch { return '' }
 }
 // v976: ffs:// 로 내줄 수 있는 범위 — 앱이 만든 폴더만. 그 밖은 전부 거부한다.
-const LOCAL_READ_DIRS = ['library', 'gen', 'clips']
+const LOCAL_READ_DIRS = ['library', 'gen', 'clips', 'challenge-ref']   // v1266: 챌린지 레퍼런스 보관본
 function localReadablePath(p) {
   try {
     const full = path.resolve(String(p || ''))
@@ -704,6 +704,166 @@ ipcMain.handle('gen-usage', () => {
     return { success: true, count: all.length, bytes: all.reduce((n, x) => n + x.size, 0),
       dir: path.join(app.getPath('userData'), 'gen'), capBytes: GEN_CAP_BYTES }
   } catch (e) { return { success: false, error: String(e && e.message || e) } }
+})
+
+// ─────────────────────────────────────────────────────────────
+// v1266: 챌린지 영상 — 레퍼런스 보관 · 원본 소리 합치기(ffmpeg)
+//   레퍼런스는 userData/challenge-ref/ 에 둔다. 1080p 로 올릴 때 같은 소리를 다시 합치려고 남긴다.
+//   gen 폴더 밖이라 8GB 정리 대상이 아니다(자동으로 지우지 않는다).
+//   ffmpeg 는 설치 파일의 Resources/ffmpeg/, 개발 중에는 vendor/ffmpeg/<platform>-<arch>/ 에 있다
+//   (scripts/fetch-ffmpeg.cjs 가 npm 공식 패키지에서 꺼내 둔다).
+// ─────────────────────────────────────────────────────────────
+function ffmpegPath() {
+  const exe = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg'
+  const p = app.isPackaged
+    ? path.join(process.resourcesPath, 'ffmpeg', exe)
+    : path.join(__dirname, '..', 'vendor', 'ffmpeg', `${process.platform}-${process.arch}`, exe)
+  return fs.existsSync(p) ? p : ''
+}
+function challengeRefDir() {
+  const dir = path.join(app.getPath('userData'), 'challenge-ref')
+  try { fs.mkdirSync(dir, { recursive: true }) } catch {}
+  return dir
+}
+function insideDir(root, p) {
+  try {
+    const full = path.resolve(String(p || ''))
+    const rel = path.relative(path.resolve(root), full)
+    return (!rel || rel.startsWith('..') || path.isAbsolute(rel)) ? '' : full
+  } catch { return '' }
+}
+// ffmpeg -i 의 'Duration: 00:00:15.40' 줄로 길이를 잰다(ffprobe 는 넣지 않았다)
+function ffmpegDuration(ff, file) {
+  return new Promise((resolve) => {
+    execFile(ff, ['-hide_banner', '-i', file], { timeout: 30000, windowsHide: true }, (err, stdout, stderr) => {
+      const m = /Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(String(stderr || ''))
+      resolve(m ? (+m[1]) * 3600 + (+m[2]) * 60 + parseFloat(m[3]) : 0)
+    })
+  })
+}
+// ffmpeg -i 의 스트림 줄에서 화면 크기 · 초당 프레임 · 코덱을 읽는다
+function ffmpegProbe(ff, file) {
+  return new Promise((resolve) => {
+    execFile(ff, ['-hide_banner', '-i', file], { timeout: 30000, windowsHide: true }, (err, stdout, stderr) => {
+      const t = String(stderr || '')
+      const d = /Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(t)
+      const vline = (t.match(/Stream #[^\n]*Video:[^\n]*/) || [''])[0]
+      const wh = /,\s*(\d{2,5})x(\d{2,5})[\s,\[]/.exec(vline)
+      const fps = /,\s*(\d+(?:\.\d+)?)\s*fps/.exec(vline)
+      const codec = (/Video:\s*([a-z0-9_]+)/i.exec(vline) || [, ''])[1].toLowerCase()
+      resolve({
+        dur: d ? (+d[1]) * 3600 + (+d[2]) * 60 + parseFloat(d[3]) : 0,
+        w: wh ? +wh[1] : 0, h: wh ? +wh[2] : 0, fps: fps ? parseFloat(fps[1]) : 0, codec,
+        hasAudio: /Stream #[^\n]*Audio:/.test(t),
+      })
+    })
+  })
+}
+// Seedance 2.5 레퍼런스 영상 조건(문서): mp4 · mov(H.264 · H.265) · 2~30초 · 픽셀 수 407,696~8,295,044 ·
+//   24~60fps · 200MB 이하. 원본이 벗어나면 보낼 사본을 만든다(30초로 자르기 · 크기 맞추기 · fps 맞추기 · mp4 로).
+//   원본은 그대로 둔다 — 원본 소리 합치기는 원본의 소리를 쓴다(노래가 30초보다 길면 끝을 줄여 끈다).
+const CHL_PIX_MIN = 407696, CHL_PIX_MAX = 8295044
+ipcMain.handle('challenge-ref-save', async (event, payload) => {
+  const { base64, name } = payload || {}
+  if (!base64) return { success: false, error: '저장할 영상이 없습니다.' }
+  try {
+    const ext = (String(name || '').match(/\.(mp4|mov|webm|m4v|mkv)$/i) || [, 'mp4'])[1].toLowerCase()
+    const stamp = Date.now()
+    const dest = path.join(challengeRefDir(), `ref_${stamp}.${ext}`)
+    const buf = Buffer.from(String(base64), 'base64')
+    if (!buf.length) return { success: false, error: '영상이 비어 있습니다.' }
+    fs.writeFileSync(dest, buf)
+    const ff = ffmpegPath()
+    if (!ff) return { success: true, path: dest, sendPath: dest, bytes: buf.length, fixed: [], probe: null }
+    const pr = await ffmpegProbe(ff, dest)
+    const fixed = []
+    const pix = pr.w * pr.h
+    let sw = pr.w, sh = pr.h
+    if (pix && pix < CHL_PIX_MIN) { const k = Math.sqrt((CHL_PIX_MIN * 1.02) / pix); sw = Math.ceil(pr.w * k / 2) * 2; sh = Math.ceil(pr.h * k / 2) * 2; fixed.push('해상도 올림') }
+    else if (pix > CHL_PIX_MAX) { const k = Math.sqrt((CHL_PIX_MAX * 0.98) / pix); sw = Math.floor(pr.w * k / 2) * 2; sh = Math.floor(pr.h * k / 2) * 2; fixed.push('해상도 내림') }
+    const fpsFix = pr.fps && pr.fps < 24 ? 24 : (pr.fps > 60 ? 60 : 0)
+    if (fpsFix) fixed.push(`${fpsFix}fps 로`)
+    if (pr.dur > 30.05) fixed.push('앞 30초로 자름')
+    const okContainer = ext === 'mp4' || ext === 'mov'
+    const okCodec = /^(h264|hevc|h265)$/.test(pr.codec)
+    if (!okContainer || (pr.codec && !okCodec)) fixed.push('mp4 로 바꿈')
+    if (buf.length > 195 * 1024 * 1024 && !fixed.length) fixed.push('용량 줄임')
+    if (!fixed.length) return { success: true, path: dest, sendPath: dest, bytes: buf.length, fixed, probe: pr }
+    const sendPath = path.join(challengeRefDir(), `ref_${stamp}_send.mp4`)
+    const vf = []
+    if (sw !== pr.w || sh !== pr.h) vf.push(`scale=${sw}:${sh}`)
+    if (fpsFix) vf.push(`fps=${fpsFix}`)
+    const args = ['-hide_banner', '-y', '-i', dest]
+    if (pr.dur > 30.05) args.push('-t', '29.9')   // 30.0 으로 자르면 30.02초가 되어 상한(30초)을 넘는다
+    if (vf.length) args.push('-vf', vf.join(','))
+    args.push('-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', '-pix_fmt', 'yuv420p')
+    if (pr.hasAudio) args.push('-c:a', 'aac', '-b:a', '192k')
+    args.push('-movflags', '+faststart', sendPath)
+    await new Promise((resolve, reject) => {
+      execFile(ff, args, { timeout: 300000, windowsHide: true, maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
+        if (err) reject(new Error(String(stderr || err.message || err).split('\n').filter(Boolean).slice(-3).join(' / ')))
+        else resolve()
+      })
+    })
+    return { success: true, path: dest, sendPath, bytes: buf.length, fixed, probe: pr }
+  } catch (e) { return { success: false, error: String(e && e.message || e) } }
+})
+// v1273: 시댄스가 소리를 만드는 모드 — 레퍼런스의 소리를 뺀 사본(<이름>_silent.mp4). 화면은 그대로(-c:v copy).
+//   레퍼런스의 노래 · 가사 · 외침이 시댄스에 대사를 부르던 것. 한 번 만든 사본은 다시 쓴다. 소리가 없는 파일은 그대로 돌려준다.
+ipcMain.handle('challenge-ref-silent', async (event, payload) => {
+  try {
+    const src = insideDir(challengeRefDir(), payload && payload.path)
+    if (!src || !fs.existsSync(src)) return { success: false, error: '레퍼런스 보관본이 없습니다.' }
+    if (/_silent\.mp4$/i.test(src)) return { success: true, path: src }
+    const ff = ffmpegPath()
+    if (!ff) return { success: false, error: 'ffmpeg 가 없습니다.' }
+    const dest = src.replace(/\.[^.\\/]+$/, '') + '_silent.mp4'
+    if (fs.existsSync(dest) && fs.statSync(dest).size > 0) return { success: true, path: dest }
+    const pr = await ffmpegProbe(ff, src)
+    if (!pr.hasAudio) return { success: true, path: src }
+    await new Promise((resolve, reject) => {
+      execFile(ff, ['-hide_banner', '-y', '-i', src, '-map', '0:v:0', '-an', '-c:v', 'copy', '-movflags', '+faststart', dest],
+        { timeout: 120000, windowsHide: true, maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
+          if (err) reject(new Error(String(stderr || err.message || err).split('\n').filter(Boolean).slice(-3).join(' / ')))
+          else resolve()
+        })
+    })
+    return { success: true, path: dest }
+  } catch (e) { return { success: false, error: String(e && e.message || e) } }
+})
+// 결과 영상(주소)을 받아 레퍼런스의 소리와 합친다 → gen/challenge/<id>.mp4
+//   화면은 생성 영상 그대로(-c:v copy), 소리는 레퍼런스(없으면 소리 없이). 노래가 영상보다 길면 끝 0.5초 페이드아웃.
+ipcMain.handle('challenge-mux', async (event, payload) => {
+  const { id, url, refPath } = payload || {}
+  const ff = ffmpegPath()
+  if (!ff) return { success: false, error: 'ffmpeg 를 찾지 못했습니다 — 소리 없는 영상으로 받아 둡니다.' }
+  const ref = insideDir(challengeRefDir(), refPath)
+  if (!ref || !fs.existsSync(ref)) return { success: false, error: '레퍼런스 보관본이 없습니다 — 레퍼런스 영상을 다시 넣어주세요.' }
+  if (!url || !/^https?:\/\//i.test(String(url))) return { success: false, error: '결과 영상 주소가 아닙니다.' }
+  const safeId = String(id || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80) || `chl${Date.now()}`
+  const tmp = path.join(os.tmpdir(), `oxyzn_chl_${safeId}_${Date.now()}.mp4`)
+  const dest = path.join(genDir('challenge'), `${safeId}.mp4`)
+  try {
+    await downloadTo(String(url), tmp)
+    const vDur = await ffmpegDuration(ff, tmp)
+    const aDur = await ffmpegDuration(ff, ref)
+    const args = ['-hide_banner', '-y', '-i', tmp, '-i', ref, '-map', '0:v:0', '-map', '1:a:0?', '-c:v', 'copy']
+    const fade = vDur > 0 && aDur > vDur + 0.05
+    if (fade) args.push('-af', `afade=t=out:st=${Math.max(0, vDur - 0.5).toFixed(2)}:d=0.5`)
+    args.push('-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', dest)
+    await new Promise((resolve, reject) => {
+      execFile(ff, args, { timeout: 180000, windowsHide: true, maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
+        if (err) reject(new Error(String(stderr || err.message || err).split('\n').filter(Boolean).slice(-3).join(' / ')))
+        else resolve()
+      })
+    })
+    enforceGenCap()
+    return { success: true, path: dest, faded: fade, videoSec: vDur, audioSec: aDur }
+  } catch (e) {
+    return { success: false, error: String(e && e.message || e) }
+  } finally {
+    try { fs.unlinkSync(tmp) } catch {}
+  }
 })
 
 ipcMain.handle('asset-save', async (event, payload) => {
@@ -1042,8 +1202,38 @@ ipcMain.handle('archive-delete', async (event, filePath) => {
   } catch (err) { return { success: false, error: err?.message || String(err) } }
 })
 
+// v1269: 아카이브 옮기기 · 지우기 — 미리보기(영상 썸네일)가 파일을 잡고 있으면 Windows 가 EBUSY · EPERM 으로 막는다.
+//   전에는 옮기기가 '복사 + 원본 지우기' 로 넘어가 원본 지우기만 조용히 실패해서, 휴지통에도 아카이브에도 같은 파일이
+//   남았다(10/15 실제 확인 — POV 영상 한 개). 이제 잠깐씩 기다렸다 다시 하고, 끝내 원본을 못 지우면 복사본도 지운 뒤
+//   실패한 파일 이름을 돌려준다(화면이 알린다).
+const archiveSleep = (ms) => new Promise((r) => setTimeout(r, ms))
+async function retryAsync(fn, tries = 6, waitMs = 250) {
+  for (let i = 0; i < tries; i++) {
+    try { return fn() } catch (err) {
+      const code = err && err.code
+      if (!(code === 'EBUSY' || code === 'EPERM' || code === 'EACCES') || i === tries - 1) throw err
+      await archiveSleep(waitMs * (i + 1))
+    }
+  }
+}
+async function moveFileToAsync(src, destDir) {
+  try { fs.mkdirSync(destDir, { recursive: true }) } catch {}
+  const dest = collisionFreePath(destDir, path.basename(src))
+  try {
+    await retryAsync(() => fs.renameSync(src, dest))
+    return dest
+  } catch (err) {
+    if (!(err && (err.code === 'EXDEV' || err.code === 'EPERM' || err.code === 'EBUSY'))) throw err
+    await retryAsync(() => fs.copyFileSync(src, dest))
+    try { await retryAsync(() => fs.unlinkSync(src)) }
+    catch (e2) { try { fs.unlinkSync(dest) } catch {} ; throw e2 }   // 원본을 못 지우면 복사본을 남기지 않는다
+    return dest
+  }
+}
+
 // 활성 아카이브 → 휴지통(.trash/<cat>)으로 이동
 ipcMain.handle('archive-trash', async (event, paths) => {
+  const failed = []
   try {
     const root = path.resolve(getArchiveRoot())
     const troot = path.resolve(getTrashRoot())
@@ -1053,14 +1243,16 @@ ipcMain.handle('archive-trash', async (event, paths) => {
       if (target.startsWith(troot + path.sep)) continue // 이미 휴지통
       if (!fs.existsSync(target)) continue
       const cat = path.basename(path.dirname(target))
-      moveFileTo(target, path.join(getTrashRoot(), ARCHIVE_CATS.includes(cat) ? cat : 'etc'))
+      try { await moveFileToAsync(target, path.join(getTrashRoot(), ARCHIVE_CATS.includes(cat) ? cat : 'etc')) }
+      catch (e) { failed.push(path.basename(target)); console.warn('[archive] 휴지통으로 옮기지 못함:', target, e && (e.code || e.message)) }
     }
-    return { success: true }
-  } catch (err) { return { success: false, error: err?.message || String(err) } }
+    return { success: failed.length === 0, failed }
+  } catch (err) { return { success: false, failed, error: err?.message || String(err) } }
 })
 
 // 휴지통 → 원래 카테고리로 복구
 ipcMain.handle('archive-restore', async (event, paths) => {
+  const failed = []
   try {
     const troot = path.resolve(getTrashRoot())
     for (const p of (paths || [])) {
@@ -1068,24 +1260,28 @@ ipcMain.handle('archive-restore', async (event, paths) => {
       if (!target.startsWith(troot + path.sep)) continue
       if (!fs.existsSync(target)) continue
       const cat = path.basename(path.dirname(target))
-      moveFileTo(target, getArchiveCatDir(cat))
+      try { await moveFileToAsync(target, getArchiveCatDir(cat)) }
+      catch (e) { failed.push(path.basename(target)); console.warn('[archive] 복구하지 못함:', target, e && (e.code || e.message)) }
     }
     enforceArchiveCap()
-    return { success: true }
-  } catch (err) { return { success: false, error: err?.message || String(err) } }
+    return { success: failed.length === 0, failed }
+  } catch (err) { return { success: false, failed, error: err?.message || String(err) } }
 })
 
 // 휴지통 파일 영구 삭제 (.trash 안의 파일만 허용)
 ipcMain.handle('archive-purge', async (event, paths) => {
+  const failed = []
   try {
     const troot = path.resolve(getTrashRoot())
     for (const p of (paths || [])) {
       const target = path.resolve(p || '')
       if (!target.startsWith(troot + path.sep)) continue
-      if (fs.existsSync(target)) fs.unlinkSync(target)
+      if (!fs.existsSync(target)) continue
+      try { await retryAsync(() => fs.unlinkSync(target)) }
+      catch (e) { failed.push(path.basename(target)); console.warn('[archive] 영구 삭제하지 못함:', target, e && (e.code || e.message)) }
     }
-    return { success: true }
-  } catch (err) { return { success: false, error: err?.message || String(err) } }
+    return { success: failed.length === 0, failed }
+  } catch (err) { return { success: false, failed, error: err?.message || String(err) } }
 })
 
 // 휴지통 목록 (카테고리 포함, 최신순)

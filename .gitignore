@@ -10,3 +10,6 @@ dist-electron/
 
 # pdf.js CMap·표준폰트 — node_modules에서 파생 (scripts/copy-pdfjs-assets.cjs)
 public/pdfjs/
+
+# v1266: ffmpeg 실행 파일 — scripts/fetch-ffmpeg.cjs 가 npm 패키지에서 꺼낸다(설치 파일에만 들어간다)
+vendor/

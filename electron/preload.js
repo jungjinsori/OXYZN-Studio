@@ -44,6 +44,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   genCheck: (paths) => ipcRenderer.invoke('gen-check', paths),
   genUsage: () => ipcRenderer.invoke('gen-usage'),
   localRead: (payload) => ipcRenderer.invoke('local-read', payload),
+  // v1266: 챌린지 영상 — 레퍼런스 보관 · 원본 소리 합치기(ffmpeg)
+  challengeRefSave: (payload) => ipcRenderer.invoke('challenge-ref-save', payload),
+  challengeMux: (payload) => ipcRenderer.invoke('challenge-mux', payload),
+  challengeRefSilent: (payload) => ipcRenderer.invoke('challenge-ref-silent', payload),   // v1273
   archiveList: () => ipcRenderer.invoke('archive-list'),
   archiveOpen: (filePath) => ipcRenderer.invoke('archive-open', filePath),
   archiveDownload: (filePath) => ipcRenderer.invoke('archive-download', filePath),
